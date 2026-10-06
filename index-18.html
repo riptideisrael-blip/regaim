@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מעגל המשפחה · Moments</title>
+<meta name="theme-color" content="#FAF8F5">
+<style>
+  :root {
+    --bg: #FAF8F5; --card: #FFFFFF; --ink: #1F1D2B; --soft: #6E6A80; --line: #ECE7E1;
+    --accent: #5B4FE0; --accent-soft: #E9E7FB; --heart: #E5484D; --chip: #F1ECE6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; }
+  body { padding: 0 16px 96px; max-width: 640px; margin: 0 auto; -webkit-text-size-adjust: 100%; }
+  header { padding: 28px 2px 8px; }
+  h1 { font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--soft); font-size: 15px; margin-top: 4px; }
+  .who { color: var(--soft); font-size: 13px; margin-top: 10px; }
+  .who a { color: var(--accent); text-decoration: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; margin-top: 18px; overflow: hidden; }
+  .media { position: relative; background: var(--line); aspect-ratio: 4 / 5; cursor: pointer; }
+  .media img, .media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .play { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(0,0,0,.45); display: grid; place-items: center; }
+  .play::after { content: ""; border-style: solid; border-width: 12px 0 12px 20px;
+    border-color: transparent transparent transparent #fff; margin-left: 6px; }
+  .body { padding: 14px 16px 16px; }
+  .title { font-size: 19px; font-weight: 700; margin: 0; }
+  .meta { color: var(--soft); font-size: 13px; margin-top: 3px; }
+  .caption { font-size: 16px; line-height: 1.5; margin: 8px 0 0; }
+  .style-warm .media img, .style-warm .media video { filter: sepia(.18) saturate(1.15) brightness(1.03); }
+  .style-bw .media img, .style-bw .media video { filter: grayscale(1); }
+  .style-vintage .media img, .style-vintage .media video { filter: sepia(.55) saturate(.8) contrast(.95); }
+  .style-party { border: 3px solid #FFC94D; }
+  .story { font-family: Georgia, "Times New Roman", serif; font-size: 16px; line-height: 1.6; margin: 10px 0 0; }
+  .reacts { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .react { border: 0; background: var(--chip); border-radius: 18px; padding: 7px 12px; font-size: 15px; cursor: pointer;
+    transition: transform .15s ease; font-family: inherit; color: var(--ink); }
+  .react.on { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+  .react:active { transform: scale(.92); }
+  .comments { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .comment { font-size: 15px; margin: 6px 0; line-height: 1.45; }
+  .comment b { font-weight: 700; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  input[type=text], textarea { flex: 1; border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px; font-size: 16px;
+    background: #fff; color: var(--ink); font-family: inherit; min-width: 0; }
+  button.primary { border: 0; background: var(--accent); color: #fff; border-radius: 14px; padding: 11px 16px; font-size: 15px;
+    font-weight: 700; cursor: pointer; font-family: inherit; }
+  button.primary:disabled { opacity: .5; }
+  .fab { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); border: 0; background: var(--ink); color: #fff;
+    border-radius: 28px; padding: 15px 22px; font-size: 16px; font-weight: 700; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+    cursor: pointer; font-family: inherit; }
+  .empty { text-align: center; padding: 48px 16px; color: var(--soft); }
+  .empty .big { font-size: 44px; }
+  .empty h2 { color: var(--ink); font-size: 21px; margin: 10px 0 6px; }
+  .sheet { position: fixed; inset: 0; background: rgba(31,29,43,.4); display: none; align-items: flex-end; justify-content: center; z-index: 5; }
+  .sheet.open { display: flex; }
+  .panel { background: var(--bg); width: 100%; max-width: 640px; border-radius: 24px 24px 0 0; padding: 20px 16px 28px; }
+  .panel h3 { margin: 0 0 6px; font-size: 20px; }
+  .note { color: var(--soft); font-size: 13px; margin-top: 8px; }
+  .fade { animation: fade .3s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+    padding: 10px 16px; border-radius: 14px; font-size: 14px; display: none; z-index: 9; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="circleName">מעגל המשפחה</h1>
+  <div class="sub">הרגעים שלנו, רק בשבילנו</div>
+  <div class="who" id="who"></div>
+</header>
+<main id="feed"><div class="empty"><div class="big">❤️</div><h2>רגע, טוענים את הרגעים...</h2></div></main>
+
+<button class="fab" id="fab" style="display:none">＋ שתפו רגע</button>
+
+<div class="sheet" id="nameSheet"><div class="panel">
+  <h3>איך לקרוא לך?</h3>
+  <div class="note">כך כולם יראו מי הגיב. למשל: סבתא רחל</div>
+  <div class="row"><input type="text" id="nameInput" placeholder="השם שלך"><button class="primary" id="nameSave">המשך</button></div>
+</div></div>
+
+<div class="sheet" id="uploadSheet"><div class="panel">
+  <h3>שתפו רגע עם המשפחה</h3>
+  <div class="row"><input type="file" id="fileInput" accept="image/*,video/*"></div>
+  <div class="row"><input type="text" id="titleInput" placeholder="מה קורה כאן? (לא חובה)"></div>
+  <div class="row"><button class="primary" id="uploadBtn">שתפו</button><button class="primary" id="uploadCancel" style="background:var(--chip);color:var(--ink)">ביטול</button></div>
+  <div class="note" id="uploadNote">תמונה או סרטון קצר, עד 45MB.</div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  const EMOJIS = ["❤️", "😂", "😍", "🥹"];
+
+  // The invite link carries the circle code and the server address: ?c=CODE&s=<base64url(url|key)>
+  const params = new URLSearchParams(location.search);
+  let code = params.get("c") || store.get("m_code") || "";
+  let server = params.get("s") || store.get("m_server") || "";
+  let URL_BASE = "", KEY = "";
+  try {
+    const raw = atob(server.replace(/-/g, "+").replace(/_/g, "/"));
+    const cut = raw.indexOf("|");
+    URL_BASE = raw.slice(0, cut).replace(/\/$/, "");
+    KEY = raw.slice(cut + 1);
+  } catch (e) {}
+  if (code) store.set("m_code", code);
+  if (server) store.set("m_server", server);
+
+  let me = store.get("m_name") || "";
+  let circle = null;
+  let data = { posts: [], reactions: [], comments: [] };
+  const openComments = new Set();
+
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.style.display = "block";
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = "none"; }, 2600);
+  }
+  function headers(extra) {
+    const h = Object.assign({ apikey: KEY }, extra || {});
+    if (KEY.startsWith("eyJ")) h.Authorization = "Bearer " + KEY;
+    return h;
+  }
+  async function rest(method, path, body) {
+    const res = await fetch(URL_BASE + "/rest/v1/" + path, {
+      method,
+      headers: headers({ "Content-Type": "application/json", Prefer: "return=representation" }),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || res.status);
+    return text ? JSON.parse(text) : [];
+  }
+  async function uploadFile(path, blob, type) {
+    const res = await fetch(URL_BASE + "/storage/v1/object/moments/" + path, {
+      method: "POST", headers: headers({ "Content-Type": type, "x-upsert": "true" }), body: blob
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return URL_BASE + "/storage/v1/object/public/moments/" + path;
+  }
+  const enc = (v) => encodeURIComponent(v);
+
+  function when(iso) {
+    if (!iso) return "";
+    const d = new Date(iso), now = new Date();
+    const time = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diff = Math.round((today - day) / 86400000);
+    if (diff === 0) return "היום · " + time;
+    if (diff === 1) return "אתמול · " + time;
+    return d.toLocaleDateString("he-IL", { day: "numeric", month: "long" }) + " · " + time;
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  async function load() {
+    if (!URL_BASE || !KEY || !code) {
+      $("feed").innerHTML = "";
+      const e = el("div", "empty");
+      e.appendChild(el("div", "big", "🔗"));
+      e.appendChild(el("h2", null, "צריך קישור הזמנה"));
+      e.appendChild(el("div", null, "בקשו מההורים לשלוח לכם את הקישור למעגל המשפחה מתוך אפליקציית Moments."));
+      $("feed").appendChild(e);
+      return;
+    }
+    if (!circle) {
+      const rows = await rest("GET", "circles?code=eq." + enc(code) + "&select=*");
+      circle = rows[0];
+      if (!circle) { toast("לא מצאתי את המעגל הזה"); return; }
+      $("circleName").textContent = circle.name;
+      document.title = circle.name + " · Moments";
+    }
+    const posts = await rest("GET", "posts?circle_id=eq." + circle.id + "&order=created_at.desc&limit=60&select=*");
+    let reactions = [], comments = [];
+    if (posts.length) {
+      const ids = posts.map((p) => p.id).join(",");
+      reactions = await rest("GET", "reactions?post_id=in.(" + ids + ")&select=*");
+      comments = await rest("GET", "comments?post_id=in.(" + ids + ")&order=created_at.asc&select=*");
+    }
+    data = { posts, reactions, comments };
+    render();
+  }
+
+  function render() {
+    const feed = $("feed");
+    feed.innerHTML = "";
+    $("fab").style.display = circle ? "block" : "none";
+    $("who").innerHTML = "";
+    if (me) {
+      $("who").append("נכנסת בתור " + me + " · ");
+      const change = el("a", null, "שינוי"); change.href = "#"; change.onclick = (e) => { e.preventDefault(); askName(); };
+      $("who").appendChild(change);
+    }
+    if (!data.posts.length) {
+      const e = el("div", "empty");
+      e.appendChild(el("div", "big", "❤️"));
+      e.appendChild(el("h2", null, "עדיין אין כאן רגעים"));
+      e.appendChild(el("div", null, "ברגע שמישהו במשפחה ישתף רגע, הוא יופיע כאן."));
+      feed.appendChild(e);
+      return;
+    }
+    data.posts.forEach((p, i) => {
+      const card = el("article", "card fade style-" + (p.style || "plain"));
+      card.style.animationDelay = Math.min(i * 40, 240) + "ms";
+      const media = el("div", "media");
+      if (p.kind === "photo") {
+        const img = el("img"); img.loading = "lazy"; img.alt = p.title || ""; img.src = p.cover || p.video; media.appendChild(img);
+      } else {
+        if (p.cover) { const img = el("img"); img.loading = "lazy"; img.alt = p.title || ""; img.src = p.cover; media.appendChild(img); }
+        media.appendChild(el("div", "play"));
+        media.onclick = () => {
+          media.innerHTML = "";
+          const v = el("video"); v.src = p.video; v.controls = true; v.autoplay = true; v.playsInline = true;
+          media.appendChild(v); media.onclick = null;
+        };
+      }
+      card.appendChild(media);
+      const body = el("div", "body");
+      if (p.title) body.appendChild(el("h2", "title", (p.style === "party" ? "🎉 " : "") + p.title));
+      if (p.caption) body.appendChild(el("p", "caption", p.caption));
+      const metaBits = [p.author, when(p.taken_at || p.created_at), p.people, p.place].filter(Boolean);
+      body.appendChild(el("div", "meta", metaBits.join(" · ")));
+      if (p.story) body.appendChild(el("p", "story", p.story));
+
+      const reacts = el("div", "reacts");
+      EMOJIS.forEach((emo) => {
+        const all = data.reactions.filter((r) => r.post_id === p.id && r.emoji === emo);
+        const mine = all.some((r) => r.member === me);
+        const b = el("button", "react" + (mine ? " on" : ""), emo + (all.length ? " " + all.length : ""));
+        b.title = all.map((r) => r.member).join(", ");
+        b.onclick = () => react(p.id, emo, mine);
+        reacts.appendChild(b);
+      });
+      const cs = data.comments.filter((c) => c.post_id === p.id);
+      const toggle = el("button", "react", "💬 " + (cs.length || ""));
+      toggle.onclick = () => { openComments.has(p.id) ? openComments.delete(p.id) : openComments.add(p.id); render(); };
+      reacts.appendChild(toggle);
+      body.appendChild(reacts);
+
+      if (openComments.has(p.id) || cs.length) {
+        const box = el("div", "comments");
+        cs.forEach((c) => {
+          const line = el("div", "comment");
+          line.appendChild(el("b", null, c.member + ": "));
+          line.append(c.body);
+          box.appendChild(line);
+        });
+        if (openComments.has(p.id)) {
+          const row = el("div", "row");
+          const input = el("input"); input.type = "text"; input.placeholder = "כתבו משהו...";
+          const send = el("button", "primary", "שלח");
+          send.onclick = () => comment(p.id, input.value);
+          input.onkeydown = (e) => { if (e.key === "Enter") comment(p.id, input.value); };
+          row.appendChild(input); row.appendChild(send); box.appendChild(row);
+        }
+        body.appendChild(box);
+      }
+      card.appendChild(body);
+      feed.appendChild(card);
+    });
+  }
+
+  async function react(postId, emoji, mine) {
+    if (!me) return askName();
+    try {
+      if (mine) await rest("DELETE", "reactions?post_id=eq." + postId + "&member=eq." + enc(me) + "&emoji=eq." + enc(emoji));
+      else await rest("POST", "reactions", { post_id: postId, member: me, emoji });
+      await load();
+    } catch (e) { toast("לא הצלחנו לשמור, נסו שוב"); }
+  }
+  async function comment(postId, text) {
+    const body = (text || "").trim();
+    if (!body) return;
+    if (!me) return askName();
+    try {
+      await rest("POST", "comments", { post_id: postId, member: me, body });
+      openComments.add(postId);
+      await load();
+    } catch (e) { toast("לא הצלחנו לשלוח, נסו שוב"); }
+  }
+
+  function askName() {
+    $("nameInput").value = me;
+    $("nameSheet").classList.add("open");
+    setTimeout(() => $("nameInput").focus(), 50);
+  }
+  $("nameSave").onclick = () => {
+    const v = $("nameInput").value.trim();
+    if (!v) return;
+    me = v; store.set("m_name", v);
+    $("nameSheet").classList.remove("open");
+    render();
+  };
+
+  // ---- sharing from the web (grandparents can add their own photos and videos) ----
+  $("fab").onclick = () => { if (!me) return askName(); $("uploadSheet").classList.add("open"); };
+  $("uploadCancel").onclick = () => $("uploadSheet").classList.remove("open");
+
+  function videoCover(file) {
+    return new Promise((resolve) => {
+      const v = document.createElement("video");
+      v.muted = true; v.playsInline = true; v.preload = "metadata";
+      v.src = URL.createObjectURL(file);
+      v.onloadeddata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 2); };
+      v.onseeked = () => {
+        const c = document.createElement("canvas");
+        const w = 720, h = Math.round(720 * (v.videoHeight || 1280) / (v.videoWidth || 720));
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(v, 0, 0, w, h);
+        c.toBlob((b) => resolve(b), "image/jpeg", 0.82);
+      };
+      v.onerror = () => resolve(null);
+      setTimeout(() => resolve(null), 8000);
+    });
+  }
+
+  $("uploadBtn").onclick = async () => {
+    const file = $("fileInput").files[0];
+    if (!file) return toast("בחרו תמונה או סרטון");
+    if (file.size > 45 * 1024 * 1024) return toast("הקובץ גדול מדי (עד 45MB)");
+    const btn = $("uploadBtn"); btn.disabled = true;
+    $("uploadNote").textContent = "רגע, אנחנו שומרים את הזיכרון הזה...";
+    try {
+      const isVideo = file.type.startsWith("video/");
+      const ext = (file.name.split(".").pop() || (isVideo ? "mp4" : "jpg")).toLowerCase();
+      const base = circle.id + "/web_" + Date.now();
+      const url = await uploadFile(base + "." + ext, file, file.type || (isVideo ? "video/mp4" : "image/jpeg"));
+      let cover = isVideo ? null : url;
+      if (isVideo) {
+        const blob = await videoCover(file);
+        if (blob) cover = await uploadFile(base + "_cover.jpg", blob, "image/jpeg");
+      }
+      await rest("POST", "posts", {
+        circle_id: circle.id, author: me, title: $("titleInput").value.trim(), kind: isVideo ? "video" : "photo",
+        taken_at: new Date(file.lastModified || Date.now()).toISOString(), video: url, cover
+      });
+      $("uploadSheet").classList.remove("open");
+      $("fileInput").value = ""; $("titleInput").value = "";
+      toast("שותף עם המשפחה ❤️");
+      await load();
+    } catch (e) {
+      toast("לא הצלחנו להעלות, נסו שוב");
+    } finally {
+      btn.disabled = false;
+      $("uploadNote").textContent = "תמונה או סרטון קצר, עד 45MB.";
+    }
+  };
+
+  if (!me && code) askName();
+  load().catch(() => toast("אין חיבור למעגל כרגע"));
+  setInterval(() => { if (document.visibilityState === "visible") load().catch(() => {}); }, 30000);
+})();
+</script>
+</body>
+</html>
