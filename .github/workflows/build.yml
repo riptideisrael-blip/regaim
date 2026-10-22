@@ -24,9 +24,44 @@ jobs:
         run: |
           mkdir -p app/src/main/assets
           curl -fL --retry 3 -o app/src/main/assets/yamnet.tflite "https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/audio_classification/android/lite-model_yamnet_classification_tflite_1.tflite" || curl -fL --retry 3 -o app/src/main/assets/yamnet.tflite "https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1?lite-format=tflite"
+      # Unit tests: a failing test is reported (red X on this step + the summary) but the APK is still built.
+      - name: Unit tests
+        id: tests
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle :app:testDebugUnitTest --no-daemon
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle :app:lintDebug --no-daemon
       - name: Build
         working-directory: regaim-app
         run: gradle assembleDebug --no-daemon
+      - name: Summary
+        if: always()
+        working-directory: regaim-app
+        run: |
+          {
+            echo "## בדיקות"
+            echo "- Unit tests: ${{ steps.tests.outcome }}"
+            echo "- Lint: ${{ steps.lint.outcome }}"
+            if ls app/build/test-results/testDebugUnitTest/*.xml >/dev/null 2>&1; then
+              t=$(grep -ho 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              f=$(grep -ho 'failures="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              e=$(grep -ho 'errors="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              echo "- רצו $t בדיקות, נכשלו $((f+e))"
+              grep -l '<failure\|<error' app/build/test-results/testDebugUnitTest/*.xml | sed 's#.*/TEST-#  - ❌ #; s#\.xml##' || true
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-and-lint-reports
+          path: |
+            regaim-app/app/build/reports/
+            regaim-app/app/build/test-results/
+          if-no-files-found: ignore
       - run: cp regaim-app/app/build/outputs/apk/debug/app-debug.apk regaim.apk
       - uses: softprops/action-gh-release@v2
         with:
