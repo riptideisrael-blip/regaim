@@ -1,0 +1,94 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip
+        run: unzip -o regaim-app.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Laughter model
+        working-directory: regaim-app
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fL --retry 3 -o app/src/main/assets/yamnet.tflite "https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/audio_classification/android/lite-model_yamnet_classification_tflite_1.tflite" || curl -fL --retry 3 -o app/src/main/assets/yamnet.tflite "https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1?lite-format=tflite"
+      # Unit tests: a failing test is reported (red X on this step + the summary) but the APK is still built.
+      - name: Unit tests
+        id: tests
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle :app:testDebugUnitTest --no-daemon
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle :app:lintDebug --no-daemon
+      - name: Build
+        working-directory: regaim-app
+        run: gradle assembleDebug --no-daemon
+      # The protected build (code scrambled). If it fails, the regular download is still published.
+      - name: Protected build
+        id: protected
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle assembleRelease --no-daemon
+      - name: Summary
+        if: always()
+        working-directory: regaim-app
+        run: |
+          {
+            echo "## בדיקות"
+            echo "- Unit tests: ${{ steps.tests.outcome }}"
+            echo "- Lint: ${{ steps.lint.outcome }}"
+            echo "- Protected build: ${{ steps.protected.outcome }}"
+            if ls app/build/test-results/testDebugUnitTest/*.xml >/dev/null 2>&1; then
+              t=$(grep -ho 'tests="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              f=$(grep -ho 'failures="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              e=$(grep -ho 'errors="[0-9]*"' app/build/test-results/testDebugUnitTest/*.xml | grep -o '[0-9]*' | paste -sd+ | bc)
+              echo "- רצו $t בדיקות, נכשלו $((f+e))"
+              grep -l '<failure\|<error' app/build/test-results/testDebugUnitTest/*.xml | sed 's#.*/TEST-#  - ❌ #; s#\.xml##' || true
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-and-lint-reports
+          path: |
+            regaim-app/app/build/reports/
+            regaim-app/app/build/test-results/
+            regaim-app/app/build/outputs/mapping/
+          if-no-files-found: ignore
+      - run: |
+          cp regaim-app/app/build/outputs/apk/debug/app-debug.apk regaim.apk
+          cp regaim-app/app/build/outputs/apk/release/app-release.apk regaim-protected.apk 2>/dev/null || true
+      # "Is there a new version?" in the app's settings finds this build (private folder on our server).
+      # Needs server/app-updates.sql run once, and the SUPABASE_ACCESS_TOKEN secret (or SUPABASE_SERVICE_ROLE_KEY).
+      - name: Publish to the app's updates
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          N=${{ github.run_number }}
+          NAME=$(grep -o 'versionName = "[^"]*' regaim-app/app/build.gradle.kts | sed "s/versionName = \"//; s/\$runNumber/$N/")
+          python3 regaim-app/scripts/publish_update.py regaim.apk $((100 + N)) "$NAME"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: |
+            regaim.apk
+            regaim-protected.apk
+          fail_on_unmatched_files: false
+          make_latest: true
