@@ -307,6 +307,13 @@ open class SettingsActivity : AppCompatActivity() {
             card.addView(ui.hint(L.t("גרסה קטנה יותר שהקוד שלה מוצפן. אם משהו לא עובד בה: לכבות, ולהתקין את הרגילה מ-GitHub מעליה.",
                 "Smaller, with its code scrambled. If something doesn't work: turn this off and install the regular one from GitHub over it."), top = 2))
         }
+        // Updates come from the family's server, which needs an account: say so plainly (instead of an error later).
+        if (!Account.signedIn(this)) {
+            card.addView(ui.hint(L.t("כדי לקבל גרסאות חדשות (תיקונים ושיפורים) צריך להתחבר לחשבון. הזיכרונות שבטלפון נשארים כמו שהם.",
+                "To get new versions (fixes and improvements), sign in to an account. The memories on this phone stay as they are."), top = 8))
+            card.addView(ui.button(L.t("התחברות או הרשמה", "Sign in or sign up"), primary = true, top = 8) { WelcomeActivity.open(this) })
+            return
+        }
         val info = updInfo
         when (upd) {
             Upd.IDLE, Upd.NONE, Upd.FAILED -> {

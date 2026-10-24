@@ -383,11 +383,37 @@ class WelcomeActivity : AppCompatActivity() {
                 else -> run(L.t("מתחברים...", "Signing in...")) { Account.signIn(applicationContext, e, pw) }
             }
         })
+        if (!signUp) root.addView(link(L.t("שכחתי סיסמה", "Forgot password"), R.color.accent, 10) { forgot(email.text.toString().trim()) })
         root.addView(link(if (signUp) L.t("כבר יש לי חשבון · התחברות", "I already have an account · Sign in") else L.t("אין לי חשבון · הרשמה", "No account yet · Sign up"), R.color.accent, 14) {
             mode = if (signUp) Mode.SIGN_IN else Mode.SIGN_UP
             render()
         })
         root.addView(link(L.t("‹ חזרה", "‹ Back"), R.color.ink_soft, 4) { mode = Mode.START; render() })
+    }
+
+    /** "Forgot password": the email gets a link to a page where a new password is chosen. */
+    private fun forgot(typed: String) {
+        val field = input(L.t("האימייל של החשבון", "Your account's email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).apply { setText(typed) }
+        val box = FrameLayout(this).apply { setPadding(ui.dp(20), 0, ui.dp(20), 0); addView(field) }
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(L.t("איפוס סיסמה", "Reset password"))
+            .setMessage(L.t("נשלח אליכם מייל עם קישור לבחירת סיסמה חדשה.", "We'll email you a link to choose a new password."))
+            .setView(box)
+            .setPositiveButton(L.t("שליחה", "Send"), null)
+            .setNegativeButton(L.t("ביטול", "Cancel"), null)
+            .show()
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val e = field.text.toString().trim()
+            if (!e.contains("@")) { field.error = L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"); return@setOnClickListener }
+            dialog.dismiss()
+            worker.execute {
+                val err = try { Account.recover(applicationContext, e); null } catch (x: Exception) { x.message }
+                runOnUiThread {
+                    if (isFinishing) return@runOnUiThread
+                    Toast.makeText(this, err ?: L.t("אם יש חשבון עם $e, שלחנו אליו קישור. בדקו את המייל (וגם את הספאם).", "If there's an account with $e, we sent it a link. Check your email (and spam)."), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     /** After signing up: check the inbox, then sign in (the email already filled in). */

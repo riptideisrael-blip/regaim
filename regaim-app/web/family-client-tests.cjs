@@ -81,5 +81,11 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
   assert(/drafts\[p\.id\]/.test(page),'comment drafts survive a refresh');
   assert(/dataset\.key/.test(page)&&/back\.focus\(\)/.test(page),'focus comes back after a reaction');
   assert(!/Anonymous Sign-ins|עדכון האבטחה v3|Supabase/.test(page.replace(/<script>[\s\S]*?const SUPABASE[^\n]*\n/,'')),'no developer words for families');
-  console.log('PASS: 10 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
+  // "Forgot password" page: the one-time token is taken out of the address at once, and only sets a new password.
+  const reset=require('fs').readFileSync(require('path').join(__dirname,'reset-password.html'),'utf8');
+  assert(/history\.replaceState\(null, "", location\.pathname\)/.test(reset),'reset token removed from the address');
+  assert(/type !== "recovery"/.test(reset),'reset page needs a recovery link');
+  assert(/method: "PUT"/.test(reset)&&/\/auth\/v1\/user/.test(reset),'reset page only updates the password');
+  assert(!/service_role|secret/i.test(reset),'no secret keys in the page');
+  console.log('PASS: 11 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

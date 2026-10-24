@@ -91,6 +91,17 @@ object Account {
         saveSession(ctx, r)
     }
 
+    /** Where the reset link in the email opens: a small page on the family site to choose a new password. */
+    const val RESET_PAGE = "https://moments-family-circle.netlify.app/reset-password.html"
+
+    /**
+     * "Forgot password": the server emails a one-time link to [email] (if there's an account; the answer is the same
+     * either way, so nobody can learn who has an account). Background thread only.
+     */
+    fun recover(ctx: Context, email: String) {
+        call(ctx, "POST", "recover?redirect_to=" + URLEncoder.encode(RESET_PAGE, "UTF-8"), JSONObject().put("email", email.trim()))
+    }
+
     /** People who may open the admin screen (the server checks this again). */
     private val ADMINS = listOf("yossefrevivo@gmail.com")
     fun isAdmin(ctx: Context) = signedIn(ctx) && email(ctx).trim().lowercase() in ADMINS
