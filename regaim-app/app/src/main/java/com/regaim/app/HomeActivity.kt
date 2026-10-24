@@ -241,6 +241,7 @@ class HomeActivity : AppCompatActivity() {
         filmInProgress()
         peopleStrip(all)
         queueCard(waiting)
+        backupTip(all.isNotEmpty())
         val memoryError = Status.error?.takeIf { MemoryStore.isIndexError(it) }
         if (memoryError != null) {
             val notice = ui.card(top = 18)
@@ -268,6 +269,30 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private var captureBtn: TextView? = null
+
+    /**
+     * Once, after the first moments: they live only inside Moments on this phone (no backup). The parent chooses,
+     * one tap, whether new moments also get a copy in the phone's gallery (which their own photo backup may keep).
+     */
+    private fun backupTip(hasMoments: Boolean) {
+        val prefs = Settings.prefs(this)
+        if (!Wording.showBackupTip(hasMoments, ClipSaver.toGallery(this), prefs.getBoolean("backup_tip_answered", false))) return
+        val card = ui.card(top = 16)
+        card.addView(ui.text(L.t("💾 הרגעים שמורים רק בטלפון הזה", "💾 Your moments are only on this phone"), 17f, bold = true))
+        card.addView(ui.hint(L.t("אין להם גיבוי: אם הטלפון יאבד או שהאפליקציה תימחק, הם יימחקו איתה. אפשר לשמור מעכשיו עותק של כל רגע חדש גם בגלריה של הטלפון, ואז גם הגיבוי של הטלפון (למשל Google Photos, אם הוא מופעל אצלכם) ישמור אותו. מצד שני, הרגעים יופיעו גם בגלריה.",
+            "They have no backup: if the phone is lost or the app is removed, they go with it. From now on, a copy of each new moment can also go to the phone's gallery, so the phone's own backup (e.g. Google Photos, if you use it) keeps it too. On the other hand, the moments will also show in the gallery."), top = 6))
+        card.addView(ui.button(L.t("לשמור עותק בגלריה", "Keep a copy in the gallery"), primary = true, top = 12) {
+            ClipSaver.setToGallery(this, true)
+            prefs.edit().putBoolean("backup_tip_answered", true).apply()
+            Toast.makeText(this, L.t("מעכשיו כל רגע חדש נשמר גם בגלריה. אפשר לשנות בהגדרות ← פרטיות.", "From now on each new moment is also saved to the gallery. You can change this in Settings → Privacy."), Toast.LENGTH_LONG).show()
+            render()
+        })
+        card.addView(ui.button(L.t("להשאיר רק ב-Moments", "Keep them only in Moments"), top = 8) {
+            prefs.edit().putBoolean("backup_tip_answered", true).apply()
+            render()
+        })
+        content.addView(card)
+    }
 
     /** One card, no new tab: "N moments waiting" → the approval queue. */
     private fun queueCard(waiting: List<Memory>) {

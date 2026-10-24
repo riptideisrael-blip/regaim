@@ -23,6 +23,9 @@ object Wording {
         else -> L.t("אולי", "maybe")
     }
 
+    /** The one-time "your moments aren't backed up" card: once there are moments, only if no copy goes anywhere yet. */
+    fun showBackupTip(hasMoments: Boolean, copiesToGallery: Boolean, answered: Boolean): Boolean = hasMoments && !copiesToGallery && !answered
+
     /** Developer words that a parent should never see. */
     private val TECH = Regex("(?i)supabase|\\bsql\\b|\\.sql|edge function|anonymous sign-?ins|debug|\\bhttp\\s*\\d{3}|\\(\\d{3}\\)|\\bjson\\b|\\bapi\\b|stack ?trace|exception")
 

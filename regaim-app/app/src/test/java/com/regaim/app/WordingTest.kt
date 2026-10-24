@@ -44,4 +44,11 @@ class WordingTest {
         assertEquals("אולי", Wording.sure(0.4f))
         assertFalse(Wording.sure(0.73f).contains("%"))
     }
+
+    @Test fun backupTipOnlyOnceAndOnlyWhenNeeded() {
+        assertTrue(Wording.showBackupTip(hasMoments = true, copiesToGallery = false, answered = false))
+        assertFalse(Wording.showBackupTip(hasMoments = false, copiesToGallery = false, answered = false))
+        assertFalse(Wording.showBackupTip(hasMoments = true, copiesToGallery = true, answered = false))
+        assertFalse(Wording.showBackupTip(hasMoments = true, copiesToGallery = false, answered = true))
+    }
 }

@@ -341,7 +341,7 @@ class PitzkiActivity : AppCompatActivity() {
             !photos -> card.addView(ui.button(L.t("📸 הצעד הבא: לצלם את $name", "📸 Next: photograph $name"), primary = true, top = 10) { faceCamera.launch(FaceCaptureActivity.intent(this, c.memberId, name)) })
             waitingHero -> card.addView(ui.hint(L.t("👇 הצעד הבא: לאשר את הדמות של $name (למטה)", "👇 Next: approve $name's character (below)"), top = 10))
             !hero -> card.addView(ui.button(price(L.t("🎨 הצעד הבא: ליצור את הדמות (כ-25 סנט)", "🎨 Next: create the character (~25¢)")), primary = true, top = 10) {
-                if (PitzkiStore.makeHero(this, c)) { renderSetup(); watchDrawing() }
+                confirmHero(c)
             })
             next != null && next.first != PitzkiScript.worldId -> card.addView(ui.button(L.t("➡️ הצעד הבא: הסרט ב${names[next.first]}", "➡️ Next: the film in ${names[next.first]}"), primary = true, top = 10) {
                 PitzkiScript.worldId = next.first
@@ -836,7 +836,7 @@ class PitzkiActivity : AppCompatActivity() {
                         .setNegativeButton(L.t("אחר כך", "Later")) { _, _ -> renderSetup() }
                         .show()
                 })
-                row.addView(ui.action(L.t("לצייר שוב", "Draw again")) { if (PitzkiStore.makeHero(this, c)) { renderSetup(); watchDrawing() } })
+                row.addView(ui.action(L.t("לצייר שוב", "Draw again")) { confirmHero(c) })
                 row.addView(ui.action(L.t("ביטול", "Cancel"), R.color.ink_soft) { cand.delete(); renderSetup() })
                 card.addView(row)
             }
@@ -850,7 +850,7 @@ class PitzkiActivity : AppCompatActivity() {
                     if (PitzkiStore.makeHeroSheet(this, c)) { renderSetup(); watchDrawing() }
                 })
                 val row = ui.horizontal(top = 4)
-                row.addView(ui.action(L.t("דמות חדשה", "A new character")) { if (PitzkiStore.makeHero(this, c)) { renderSetup(); watchDrawing() } })
+                row.addView(ui.action(L.t("דמות חדשה", "A new character")) { confirmHero(c) })
                 row.addView(ui.action(L.t("לחזור לתמונות האמיתיות", "Back to the real photos"), R.color.ink_soft) {
                     AlertDialog.Builder(this)
                         .setMessage(L.t("$name ${g("יצויר", "תצויר")} שוב מהתמונות האמיתיות (הסצנות יצוירו מחדש כשתבקשו).", "$name will be drawn from the real photos again (the scenes are drawn again when you ask)."))
@@ -863,7 +863,7 @@ class PitzkiActivity : AppCompatActivity() {
             else -> {
                 card.addView(ui.hint(L.t("מהתמונות מציירים את $name פעם אחת, בסגנון של סרט אנימציה. אתם מאשרים שזה דומה, ומאז $name ${g("נראה", "נראית")} כך בכל הסרטים.",
                     "$name is drawn once from the photos, like an animated film. You approve it's alike, and from then on $name looks like this in every film."), top = 2))
-                card.addView(ui.button(price(L.t("🎨 לצייר את $name (כ-25 סנט)", "🎨 Draw $name (about 25 cents)")), primary = PitzkiStore.facePhotos(this, c.memberId).isNotEmpty(), top = 8) { if (PitzkiStore.makeHero(this, c)) { renderSetup(); watchDrawing() } })
+                card.addView(ui.button(price(L.t("🎨 לצייר את $name (כ-25 סנט)", "🎨 Draw $name (about 25 cents)")), primary = PitzkiStore.facePhotos(this, c.memberId).isNotEmpty(), top = 8) { confirmHero(c) })
             }
         }
     }
@@ -1268,8 +1268,10 @@ class PitzkiActivity : AppCompatActivity() {
                     AlertDialog.Builder(this)
                         .setMessage(L.t("הציורים נשארים, ורק התנועה של $name ופיצקי נוצרת מחדש (קרדיט סרט אחד).", "The drawings stay; only $name and Pitzki's motion is made again (one film credit)."))
                         .setPositiveButton(L.t("להנפיש מחדש", "Animate again")) { _, _ ->
-                            for (k in PitzkiScript.CHILD_KEYS) { PitzkiStore.clipFile(this, c.memberId, k).delete(); PitzkiStore.moreFile(this, c.memberId, k).delete() }
-                            confirmDraw(c, again = false, animate = true)
+                            // The old clips are removed only after the last "Make it" (a "Not now" keeps the film as it was).
+                            confirmDraw(c, again = false, animate = true) {
+                                for (k in PitzkiScript.CHILD_KEYS) { PitzkiStore.clipFile(this, c.memberId, k).delete(); PitzkiStore.moreFile(this, c.memberId, k).delete() }
+                            }
                         }
                         .setNegativeButton(L.t("ביטול", "Cancel"), null)
                         .show()
@@ -2311,6 +2313,23 @@ class PitzkiActivity : AppCompatActivity() {
     }
 
     /** The character from the child's photos: says what is sent and what it costs, then draws it. */
+    /**
+     * Before the child's face photos go out to be drawn: what is sent, and where. Asked every time (the photos are
+     * of a child); nothing is sent before "Make it".
+     */
+    private fun confirmHero(c: PitzkiStore.Child) {
+        AiGate.askConsent(this) {
+            val n = minOf(c.photos.size, 3)
+            AlertDialog.Builder(this)
+                .setTitle(L.t("לצייר את הדמות של ${c.kid.name}?", "Draw ${c.kid.name}'s character?"))
+                .setMessage(L.t("נשלחות לשרת של Moments, ומשם לשירות fal ולמודל הציור של OpenAI (GPT Image), ${if (n == 1) "תמונה אחת" else "$n תמונות"} של הפנים של ${c.kid.name}. נוצרת דמות מצוירת, ואתם מחליטים אם לשמור אותה. השרת לא שומר את התמונות. הציור משתמש בקרדיט הסרט.",
+                    "$n face photo${if (n == 1) "" else "s"} of ${c.kid.name} go to Moments' server and from there to fal and OpenAI's drawing model (GPT Image). A drawn character is made, and you decide whether to keep it. The server doesn't keep the photos. The drawing uses the film credit."))
+                .setPositiveButton(L.t("לצייר", "Draw")) { _, _ -> if (PitzkiStore.makeHero(this, c)) { renderSetup(); watchDrawing() } }
+                .setNegativeButton(L.t("לא עכשיו", "Not now"), null)
+                .show()
+        }
+    }
+
     private fun confirmCharacter(c: PitzkiStore.Child) {
         AiGate.askConsent(this) {
             AlertDialog.Builder(this)
@@ -2328,7 +2347,8 @@ class PitzkiActivity : AppCompatActivity() {
     }
 
     /** Says exactly what is sent, then draws. */
-    private fun confirmDraw(c: PitzkiStore.Child, again: Boolean, animate: Boolean = false) {
+    /** [beforeStart]: runs once the parent said yes and the drawing can start (not on "Not now", not while busy). */
+    private fun confirmDraw(c: PitzkiStore.Child, again: Boolean, animate: Boolean = false, beforeStart: (() -> Unit)? = null) {
         val look = c.look ?: return
         // The scenes are drawn through Moments' server (fal): only a signed-in account is needed.
         if (!PitzkiStore.scenesReady(this, c) && !Account.signedIn(this)) {
@@ -2346,6 +2366,11 @@ class PitzkiActivity : AppCompatActivity() {
                     L.t(" הסרט נשמר רק בטלפון. השרת שלנו לא שומר את התמונות, ו-fal מוחקים אותן כשהן מגיעות לטלפון (לכל היותר אחרי 16 שעות).",
                         " The film is kept only on this phone. Our server doesn't keep the pictures, and fal deletes them once they reach the phone (at most after 16 hours)."))
                 .setPositiveButton(if (animate) L.t("ליצור", "Make it") else L.t("לצייר", "Draw")) { _, _ ->
+                    if (PitzkiStore.drawing?.finished == false) {
+                        android.widget.Toast.makeText(this, L.t("ציור אחר עוד רץ. רגע.", "Another drawing is still running."), android.widget.Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                    beforeStart?.invoke()
                     if (again) PitzkiStore.deleteScenes(this, c.memberId)
                     if (!PitzkiStore.drawScenes(this, c, animate)) android.widget.Toast.makeText(this, L.t("ציור אחר עוד רץ. רגע.", "Another drawing is still running."), android.widget.Toast.LENGTH_SHORT).show()
                     renderSetup()
