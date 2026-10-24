@@ -229,8 +229,8 @@ class PitzkiActivity : AppCompatActivity() {
         bigPhoto(box)
         setupTitle?.text = if (PitzkiScript.isNumbers) L.t("סופרים עם פיצקי", "Counting with Pitzki") else if (PitzkiScript.isPlay) L.t("משחקים עם פיצקי", "Games with Pitzki") else if (PitzkiScript.isNight) L.t("לילה טוב עם פיצקי", "Good night with Pitzki") else if (PitzkiScript.isFarm) L.t("החווה של פיצקי", "Pitzki's farm") else if (PitzkiScript.isTrain) L.t("תחנת הרכבת של פיצקי", "Pitzki's train station") else L.t("היער של פיצקי", "Pitzki's forest")
         box.addView(ui.heading(L.t("שלום, אני פיצקי", "Hi, I'm Pitzki"), 28f, top = 14))
-        box.addView(ui.text(L.t("טיולים קצרים עם פיצקי, והילד/ה שלכם בתוך הסיפור. לגילאי 3–5, בלי פרסומות ובלי צ׳אט.",
-            "Short trips with Pitzki, with your child in the story. Ages 3–5, no ads, no chat."), 15f, R.color.ink_soft, top = 6))
+        box.addView(ui.text(L.t("טיולים קצרים עם פיצקי, והילד/ה שלכם בתוך הסיפור. לגילאי 3–5, בלי פרסומות, בלי צ׳אט עם זרים ובלי AI בשיחה עם הילד.",
+            "Short trips with Pitzki, with your child in the story. Ages 3–5, no ads, no chat with strangers, no AI talking to your child."), 15f, R.color.ink_soft, top = 6))
         box.addView(worldPicker())
         // The level in this world (when it has levels).
         PitzkiLevels.max(PitzkiScript.worldId).takeIf { it > 1 }?.let { max ->
@@ -286,7 +286,7 @@ class PitzkiActivity : AppCompatActivity() {
         // A walk recorded to share (the grandparents): the screen, Pitzki and the child's answers.
         box.addView(ui.button(L.t("🎥 טיול מוקלט לשיתוף", "🎥 A recorded walk to share"), primary = false, top = 10) { ParentGate.ask(this) { askToRecord() } })
         // A pilot: the child talks with Pitzki (questions, pictures to tap, his voice). The parent starts it.
-        box.addView(ui.button(L.t("💬 לדבר עם פיצקי (ניסיון)", "💬 Talk with Pitzki (pilot)"), primary = false, top = 10) {
+        box.addView(ui.button(L.t("💬 לדבר עם פיצקי (חדש)", "💬 Talk with Pitzki (new)"), primary = false, top = 10) {
             AlertDialog.Builder(this)
                 .setTitle(L.t("שיחה עם פיצקי", "Talking with Pitzki"))
                 .setMessage(L.t("פיצקי ישאל כמה שאלות קצרות (צבעים, חיות, בטיחות, נימוס…), יקשיב ויענה, ואחר כך תור הילד לספר לו דברים ולשאול אותו. אפשר לענות בקול או בלחיצה על תמונה. כ-5 דקות, עם הורה ליד. " +

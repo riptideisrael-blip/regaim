@@ -16,6 +16,13 @@ object Wording {
     fun state(name: String, on: Boolean, onWord: String = L.t("פועל", "on"), offWord: String = L.t("כבוי", "off")) =
         "$name: ${if (on) onWord else offWord}"
 
+    /** How sure the detector is, in words a parent understands (instead of "73%"). */
+    fun sure(score: Float): String = when {
+        score >= 0.85f -> L.t("כמעט בטוח", "almost sure")
+        score >= 0.6f -> L.t("די בטוח", "fairly sure")
+        else -> L.t("אולי", "maybe")
+    }
+
     /** Developer words that a parent should never see. */
     private val TECH = Regex("(?i)supabase|\\bsql\\b|\\.sql|edge function|anonymous sign-?ins|debug|\\bhttp\\s*\\d{3}|\\(\\d{3}\\)|\\bjson\\b|\\bapi\\b|stack ?trace|exception")
 

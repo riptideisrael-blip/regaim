@@ -158,7 +158,7 @@ class ReviewActivity : AppCompatActivity() {
             m.label.isNotBlank() -> Labels.he(m.label)
             else -> L.t("רגע שנראה חשוב", "a moment that looked special")
         }
-        val sure = score(m).takeIf { it > 0f && !m.chosen }?.let { L.t(" (בביטחון ${(it * 100).toInt()}%)", " (${(it * 100).toInt()}% sure)") }.orEmpty()
+        val sure = score(m).takeIf { it > 0f && !m.chosen }?.let { " (${Wording.sure(it)})" }.orEmpty()
         return L.t("נשמר בגלל: $what$sure · $time", "Saved because of: $what$sure · $time")
     }
 

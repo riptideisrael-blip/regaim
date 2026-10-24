@@ -468,7 +468,11 @@ class HomeActivity : AppCompatActivity() {
         card.addView(android.widget.ImageView(this).apply { setImageResource(R.drawable.ic_heart_outline); setColorFilter(androidx.core.content.ContextCompat.getColor(this@HomeActivity, R.color.ink)); layoutParams = android.widget.LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)).apply { gravity = android.view.Gravity.CENTER_HORIZONTAL } })
         card.addView(ui.text(L.t("עדיין אין לנו זיכרונות", "No memories yet"), 22f, bold = true, top = 8).apply { gravity = Gravity.CENTER })
         card.addView(ui.text(L.t("ברגע שיקרה משהו מיוחד, נתחיל לבנות את הסיפור המשפחתי שלכם.", "As soon as something special happens, we'll start building your family's story."), 16f, R.color.ink_soft, top = 8).apply { gravity = Gravity.CENTER })
-        card.addView(ui.button(L.t("צלמו את הרגע הראשון", "Capture your first moment"), primary = true, top = 22) { openCapture() })
+        // The plain camera first (what "capture" means to a new parent); automatic capture is offered next to it.
+        card.addView(ui.button(L.t("צלמו את הרגע הראשון", "Capture your first moment"), primary = true, top = 22) { CaptureNowActivity.open(this, video = false) })
+        card.addView(ui.action(L.t("או: לתת לטלפון לתפוס לבד רגעי צחוק ›", "Or: let the phone catch laughing moments on its own ›")) { openCapture() }.apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = ui.dp(4) }
+        })
         card.addView(ui.button(L.t("הוסיפו תמונה או סרטון", "Add a photo or video"), top = 8) { MediaImportActivity.open(this) })
         card.addView(ui.button(L.t("הפכו סרטון מהגלריה לסרט מצויר", "Turn a gallery video into an animated film"), top = 8) { StudioActivity.open(this) })
         card.addView(ui.hint(L.t("אפשר לצלם, לשמור רגע ביד או לבחור זיכרון שכבר נמצא בטלפון.", "Take a photo, save a moment by hand, or pick a memory that's already on your phone."), top = 12).apply { gravity = Gravity.CENTER })

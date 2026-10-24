@@ -37,4 +37,11 @@ class WordingTest {
         assertFalse(Wording.technical("הספר בדרך אליכם"))
         assertFalse(Wording.technical("ספרת 3 תפוחים"))
     }
+
+    @Test fun sureInWordsNotPercent() {
+        assertEquals("כמעט בטוח", Wording.sure(0.9f))
+        assertEquals("די בטוח", Wording.sure(0.73f))
+        assertEquals("אולי", Wording.sure(0.4f))
+        assertFalse(Wording.sure(0.73f).contains("%"))
+    }
 }
