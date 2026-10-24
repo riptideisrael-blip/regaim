@@ -85,6 +85,7 @@ class LearnedActivity : AppCompatActivity() {
             if (learning) return@button
             if (!ClaudeClient.hasKey(this)) {
                 // The family's way in is the consent screen (keys are only for the admin): after "I agree", tap again.
+                if (AiGate.consented(this) && !Account.signedIn(this)) { WelcomeActivity.open(this); return@button }
                 AiGate.askConsent(this) { render() }
                 return@button
             }

@@ -2312,12 +2312,15 @@ class PitzkiActivity : AppCompatActivity() {
         for ((d, bar, text) in etas) fillEta(d, bar, text)
     }
 
-    /** The character from the child's photos: says what is sent and what it costs, then draws it. */
     /**
      * Before the child's face photos go out to be drawn: what is sent, and where. Asked every time (the photos are
      * of a child); nothing is sent before "Make it".
      */
     private fun confirmHero(c: PitzkiStore.Child) {
+        if (c.photos.isEmpty()) {
+            android.widget.Toast.makeText(this, L.t("צריך קודם תמונות פנים של ${c.kid.name}", "First add face photos of ${c.kid.name}"), android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         AiGate.askConsent(this) {
             val n = minOf(c.photos.size, 3)
             AlertDialog.Builder(this)
@@ -2330,6 +2333,7 @@ class PitzkiActivity : AppCompatActivity() {
         }
     }
 
+    /** The character from the child's photos: says what is sent and what it costs, then draws it. */
     private fun confirmCharacter(c: PitzkiStore.Child) {
         AiGate.askConsent(this) {
             AlertDialog.Builder(this)
