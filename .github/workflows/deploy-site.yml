@@ -1,0 +1,40 @@
+name: Deploy family web page (Netlify)
+
+# The family's web page (invites, grandparents' view, privacy, accessibility, account deletion) lives in
+# regaim-app/web inside regaim-app.zip. On every upload of the zip it goes to the Netlify site moments-family-circle.
+# One-time setup: Netlify > User settings > Applications > Personal access tokens > New access token, then
+# GitHub > Settings > Secrets and variables > Actions > New repository secret: NETLIFY_AUTH_TOKEN.
+
+on:
+  push:
+    branches: [main]
+    paths: [regaim-app.zip]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      SITE_ID: a5884d2f-2df0-4d6f-b476-83ce96e936fc
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip
+        run: unzip -oq regaim-app.zip
+      - name: Deploy
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "::warning::No NETLIFY_AUTH_TOKEN secret: the web page wasn't deployed (see the top of this file)."; exit 0
+          fi
+          cd regaim-app/web
+          zip -q -r ../../site.zip . -x "*.cjs"
+          cd ../..
+          code=$(curl -sS -o deploy.json -w "%{http_code}" -H "Content-Type: application/zip" \
+            -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" --data-binary "@site.zip" \
+            "https://api.netlify.com/api/v1/sites/$SITE_ID/deploys")
+          echo "Netlify answered $code"
+          python3 -c "import json; d=json.load(open('deploy.json')); print('state:', d.get('state'), '| url:', d.get('ssl_url') or d.get('url'), '| error:', d.get('error_message') or d.get('message'))"
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
