@@ -757,15 +757,27 @@ Deno.serve(async (req) => {
       if (!ELEVEN_KEY || !s.pitzki_voice_id) return json({ error: "הקול של פיצקי עוד לא הוגדר בשרת." }, 503);
       // A daily limit per account (pitzki-voice-everyone.sql): a family makes its child's lines once, a script can't
       // drain the voice service. "tts_daily_limit" in film_settings changes it. Without the table: no limit (as before).
-      if (!PRINT_ADMINS.includes(email)) {
-        const limit = Number(s.tts_daily_limit) > 0 ? Number(s.tts_daily_limit) : 400;
-        try {
-          const { data: ok, error } = await admin.rpc("tts_use", { p_user: uid, p_limit: limit });
-          if (!error && ok === false) return json({ error: "הקול של פיצקי נח להיום. מחר הוא ימשיך (בינתיים קול הטלפון)." }, 429);
-        } catch (_) { /* no table yet */ }
-      }
       const text = String(body.text ?? "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 400);
       if (!text) return json({ error: "חסר טקסט." }, 400);
+      // A daily limit per account, by lines and by characters (money-guards.sql), so one account can't use up the
+      // month's voice for everyone. If the limit can't be checked, the line isn't made (fail closed): the app then
+      // uses the phone's voice. Before money-guards.sql is run, the older line count (tts_use) still applies.
+      if (!PRINT_ADMINS.includes(email)) {
+        const lines = Number(s.tts_daily_limit) > 0 ? Number(s.tts_daily_limit) : 150;
+        const chars = Number(s.tts_daily_chars) > 0 ? Number(s.tts_daily_chars) : 5000;
+        const tired = () => json({ error: "הקול של פיצקי נח להיום. מחר הוא ימשיך (בינתיים קול הטלפון)." }, 429);
+        let ok: unknown = null;
+        let failed = false;
+        try {
+          const r = await admin.rpc("tts_use_chars", { p_user: uid, p_chars: text.length, p_line_limit: lines, p_char_limit: chars });
+          if (r.error) {
+            const old = await admin.rpc("tts_use", { p_user: uid, p_limit: lines });
+            if (old.error) failed = true; else ok = old.data;
+          } else ok = r.data;
+        } catch (_) { failed = true; }
+        if (failed) return json({ error: "הקול של פיצקי לא זמין כרגע (בינתיים קול הטלפון)." }, 503);
+        if (ok === false) return tired();
+      }
       const hebrew = /[\u05D0-\u05EA]/.test(text);
       const stability = Number(s.pitzki_voice_stability);
       const seed = Number(s.pitzki_voice_seed);
