@@ -79,12 +79,13 @@ class LearnedActivity : AppCompatActivity() {
         } else card.addView(ui.hint(L.t("אחרי ${CaptureVotes.Rules.MIN_VOTES} אגודלים על אותו סוג (צחוק, חיוך, צעקה...) בתור האישור, Moments יתחיל לכוון לפיהם את הצילום האוטומטי.", "After ${CaptureVotes.Rules.MIN_VOTES} thumbs on the same kind (laugh, smile, shout…) in the approval queue, Moments starts tuning automatic capture by them."), top = 8))
         val updated = Learning.updatedAt(this)
         if (updated > 0) card.addView(ui.hint(L.t("עודכן לאחרונה: ${ClaudeClient.describeTime(updated)}", "Last updated: ${ClaudeClient.describeTime(updated)}"), top = 8))
-        card.addView(ui.hint(L.t("Moments משתמש בזה כשה-AI מתאר כל רגע, כותב \"למה זה רגע שלך\" ונותן לו ציון. כל דבר שתתקן כאן נשמר כמו שכתבת, וה-AI לא ישנה אותו.", "Moments uses this when the AI describes each moment, writes \"why this is your moment\" and scores it. Anything you fix here stays exactly as you wrote it, and the AI won't change it."), top = 6))
-        if (empty) card.addView(ui.hint(L.t("עוד אין מספיק דוגמאות. שמור כמה רגעים בעצמך (♥ או ״שמור רגע״), סמן מועדפים או מחק רגעים לא מעניינים, ואז לחץ ״למד עכשיו״.", "Not enough examples yet. Save a few moments yourself (♥ or \"save moment\"), mark favorites or delete ones you don't care about, then tap \"Learn now\"."), top = 6))
+        card.addView(ui.hint(L.t("Moments משתמש בזה כשה-AI מתאר כל רגע, כותב \"למה זה רגע שלך\" ונותן לו ציון. כל דבר שתתקנו כאן נשמר כמו שכתבתם, וה-AI לא ישנה אותו.", "Moments uses this when the AI describes each moment, writes \"why this is your moment\" and scores it. Anything you fix here stays exactly as you wrote it, and the AI won't change it."), top = 6))
+        if (empty) card.addView(ui.hint(L.t("עוד אין מספיק דוגמאות. שמרו כמה רגעים בעצמכם (♥ או ״שמור רגע״), סמנו מועדפים או מחקו רגעים לא מעניינים, ואז לחצו ״למד עכשיו״.", "Not enough examples yet. Save a few moments yourself (♥ or \"save moment\"), mark favorites or delete ones you don't care about, then tap \"Learn now\"."), top = 6))
         card.addView(ui.button(if (learning) L.t("לומד...", "Learning…") else L.t("למד עכשיו מהרגעים שלי", "Learn now from my moments"), primary = true) {
             if (learning) return@button
             if (!ClaudeClient.hasKey(this)) {
-                toast(L.t("צריך מפתח Claude (בהגדרות)", "You need a Claude key (in Settings)"))
+                // The family's way in is the consent screen (keys are only for the admin): after "I agree", tap again.
+                AiGate.askConsent(this) { render() }
                 return@button
             }
             learning = true

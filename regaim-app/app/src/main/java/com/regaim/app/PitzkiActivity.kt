@@ -168,6 +168,7 @@ class PitzkiActivity : AppCompatActivity() {
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(TextView(this).apply {
             text = "✕"; textSize = 20f; setTextColor(DS.ink(this@PitzkiActivity))
+            gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48)
             setPadding(ui.dp(4), ui.dp(8), ui.dp(16), ui.dp(8))
             contentDescription = L.t("סגירה", "Close")
             setOnClickListener { finish() }
@@ -251,7 +252,7 @@ class PitzkiActivity : AppCompatActivity() {
             first.addView(ui.hint(L.t("מוסיפים את הילד בפרופיל המשפחה (שם, בן או בת, תאריך לידה). אז פיצקי פונה אליו בשם, ואפשר גם לצייר אותו בתוך הטיולים.",
                 "Add the child in the family profile (name, boy or girl, birthday). Then Pitzki calls them by name, and they can be drawn into the walks."), top = 4))
             first.addView(ui.button(L.t("➕ להוסיף ילד", "➕ Add a child"), primary = true, top = 10) {
-                ParentGate.ask(this) { startActivity(Intent(this, ProfileActivity::class.java)) }
+                ParentGate.ask(this) { startActivity(Intent(this, ProfileActivity::class.java).putExtra(SettingsActivity.EXTRA_ADD_KID, true)) }
             })
             first.addView(ui.hint(L.t("אפשר גם לצאת לטיול כבר עכשיו, בלי שם.", "You can also go on a walk right now, without a name."), top = 6))
             box.addView(first)
@@ -409,8 +410,10 @@ class PitzkiActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(6), 0, ui.dp(6), 0)
-            alpha = if (on) 1f else 0.6f
             setOnClickListener { chosen = c; renderSetup() }
+            // The chosen child is said, not only shown by the ring (screen readers).
+            isSelected = on
+            androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר", "Selected") else null)
             tag = c.memberId
             // A long press picks the child up, to drag to another place in the row (see [reorderable]).
             if (children.size > 1) setOnLongClickListener { v ->
@@ -419,7 +422,8 @@ class PitzkiActivity : AppCompatActivity() {
                 true
             }
         }
-        col.addView(lookCircle(c, 64, ring = on))
+        // Only the picture fades for a child who isn't chosen: the name stays fully readable.
+        col.addView(lookCircle(c, 64, ring = on).apply { if (!on) alpha = 0.6f })
         col.addView(ui.text(c.kid.name, 14f, R.color.ink, top = 4).apply {
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -2584,7 +2588,9 @@ class PitzkiActivity : AppCompatActivity() {
             setTextColor(DS.onPhoto(this@PitzkiActivity))
             setShadowLayer(10f, 0f, 2f, DS.scrim(this@PitzkiActivity))
             textDirection = View.TEXT_DIRECTION_RTL
-            maxLines = 2
+            // Room for a whole sentence even with a large font on the phone (the subtitles are how a child without
+            // sound, or a parent who doesn't hear well, follows Pitzki).
+            maxLines = 4
             layoutParams = lp(match, wrap, Gravity.BOTTOM).apply { leftMargin = ui.dp(90); rightMargin = ui.dp(90); bottomMargin = ui.dp(18) }
         }
         stage.addView(subtitle)
@@ -2641,6 +2647,8 @@ class PitzkiActivity : AppCompatActivity() {
             item.addView(TextView(this).apply {
                 text = c.en; textSize = 13f; gravity = Gravity.CENTER; typeface = DS.heading; maxLines = 1
                 setTextColor(colorOf(c))
+                // Light colors (white, yellow, pink) get a dark edge so the word can be read on the cream card.
+                setShadowLayer(4f, 0f, 0f, android.graphics.Color.argb(230, 48, 37, 30))
             })
             items[c] = item
             strip.addView(item)
@@ -2680,22 +2688,24 @@ class PitzkiActivity : AppCompatActivity() {
         }
         left.addView(TextView(this).apply {
             text = if (voice.muted) "🔇" else "🔊"; textSize = 18f
+            gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48)
             setPadding(ui.dp(6), ui.dp(6), ui.dp(10), ui.dp(6))
-            contentDescription = L.t("קול", "Sound")
+            contentDescription = Wording.state(L.t("קול", "Sound"), !voice.muted)
             setOnClickListener {
                 voice.muted = !voice.muted; text = if (voice.muted) "🔇" else "🔊"
+                contentDescription = Wording.state(L.t("קול", "Sound"), !voice.muted)
                 try { ambientPlayer?.setVolume(if (voice.muted) 0f else 0.35f, if (voice.muted) 0f else 0.35f) } catch (_: Exception) {}
                 try { songPlayer?.setVolume(if (voice.muted) 0f else 1f, if (voice.muted) 0f else 1f) } catch (_: Exception) {}
             }
         })
         left.addView(starsLabel)
         micBtn = TextView(this).apply {
-            textSize = 13f
+            textSize = 15f
             typeface = DS.emphasis
             setTextColor(DS.onPhoto(this@PitzkiActivity))
             background = DS.rounded(DS.scrim(this@PitzkiActivity), ui.dp(14).toFloat())
-            setPadding(ui.dp(10), ui.dp(4), ui.dp(10), ui.dp(4))
-            contentDescription = L.t("מיקרופון: פיצקי מקשיב לתשובות", "Microphone: Pitzki listens to answers")
+            setPadding(ui.dp(12), ui.dp(4), ui.dp(12), ui.dp(4))
+            gravity = Gravity.CENTER; minHeight = ui.dp(48)
             layoutParams = LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = ui.dp(8) }
             setOnClickListener {
                 PitzkiStore.setListen(this@PitzkiActivity, !PitzkiStore.listenOn(this@PitzkiActivity))
@@ -2737,7 +2747,7 @@ class PitzkiActivity : AppCompatActivity() {
             layoutParams = lp(ui.dp(96), ui.dp(96), Gravity.TOP or Gravity.START).apply { leftMargin = ui.dp(22); topMargin = ui.dp(66) }
             pivotX = 0f; pivotY = 0f
             setOnClickListener { val small = scaleX < 1f; animate().scaleX(if (small) 1f else 0.55f).scaleY(if (small) 1f else 0.55f).setDuration(200).start() }
-            contentDescription = L.t("המצלמה", "The camera")
+            contentDescription = L.t("התמונה מהמצלמה. לחצו להקטנה או להגדלה", "The camera picture. Tap to make it smaller or bigger")
         }
         selfie?.let { stage.addView(it); it.start() }
 
@@ -3156,6 +3166,8 @@ class PitzkiActivity : AppCompatActivity() {
         if (!::micBtn.isInitialized) return
         micBtn.text = if (PitzkiStore.listenOn(this)) L.t("🎤 מיקרופון פועל", "🎤 Mic on") else L.t("🎤 מיקרופון כבוי", "🎤 Mic off")
         micBtn.alpha = if (PitzkiStore.listenOn(this)) 1f else 0.6f
+        // Read with its real state (it used to always say "listening", even when off).
+        micBtn.contentDescription = Wording.state(L.t("המיקרופון של פיצקי", "Pitzki's microphone"), PitzkiStore.listenOn(this))
     }
 
     /** The first time: a little cloud by the microphone button says what it is and how to turn it off. */

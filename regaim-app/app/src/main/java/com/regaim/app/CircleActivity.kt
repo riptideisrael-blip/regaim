@@ -235,7 +235,8 @@ class CircleActivity : AppCompatActivity() {
                 L.t("הצטרפתם ל${Circle.name(applicationContext)}", "You joined ${Circle.name(applicationContext)}")
             }
         })
-        card.addView(ui.action(L.t("שינוי פרטי השרת", "Change server details"), R.color.ink_soft) {
+        // Only for the admin: for a family it only erased the server and left them on a technical screen.
+        if (Account.isAdmin(this)) card.addView(ui.action(L.t("שינוי פרטי השרת", "Change server details"), R.color.ink_soft) {
             Circle.setServer(this, "", "", Circle.web(this))
             render()
         })
@@ -282,7 +283,9 @@ class CircleActivity : AppCompatActivity() {
                 if (isDestroyed) return@runOnUiThread
                 actions.removeAllViews()
                 if (status == null) {
-                    line.text = L.t("צריך להריץ קודם את partner-gallery.sql ב-Supabase.", "Run partner-gallery.sql in Supabase first.")
+                    // (A missing server function and no internet look the same here: parents get the plain words.)
+                    line.text = if (Account.isAdmin(app)) L.t("צריך להריץ קודם את partner-gallery.sql ב-Supabase.", "Run partner-gallery.sql in Supabase first.")
+                        else L.t("אין חיבור כרגע. נסו שוב בעוד רגע.", "No connection right now. Try again in a moment.")
                     return@runOnUiThread
                 }
                 val others = members.filter { it.userId != Account.id(app) }

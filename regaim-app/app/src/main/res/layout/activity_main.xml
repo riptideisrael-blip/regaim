@@ -63,8 +63,8 @@
 
             <TextView
                 android:id="@+id/btnGear"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginEnd="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:gravity="center"
@@ -139,7 +139,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSaveBig"
                 android:layout_width="0dp"
-                android:layout_height="64dp"
+                android:layout_height="wrap_content"
+                android:minHeight="64dp"
                 android:layout_marginEnd="10dp"
                 android:layout_weight="2"
                 android:text="@string/save_moment_heart"
@@ -151,7 +152,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnToggle"
                 android:layout_width="0dp"
-                android:layout_height="64dp"
+                android:layout_height="wrap_content"
+                android:minHeight="64dp"
                 android:layout_weight="1"
                 android:textSize="19sp"
                 app:backgroundTint="@color/accent"

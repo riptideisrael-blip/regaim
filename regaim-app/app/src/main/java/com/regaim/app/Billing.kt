@@ -65,7 +65,10 @@ object Billing {
                 // A purchase that was paid but not finished: finish it now.
                 appCtx?.let { recover(it) { ok -> waiting = null; cb?.second?.invoke(ok, if (ok) "" else L.t("נסו שוב בעוד רגע", "Try again in a moment")) } }
             }
-            else -> { waiting = null; cb?.second?.invoke(false, L.t("התשלום לא הצליח (${result.debugMessage})", "The payment didn't go through (${result.debugMessage})")) }
+            else -> {
+                android.util.Log.w("Billing", "purchase: ${result.responseCode} ${result.debugMessage}")
+                waiting = null; cb?.second?.invoke(false, L.t("התשלום לא הצליח. לא חויבתם. נסו שוב בעוד רגע.", "The payment didn't go through. You weren't charged. Try again in a moment."))
+            }
         }
     }
     private var appCtx: Context? = null
@@ -100,7 +103,8 @@ object Billing {
                 main.post {
                     val pd: ProductDetails? = details.productDetailsList.firstOrNull()
                     if (result.responseCode != BillingClient.BillingResponseCode.OK || pd == null) {
-                        done(false, L.t("המוצר לא נמצא בחנות (${result.debugMessage})", "The product isn't in the store (${result.debugMessage})")); return@post
+                        android.util.Log.w("Billing", "product: ${result.responseCode} ${result.debugMessage}")
+                        done(false, L.t("הרכישה לא זמינה כרגע. נסו שוב מאוחר יותר.", "This purchase isn't available right now. Try again later.")); return@post
                     }
                     pd.oneTimePurchaseOfferDetails?.formattedPrice?.let { prefs(activity).edit().putString("price_$product", it).apply() }
                     val params = BillingFlowParams.newBuilder()
@@ -112,7 +116,8 @@ object Billing {
                     val r = c.launchBillingFlow(activity, params)
                     if (r.responseCode != BillingClient.BillingResponseCode.OK) {
                         waiting = null
-                        done(false, L.t("לא הצלחנו לפתוח את התשלום (${r.debugMessage})", "Couldn't open the payment (${r.debugMessage})"))
+                        android.util.Log.w("Billing", "launch: ${r.responseCode} ${r.debugMessage}")
+                        done(false, L.t("לא הצלחנו לפתוח את התשלום. נסו שוב בעוד רגע.", "Couldn't open the payment. Try again in a moment."))
                     }
                 }
             }

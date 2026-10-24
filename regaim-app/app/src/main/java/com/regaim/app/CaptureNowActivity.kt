@@ -161,7 +161,7 @@ class CaptureNowActivity : AppCompatActivity() {
         // Top bar: close, timer, flip.
         val top = FrameLayout(this).apply { setPadding(dp(8), dp(36), dp(8), dp(8)) }
         val close = pill("✕", 20f).apply { setOnClickListener { finish() } }
-        top.addView(close, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
+        top.addView(close, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.START or Gravity.CENTER_VERTICAL))
         timerText = TextView(this).apply {
             textSize = 16f
             setTextColor(Color.WHITE)
@@ -171,8 +171,8 @@ class CaptureNowActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         top.addView(timerText, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-        flipBtn = pill("🔄", 20f).apply { setOnClickListener { if (!recording && !saving) { front = !front; restartCamera() } } }
-        top.addView(flipBtn, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL))
+        flipBtn = pill("🔄", 20f).apply { contentDescription = L.t("החלפת מצלמה", "Switch camera"); setOnClickListener { if (!recording && !saving) { front = !front; restartCamera() } } }
+        top.addView(flipBtn, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.CENTER_VERTICAL))
         root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
 
         // Bottom: mode tabs, shutter, hint.
@@ -180,7 +180,7 @@ class CaptureNowActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(16), dp(16), dp(16), dp(28))
-            setBackgroundColor(0x66000000)
+            setBackgroundColor(0xB3000000.toInt())
         }
         val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         photoTab = tab(L.t("תמונה", "Photo")) { setMode(false) }
@@ -192,9 +192,10 @@ class CaptureNowActivity : AppCompatActivity() {
         bottom.addView(shutter, LinearLayout.LayoutParams(dp(88), dp(88)).apply { topMargin = dp(14) })
         hintText = TextView(this).apply {
             textSize = 13f
-            setTextColor(0xCCFFFFFF.toInt())
+            setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, 0)
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         bottom.addView(hintText)
         root.addView(bottom, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
@@ -207,10 +208,16 @@ class CaptureNowActivity : AppCompatActivity() {
             setBackgroundColor(0xCC000000.toInt())
             visibility = View.GONE
             isClickable = true
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         root.addView(busy, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
         shutter.setOnTouchListener { _, e -> onShutterTouch(e); true }
+        // A screen reader can't press and hold: a double-tap is a tap (photo, start or stop).
+        shutter.setOnClickListener {
+            if (saving) return@setOnClickListener
+            when { !videoMode -> takePhoto(); recording -> stopRecording(); else -> startRecording() }
+        }
         refreshMode()
     }
 
@@ -227,12 +234,15 @@ class CaptureNowActivity : AppCompatActivity() {
         textSize = 15f
         gravity = Gravity.CENTER
         setPadding(dp(18), dp(8), dp(18), dp(8))
+        minHeight = dp(48)
         setOnClickListener { onClick() }
     }
 
     private fun refreshMode() {
         fun style(t: TextView, on: Boolean) {
             t.setTextColor(if (on) Color.BLACK else Color.WHITE)
+            t.isSelected = on
+            androidx.core.view.ViewCompat.setStateDescription(t, if (on) L.t("נבחר", "Selected") else null)
             t.background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = dp(18).toFloat()
                 setColor(if (on) Color.WHITE else Color.TRANSPARENT)
@@ -639,6 +649,11 @@ class CaptureNowActivity : AppCompatActivity() {
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         private val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = 0xFFE5484D.toInt(); strokeCap = Paint.Cap.ROUND }
         private val box = RectF()
+
+        init { isClickable = true; isFocusable = true; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES }
+
+        // Read out as what a tap does now (photo / start / stop), not as a picture.
+        override fun getContentDescription(): CharSequence = Wording.shutter(videoMode, recording)
 
         override fun onDraw(c: Canvas) {
             val d = resources.displayMetrics.density

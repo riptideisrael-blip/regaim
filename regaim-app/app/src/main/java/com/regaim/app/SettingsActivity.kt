@@ -26,6 +26,8 @@ open class SettingsActivity : AppCompatActivity() {
 
     companion object {
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, SettingsActivity::class.java))
+        /** Opens the profile straight at "a new child" (from Pitzki's "add a child"). */
+        const val EXTRA_ADD_KID = "add_kid"
     }
 
     private lateinit var ui: Ui
@@ -84,6 +86,7 @@ open class SettingsActivity : AppCompatActivity() {
         }
         root.addView(saveBar, root.indexOfChild(findViewById(R.id.bottomNav)))
         ui.onChange = { if (!rendering) markDirty() }
+        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_ADD_KID, false)) content.post { if (!isFinishing) editMember(null, kid = true) }
     }
 
     private var saveBar: com.google.android.material.button.MaterialButton? = null
@@ -488,13 +491,15 @@ open class SettingsActivity : AppCompatActivity() {
         content.addView(card)
     }
 
-    private fun editMember(id: String?) {
+    private fun editMember(id: String?, kid: Boolean = false) {
         val members = Profile.members(this).toMutableList()
         val old = members.firstOrNull { it.id == id }
         val memberId = old?.id ?: UUID.randomUUID().toString()
         var birth = old?.birth ?: ""
         var photo = old?.photo ?: ""
-        var relation = old?.relation ?: "בן משפחה"
+        // "Add a child" starts as a child (a new member left as "family member" wasn't a child anywhere: not in
+        // Pitzki, the books or the timeline).
+        var relation = old?.relation ?: Profile.newMemberRelation(kid)
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(ui.dp(20), ui.dp(8), ui.dp(20), 0)
@@ -542,36 +547,54 @@ open class SettingsActivity : AppCompatActivity() {
         }
         box.addView(birthBtn)
         val b = AlertDialog.Builder(this)
-            .setTitle(if (old == null) L.t("בן משפחה או חיית מחמד חדשים", "New family member or pet") else L.t("עריכת ${old.name}", "Edit ${old.name}"))
+            .setTitle(when {
+                old != null -> L.t("עריכת ${old.name}", "Edit ${old.name}")
+                kid -> L.t("ילד או ילדה חדשים", "A new child")
+                else -> L.t("בן משפחה או חיית מחמד חדשים", "New family member or pet")
+            })
             .setView(android.widget.ScrollView(this).apply { addView(box) })
-            .setPositiveButton(L.t("שמור", "Save")) { _, _ ->
-                val n = name.text.toString().trim()
-                if (n.isEmpty()) return@setPositiveButton
-                // Moments find people by name: two people with the same name would get mixed up everywhere.
-                Profile.nameTaken(this, n, memberId)?.let { other ->
-                    AlertDialog.Builder(this)
-                        .setTitle(L.t("כבר יש במשפחה \"${other.name}\"", "There's already \"${other.name}\" in the family"))
-                        .setMessage(L.t(
-                            "האפליקציה מזהה אנשים לפי השם, ושני אנשים באותו שם יתערבבו ברגעים ובספרים. הוסיפו משהו שמבדיל, למשל \"$n סבא\" או \"$n הקטן\".",
-                            "The app tells people apart by name, so two people with the same name would get mixed up in moments and books. Add something that tells them apart, like \"Grandpa $n\".",
-                        ))
-                        .setPositiveButton(L.t("הבנתי", "OK"), null)
-                        .show()
-                    return@setPositiveButton
-                }
-                val updated = FamilyMember(memberId, n, relation, birth, photo)
-                val current = Profile.members(this).filterNot { it.id == memberId }
-                Profile.saveMembers(this, current + updated)
-                if (updated.isPet || old?.isPet == true) Pets.invalidate(this)
-                render()
-            }
+            // Save is handled below: a missing or taken name keeps the window open (nothing typed is lost).
+            .setPositiveButton(L.t("שמירה", "Save"), null)
             .setNegativeButton(L.t("ביטול", "Cancel"), null)
-        if (old != null) b.setNeutralButton(L.t("הסר", "Remove")) { _, _ ->
-            Profile.saveMembers(this, Profile.members(this).filterNot { it.id == memberId })
-            if (old.isPet) Pets.invalidate(this)
+        if (old != null) b.setNeutralButton(L.t("הסרה", "Remove"), null)
+        val dialog = b.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val n = name.text.toString().trim()
+            if (n.isEmpty()) {
+                name.error = L.t("צריך לכתוב שם", "Please write a name")
+                name.requestFocus()
+                return@setOnClickListener
+            }
+            // Moments find people by name: two people with the same name would get mixed up everywhere.
+            Profile.nameTaken(this, n, memberId)?.let { other ->
+                name.error = L.t(
+                    "כבר יש במשפחה \"${other.name}\". הוסיפו משהו שמבדיל, למשל \"$n סבא\" או \"$n הקטן\".",
+                    "There's already \"${other.name}\" in the family. Add something that tells them apart, like \"Grandpa $n\".",
+                )
+                name.requestFocus()
+                return@setOnClickListener
+            }
+            val updated = FamilyMember(memberId, n, relation, birth, photo)
+            val current = Profile.members(this).filterNot { it.id == memberId }
+            Profile.saveMembers(this, current + updated)
+            if (updated.isPet || old?.isPet == true) Pets.invalidate(this)
+            dialog.dismiss()
             render()
         }
-        b.show()
+        if (old != null) dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            // Asked first: a mistaken tap would take a child out of Pitzki and the books.
+            AlertDialog.Builder(this)
+                .setTitle(L.t("להסיר את ${old.name}?", "Remove ${old.name}?"))
+                .setMessage(L.t("${old.name} יוסר מפרופיל המשפחה. הרגעים עצמם לא נמחקים.", "${old.name} will be removed from the family profile. The moments themselves aren't deleted."))
+                .setPositiveButton(L.t("להסיר", "Remove")) { _, _ ->
+                    Profile.saveMembers(this, Profile.members(this).filterNot { it.id == memberId })
+                    if (old.isPet) Pets.invalidate(this)
+                    dialog.dismiss()
+                    render()
+                }
+                .setNegativeButton(L.t("ביטול", "Cancel"), null)
+                .show()
+        }
     }
 
     // ---------- what saves a moment ----------

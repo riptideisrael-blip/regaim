@@ -495,7 +495,8 @@ class HomeActivity : AppCompatActivity() {
 
     private fun pitzkiCard() {
         val w = resources.displayMetrics.widthPixels - ui.dp(32)
-        val h = ui.dp(190)
+        // Taller with a large phone font, so the title and the two buttons aren't cut.
+        val h = (ui.dp(190) * resources.configuration.fontScale.coerceIn(1f, 1.6f)).toInt()
         val box = android.widget.FrameLayout(this).apply {
             background = DS.rounded(android.graphics.Color.parseColor("#2E4A26"), ui.dp(24).toFloat())
             clipToOutline = true
@@ -547,6 +548,7 @@ class HomeActivity : AppCompatActivity() {
         fun chip(label: String, primary: Boolean, go: () -> Unit) = TextView(this).apply {
             text = label; textSize = 15f; typeface = DS.heading
             setTextColor(if (primary) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#2E2A24"))
+            gravity = Gravity.CENTER; minHeight = ui.dp(48)
             setPadding(ui.dp(16), ui.dp(8), ui.dp(16), ui.dp(8))
             background = DS.rounded(if (primary) DS.button(this@HomeActivity) else android.graphics.Color.argb(235, 255, 252, 245), ui.dp(20).toFloat())
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }

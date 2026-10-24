@@ -101,11 +101,11 @@ class FaceCaptureActivity : AppCompatActivity() {
             setPadding(ui.dp(14), ui.dp(10), ui.dp(14), ui.dp(4))
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP)
         }
-        top.addView(TextView(this).apply { text = "✕"; textSize = 22f; setTextColor(Color.WHITE); setPadding(ui.dp(8), 0, ui.dp(8), 0); setOnClickListener { finish() } })
+        top.addView(TextView(this).apply { text = "✕"; textSize = 22f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48); setPadding(ui.dp(8), 0, ui.dp(8), 0); setOnClickListener { finish() } })
         dots = TextView(this).apply { textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         top.addView(dots)
         top.addView(TextView(this).apply {
-            text = "🔄"; textSize = 22f; setPadding(ui.dp(8), 0, ui.dp(8), 0)
+            text = "🔄"; textSize = 22f; gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48); setPadding(ui.dp(8), 0, ui.dp(8), 0)
             contentDescription = L.t("להחליף מצלמה", "Switch camera")
             setOnClickListener { front = !front; closeCamera(); openCamera() }
         })
@@ -116,7 +116,13 @@ class FaceCaptureActivity : AppCompatActivity() {
             setPadding(ui.dp(20), ui.dp(10), ui.dp(20), ui.dp(26))
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
         }
-        ask = TextView(this).apply { textSize = 19f; typeface = DS.heading; setTextColor(Color.WHITE); gravity = Gravity.CENTER }
+        ask = TextView(this).apply {
+            textSize = 19f; typeface = DS.heading; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            // Readable over a bright camera picture, and read out when the step changes.
+            background = DS.rounded(Color.argb(150, 0, 0, 0), ui.dp(16).toFloat())
+            setPadding(ui.dp(14), ui.dp(6), ui.dp(14), ui.dp(6))
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
         hint = TextView(this).apply {
             textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = DS.rounded(Color.argb(150, 0, 0, 0), ui.dp(16).toFloat())

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="58dp"
+    android:layout_height="wrap_content"
+    android:minHeight="58dp"
     android:background="@drawable/nav_bg"
     android:layoutDirection="locale"
     android:orientation="horizontal">
@@ -27,7 +28,7 @@
             android:layout_marginTop="3dp"
             android:maxLines="1"
             android:text="@string/nav_home"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -51,7 +52,7 @@
             android:layout_marginTop="3dp"
             android:maxLines="1"
             android:text="@string/nav_archive"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -75,7 +76,7 @@
             android:layout_marginTop="3dp"
             android:maxLines="1"
             android:text="@string/nav_studio"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -99,7 +100,7 @@
             android:layout_marginTop="3dp"
             android:maxLines="1"
             android:text="@string/nav_family"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -123,7 +124,7 @@
             android:layout_marginTop="3dp"
             android:maxLines="1"
             android:text="@string/nav_community"
-            android:textSize="10sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
 </LinearLayout>

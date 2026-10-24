@@ -188,6 +188,9 @@ object Profile {
     )
 
     /** A role / relation (stored in Hebrew) shown in the current language. */
+    /** The relation a new member starts with: "child" when added as a child (so it counts as one everywhere). */
+    fun newMemberRelation(kid: Boolean): String = if (kid) "ילד" else "בן משפחה"
+
     fun relationLabel(r: String): String = if (L.isEn) RELATION_EN[r] ?: r else r
 
     /** One line for AI prompts, at the time of a given moment. Empty if there's no profile. */

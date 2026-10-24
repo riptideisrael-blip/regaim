@@ -93,7 +93,7 @@ object Community {
             val missing = code == 404 || "PGRST205" in text || "PGRST202" in text || "does not exist" in text
             throw IllegalStateException(
                 when {
-                    missing -> L.t("הקהילה עוד לא הופעלה בשרת. צריך להריץ את community-v4.sql ב-Supabase.", "The community isn't enabled on the server yet. Run community-v4.sql in Supabase.")
+                    missing -> L.t("הקהילה עוד לא זמינה. נסו שוב מאוחר יותר.", "The community isn't available yet. Try again later.")
                     code == 401 || code == 403 -> L.t("אין הרשאה. התחברו שוב לחשבון.", "Not authorized. Please sign in again.")
                     code == 409 -> L.t("כבר עשיתם את זה", "You've already done that")
                     else -> L.t("שגיאת שרת ($code)", "Server error ($code)")
@@ -374,7 +374,7 @@ object Community {
             } catch (e: Exception) {
                 // The server isn't updated for books yet (payments-and-community-books.sql).
                 if (e.message?.contains("kind_check") == true || e.message?.contains("pages") == true)
-                    throw IllegalStateException(L.t("השרת עוד לא מוכן לספרים בקהילה (צריך להריץ את payments-and-community-books.sql)", "The server isn't ready for books in the community yet (run payments-and-community-books.sql)"))
+                    throw IllegalStateException(L.t("עוד אי אפשר לשתף ספרים בקהילה. נסו שוב מאוחר יותר.", "Books can't be shared in the community yet. Try again later."))
                 throw e
             }
             p(ctx).edit().putBoolean("community_book_${b.id}", true).apply()

@@ -134,7 +134,7 @@ class MomentActivity : AppCompatActivity() {
             if (!autoplayed && !isFinishing) { autoplayed = true; play() }
         }
         video.setOnCompletionListener {
-            playPause.setImageResource(R.drawable.ic_play)
+            playPause.setImageResource(R.drawable.ic_play); playPause.contentDescription = L.t("ניגון", "Play")
             bigPlay.visibility = View.VISIBLE
             video.seekTo(0)
             seek.progress = 0
@@ -303,14 +303,14 @@ class MomentActivity : AppCompatActivity() {
         if (!memory.isVideo) return
         if (poster.visibility == View.VISIBLE) poster.animate().alpha(0f).setDuration(180).withEndAction { poster.visibility = View.GONE; poster.alpha = 1f }.start()
         bigPlay.visibility = View.GONE
-        playPause.setImageResource(R.drawable.ic_pause)
+        playPause.setImageResource(R.drawable.ic_pause); playPause.contentDescription = L.t("השהיה", "Pause")
         video.start()
         scheduleHide()
     }
 
     private fun pause() {
         video.pause()
-        playPause.setImageResource(R.drawable.ic_play)
+        playPause.setImageResource(R.drawable.ic_play); playPause.contentDescription = L.t("ניגון", "Play")
         bigPlay.visibility = View.VISIBLE
         setControls(true)
         ui.removeCallbacks(hideControls)

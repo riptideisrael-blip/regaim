@@ -150,8 +150,12 @@ object AiGate {
         401 -> L.t("צריך להתחבר לחשבון מחדש", "Please sign in again")
         403 -> L.t("הבנת רגעים זמינה רק בחשבון עם מייל או Google", "Moment understanding needs an email or Google account")
         429 -> L.t("המכסה החודשית של המשפחה נגמרה. היא מתחדשת בתחילת החודש.", "Your family's monthly allowance is used up. It renews at the start of the month.")
-        503 -> L.t("הבנת רגעים עוד לא הופעלה בשרת", "Moment understanding isn't set up on the server yet")
-        else -> L.t("שגיאה מהשרת ($code)", "Server error ($code)") + o.optString("error").takeIf { it.isNotBlank() }?.let { ": ${it.take(120)}" }.orEmpty()
+        503 -> L.t("הבנת רגעים לא זמינה כרגע. נסו שוב מאוחר יותר.", "Moment understanding isn't available right now. Try again later.")
+        // Parents get plain words; the server's details go to the log (for fixing), not to the screen.
+        else -> {
+            android.util.Log.w("AiGate", "server $code: ${o.optString("error").take(200)}")
+            L.t("משהו השתבש. נסו שוב בעוד כמה דקות.", "Something went wrong. Try again in a few minutes.")
+        }
     }
 
     private fun post(ctx: Context, payload: JSONObject): Pair<Int, String> {

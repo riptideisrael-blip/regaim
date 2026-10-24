@@ -204,7 +204,9 @@ class ReviewActivity : AppCompatActivity() {
             cornerRadius = ui.dp(28).toFloat()
             if (primary) setColor(0xFF87664F.toInt()) else { setColor(0xFFF0E6DC.toInt()) }
         }
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(56)).apply { topMargin = ui.dp(top) }
+        // Grows with a large phone font instead of cutting the words.
+        minHeight = ui.dp(56); setPadding(paddingLeft, ui.dp(8), paddingRight, ui.dp(8))
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(top) }
         setOnClickListener { onClick() }
     }
 

@@ -83,7 +83,7 @@
   <div class="sub">הרגעים שלנו, רק בשבילנו</div>
   <div class="who" id="who"></div>
 </header>
-<main id="feed" tabindex="-1" aria-live="polite"><div class="empty"><div class="big">❤️</div><h2>רגע, טוענים את הרגעים...</h2></div></main>
+<main id="feed" tabindex="-1"><div class="empty"><div class="big">❤️</div><h2>רגע, טוענים את הרגעים...</h2></div></main>
 
 <footer>
   <a href="privacy.html">מדיניות פרטיות</a>
@@ -112,8 +112,8 @@
 <div class="sheet" id="chatSheet" role="dialog" aria-modal="true" aria-labelledby="chatTitle"><div class="panel">
   <h2 id="chatTitle">שיחה במשפחה</h2><div class="note">רק לחברים המאושרים במעגל. מוצגות עד 100 הודעות אחרונות.</div>
   <div id="chatMessages" style="max-height:45vh;overflow:auto"></div>
-  <div class="row"><input id="chatInput" placeholder="כתבו למשפחה..." aria-label="הודעה למשפחה" maxlength="4000"><button class="primary" id="chatSend">שלח</button></div>
-  <div id="chatStatus" class="note" role="status" aria-live="polite"></div><button class="primary" id="chatClose">סגור</button>
+  <div class="row"><input id="chatInput" placeholder="כתבו למשפחה..." aria-label="הודעה למשפחה" maxlength="4000"><button class="primary" id="chatSend">שליחה</button></div>
+  <div id="chatStatus" class="note" role="status" aria-live="polite"></div><button class="primary" id="chatClose">סגירה</button>
 </div></div>
 <script>
 (function () {
@@ -138,6 +138,18 @@
     if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
   }
   document.addEventListener("keydown", (e) => {
+    // Tab stays inside an open dialog (it doesn't wander to the page behind it).
+    if (e.key === "Tab") {
+      const open = ["nameSheet", "uploadSheet", "chatSheet"].map($).find((d) => d.classList.contains("open"));
+      if (!open) return;
+      const f = [...open.querySelectorAll("button,input,textarea,select,a[href]")].filter((x) => !x.disabled && x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      else if (!open.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+      return;
+    }
     if (e.key !== "Escape") return;
     ["nameSheet", "uploadSheet", "chatSheet"].forEach((id) => { if ($(id).classList.contains("open") && (id !== "nameSheet" || me)) closeSheet(id); });
   });
@@ -183,7 +195,7 @@
   async function authCall(path, body) {
     const response = await fetch(URL_BASE + "/auth/v1/" + path, { method:"POST", headers:{apikey:KEY,"Content-Type":"application/json"}, body:JSON.stringify(body) });
     const value = await response.json();
-    if (!response.ok) throw new Error("הכניסה המאובטחת מההזמנה אינה זמינה כרגע. צריך להפעיל Anonymous Sign-ins בשרת, או לבקש עזרה ממנהל המשפחה.");
+    if (!response.ok) throw new Error("הכניסה מההזמנה לא זמינה כרגע. בקשו עזרה ממי ששלח לכם את ההזמנה.");
     value.expires_at_ms = Date.now() + (value.expires_in || 3600) * 1000;
     session = value; store.set(sessionKey, JSON.stringify(value));
     return value;
@@ -199,6 +211,8 @@
 
   let data = { posts: [], reactions: [], comments: [] };
   const openComments = new Set();
+  // What someone is typing in a comment box survives a refresh of the feed.
+  const drafts = {};
 
   function toast(msg) {
     const t = $("toast"); t.textContent = msg; t.style.display = "block";
@@ -218,7 +232,7 @@
       body: body ? JSON.stringify(body) : undefined
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(res.status === 404 ? "השרת המשפחתי דורש את עדכון האבטחה v3. הזיכרונות הישנים נשמרו; מנהל המשפחה צריך להשלים את המעבר." : "אין הרשאה לפעולה הזאת, או שאין חיבור. בקשו הזמנה חדשה או נסו שוב.");
+    if (!res.ok) throw new Error(res.status === 404 ? "הדף המשפחתי בעדכון כרגע. הזיכרונות שמורים; בקשו ממי ששלח את ההזמנה לעדכן את האפליקציה." : "אין הרשאה לפעולה הזאת, או שאין חיבור. בקשו הזמנה חדשה או נסו שוב.");
     return text ? JSON.parse(text) : [];
   }
   async function uploadFile(path, blob, type) {
@@ -286,7 +300,7 @@
     if (!circle) {
       await ensureSession();
       const version = await rest("POST", "rpc/family_circle_version", {});
-      if (version.version !== 3) throw new Error("צריך להשלים עדכון אבטחה v3 בשרת המשפחתי");
+      if (version.version !== 3) throw new Error("הדף המשפחתי בעדכון כרגע. בקשו ממי ששלח את ההזמנה לעדכן את האפליקציה.");
       const rows = await rest("POST", "rpc/redeem_family_invite", {p_token:code,p_display_name:me});
       circle = rows[0];
       if (!circle) { toast("לא מצאתי את המעגל הזה"); return; }
@@ -310,6 +324,13 @@
 
   function render() {
     const feed = $("feed");
+    // The feed is rebuilt: remember which button or box had the focus, and give it back after.
+    const had = document.activeElement && feed.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+    renderFeed(feed);
+    if (had) { const back = feed.querySelector('[data-key="' + had + '"]'); if (back) back.focus(); }
+  }
+
+  function renderFeed(feed) {
     feed.innerHTML = "";
     $("fab").style.display = circle ? "block" : "none";
     $("who").innerHTML = "";
@@ -364,6 +385,7 @@
         const mine = all.some((r) => session && r.author_id === session.user.id);
         const b = el("button", "react" + (mine ? " on" : ""), emo + (all.length ? " " + all.length : ""));
         b.type = "button";
+        b.dataset.key = "r|" + p.id + "|" + emo;
         b.title = all.map((r) => r.member).join(", ");
         b.setAttribute("aria-pressed", mine ? "true" : "false");
         b.setAttribute("aria-label", "תגובת " + EMOJI_NAMES[emo] + (all.length ? ", " + all.length + " הגיבו" : "") + (all.length ? ": " + b.title : ""));
@@ -373,6 +395,7 @@
       const cs = data.comments.filter((c) => c.post_id === p.id);
       const toggle = el("button", "react", "💬 " + (cs.length || ""));
       toggle.type = "button";
+      toggle.dataset.key = "t|" + p.id;
       toggle.setAttribute("aria-expanded", openComments.has(p.id) ? "true" : "false");
       toggle.setAttribute("aria-label", "תגובות" + (cs.length ? " (" + cs.length + ")" : "") + (openComments.has(p.id) ? ", לסגירה" : ", לכתיבת תגובה"));
       toggle.onclick = () => { openComments.has(p.id) ? openComments.delete(p.id) : openComments.add(p.id); render(); };
@@ -391,7 +414,11 @@
         if (openComments.has(p.id)) {
           const row = el("div", "row");
           const input = el("input"); input.type = "text"; input.placeholder = "כתבו משהו..."; input.setAttribute("aria-label", "תגובה לרגע");
-          const send = el("button", "primary", "שלח");
+          input.dataset.key = "i|" + p.id;
+          input.value = drafts[p.id] || "";
+          input.oninput = () => { drafts[p.id] = input.value; };
+          const send = el("button", "primary", "שליחה");
+          send.dataset.key = "s|" + p.id;
           send.onclick = () => comment(p.id, input.value);
           input.onkeydown = (e) => { if (e.key === "Enter") comment(p.id, input.value); };
           row.appendChild(input); row.appendChild(send); box.appendChild(row);
@@ -418,6 +445,7 @@
     try {
       await rest("POST", "comments", { post_id: postId, author_id:session.user.id, member: me, body });
       openComments.add(postId);
+      delete drafts[postId];
       await load();
     } catch (e) { toast("לא הצלחנו לשלוח, נסו שוב"); }
   }
@@ -519,7 +547,24 @@
   };
   if (!me && code) askName();
   load().catch(e => toast(e.message));
-  setInterval(() => { if (document.visibilityState === "visible") load().catch(() => {}); if ($("chatSheet").classList.contains("open")) loadConversation(); }, 30000);
+  // Every 30 seconds new moments are brought in, but never while someone is typing, watching a video or in a
+  // window: the page doesn't jump under them. New moments are announced once, not the whole feed read again.
+  function busy() {
+    const a = document.activeElement;
+    if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return true;
+    if ([...document.querySelectorAll("video")].some((v) => !v.paused && !v.ended)) return true;
+    if (["nameSheet", "uploadSheet"].some((id) => $(id).classList.contains("open"))) return true;
+    return Object.values(drafts).some((d) => d && d.trim());
+  }
+  setInterval(() => {
+    if ($("chatSheet").classList.contains("open")) loadConversation();
+    if (document.visibilityState !== "visible" || busy()) return;
+    const before = new Set(data.posts.map((p) => p.id));
+    load().then(() => {
+      const fresh = data.posts.filter((p) => !before.has(p.id)).length;
+      if (before.size && fresh) toast(fresh === 1 ? "נוסף רגע חדש" : "נוספו " + fresh + " רגעים חדשים");
+    }).catch(() => {});
+  }, 30000);
 })();
 </script>
 </body>

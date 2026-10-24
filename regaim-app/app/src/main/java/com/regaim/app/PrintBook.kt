@@ -168,8 +168,8 @@ object PrintBook {
             if (code !in 200..299) {
                 val why = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty().take(200)
                 throw IllegalStateException(
-                    if (code == 404 || why.contains("Bucket not found", true)) L.t("השרת עוד לא מוכן להדפסה (צריך להריץ את print-books.sql)", "The server isn't ready for printing yet (run print-books.sql)")
-                    else L.t("ההעלאה נכשלה ($code)", "Upload failed ($code)") + " " + why,
+                    if (code == 404 || why.contains("Bucket not found", true)) L.t("ההדפסה עוד לא זמינה. נסו שוב מאוחר יותר.", "Printing isn't available yet. Try again later.")
+                    else { android.util.Log.w("PrintBook", "upload $code: $why"); L.t("ההעלאה נכשלה. נסו שוב בעוד רגע.", "The upload failed. Try again in a moment.") },
                 )
             }
         } finally { conn.disconnect() }

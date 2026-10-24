@@ -56,16 +56,20 @@ class MemoryViews(private val a: Activity) {
     /** Heart toggle; updates the memory and pops softly. */
     fun heart(m: Memory, sizeDp: Int = 38, onDark: Boolean = true, onChange: ((Memory) -> Unit)? = null): ImageView {
         var fav = m.favorite
+        // At least 48dp to touch; the heart itself keeps its size (the extra is padding).
+        val box = maxOf(sizeDp, 48)
         return ImageView(a).apply {
-            val p = dp(8)
+            val p = dp(8 + (box - sizeDp) / 2)
             setPadding(p, p, p, p)
             if (onDark) setBackgroundResource(R.drawable.pill_dark)
             fun paint() {
                 setImageResource(if (fav) R.drawable.ic_heart else R.drawable.ic_heart_outline)
                 setColorFilter(if (fav) color(R.color.heart) else if (onDark) color(R.color.white) else color(R.color.ink))
+                // Says what a tap will do, so the state isn't only the red color.
+                contentDescription = if (fav) L.t("מועדף. לחצו להסרה מהמועדפים", "Favorite. Tap to remove from favorites")
+                    else L.t("הוספה למועדפים", "Add to favorites")
             }
             paint()
-            contentDescription = L.t("מועדף", "Favorite")
             setOnClickListener {
                 val fresh = MemoryStore.get(a, m.id) ?: m
                 fav = !fresh.favorite
@@ -77,7 +81,7 @@ class MemoryViews(private val a: Activity) {
                 animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(OvershootInterpolator(3f)).start()
                 onChange?.invoke(updated)
             }
-            layoutParams = FrameLayout.LayoutParams(dp(sizeDp), dp(sizeDp))
+            layoutParams = FrameLayout.LayoutParams(dp(box), dp(box))
         }
     }
 

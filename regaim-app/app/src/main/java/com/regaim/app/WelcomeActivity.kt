@@ -32,12 +32,14 @@ class WelcomeActivity : AppCompatActivity() {
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, WelcomeActivity::class.java))
     }
 
-    private enum class Mode { START, SIGN_UP, SIGN_IN }
+    private enum class Mode { START, SIGN_UP, SIGN_IN, CHECK_MAIL }
 
     private lateinit var ui: Ui
     private lateinit var root: LinearLayout
     private val worker = Executors.newSingleThreadExecutor()
-    private var mode = Mode.START
+    @Volatile private var mode = Mode.START
+    /** The email the account was just created with (waiting for its confirmation link); filled in on "sign in". */
+    @Volatile private var sentTo = ""
     private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,6 +147,7 @@ class WelcomeActivity : AppCompatActivity() {
             Mode.START -> start()
             Mode.SIGN_UP -> form(signUp = true)
             Mode.SIGN_IN -> form(signUp = false)
+            Mode.CHECK_MAIL -> checkMail()
         }
     }
 
@@ -214,7 +217,9 @@ class WelcomeActivity : AppCompatActivity() {
         // Language switch: a small pill in the top corner.
         hero.addView(TextView(this).apply {
             text = if (L.isEn) "🌐 עברית" else "🌐 English"
+            contentDescription = if (L.isEn) "עברית" else "English"
             textSize = 13f
+            gravity = Gravity.CENTER; minHeight = ui.dp(48)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
             background = GradientDrawable().apply {
@@ -288,7 +293,8 @@ class WelcomeActivity : AppCompatActivity() {
             strokeColor = android.content.res.ColorStateList.valueOf(0xFFF0E6DC.toInt())
             strokeWidth = ui.dp(1)
         }
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(56)).apply { topMargin = ui.dp(12) }
+        minHeight = ui.dp(56)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
         setOnClickListener { onClick() }
     }
 
@@ -302,7 +308,7 @@ class WelcomeActivity : AppCompatActivity() {
                     busy = false
                     if (isFinishing) return@runOnUiThread
                     when (enabled) {
-                        false -> Toast.makeText(this, L.t("ההתחברות עם Google עוד לא הופעלה בשרת (Supabase). אפשר להירשם עם אימייל בינתיים.", "Google sign-in isn't enabled on the server (Supabase) yet. You can sign up with email for now."), Toast.LENGTH_LONG).show()
+                        false -> Toast.makeText(this, L.t("ההתחברות עם Google לא זמינה כרגע. אפשר להירשם עם אימייל.", "Google sign-in isn't available right now. You can sign up with email."), Toast.LENGTH_LONG).show()
                         else -> try {
                             // null = could not check; try anyway, the browser shows the real answer.
                             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Account.googleUrl(this))))
@@ -352,6 +358,7 @@ class WelcomeActivity : AppCompatActivity() {
     private fun form(signUp: Boolean) {
         root.addView(TextView(this).apply {
             text = if (signUp) L.t("יוצרים חשבון משפחתי", "Create a family account") else L.t("ברוכים השבים", "Welcome back")
+            androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
             textSize = 20f
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
@@ -359,6 +366,7 @@ class WelcomeActivity : AppCompatActivity() {
         })
         val name = if (signUp) input(L.t("השם שלך", "Your name"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME).also { root.addView(it) } else null
         val email = input(L.t("אימייל", "Email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).also { root.addView(it) }
+        if (!signUp && sentTo.isNotEmpty()) email.setText(sentTo)
         val password = input(L.t("סיסמה (לפחות 6 תווים)", "Password (at least 6 characters)"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD).also { root.addView(it) }
         root.addView(bigButton(if (signUp) L.t("יצירת חשבון", "Create account") else L.t("התחברות", "Sign in"), filled = true) {
             val e = email.text.toString().trim()
@@ -369,9 +377,8 @@ class WelcomeActivity : AppCompatActivity() {
                 !e.contains("@") -> Toast.makeText(this, L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"), Toast.LENGTH_SHORT).show()
                 pw.length < 6 -> Toast.makeText(this, L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters"), Toast.LENGTH_SHORT).show()
                 signUp -> run(L.t("יוצרים את החשבון...", "Creating your account...")) {
-                    if (!Account.signUp(applicationContext, n, e, pw)) {
-                        throw IllegalStateException(L.t("שלחנו לך מייל לאישור. אחרי האישור, חזרו לכאן והתחברו.", "We sent you a confirmation email. Once confirmed, come back here and sign in."))
-                    }
+                    // Not an error: the account is made and waits for the email link (its own screen, not a red toast).
+                    if (!Account.signUp(applicationContext, n, e, pw)) { sentTo = e; mode = Mode.CHECK_MAIL }
                 }
                 else -> run(L.t("מתחברים...", "Signing in...")) { Account.signIn(applicationContext, e, pw) }
             }
@@ -380,6 +387,28 @@ class WelcomeActivity : AppCompatActivity() {
             mode = if (signUp) Mode.SIGN_IN else Mode.SIGN_UP
             render()
         })
+        root.addView(link(L.t("‹ חזרה", "‹ Back"), R.color.ink_soft, 4) { mode = Mode.START; render() })
+    }
+
+    /** After signing up: check the inbox, then sign in (the email already filled in). */
+    private fun checkMail() {
+        root.addView(TextView(this).apply {
+            text = L.t("📬 בדקו את המייל", "📬 Check your email")
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
+            androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
+        })
+        root.addView(TextView(this).apply {
+            text = L.t("החשבון נוצר. שלחנו קישור אישור אל $sentTo.\nלחצו על הקישור במייל, ואז חזרו לכאן והתחברו.\nלא הגיע? בדקו גם בתיקיית הספאם.",
+                "Your account was created. We sent a confirmation link to $sentTo.\nTap the link in the email, then come back and sign in.\nNothing yet? Check your spam folder too.")
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink_soft))
+            setPadding(0, ui.dp(10), 0, 0)
+        })
+        root.addView(bigButton(L.t("אישרתי, להתחברות", "Done, sign in"), filled = true) { mode = Mode.SIGN_IN; render() })
         root.addView(link(L.t("‹ חזרה", "‹ Back"), R.color.ink_soft, 4) { mode = Mode.START; render() })
     }
 }

@@ -358,7 +358,7 @@ class BookViewerActivity : AppCompatActivity() {
         panel.addView(TextView(this).apply {
             text = "$index"
             textSize = 12f
-            setTextColor(Color.parseColor("#8A7F74"))
+            setTextColor(Color.parseColor("#675C54"))
             gravity = Gravity.CENTER
             setPadding(0, dp(8), 0, 0)
         })
@@ -384,7 +384,7 @@ class BookViewerActivity : AppCompatActivity() {
             setLineSpacing(dp(6).toFloat(), 1f)
             setPadding(0, dp(16), 0, dp(16))
         })
-        box.addView(TextView(this).apply { this.text = small; textSize = 13f; setTextColor(Color.parseColor("#8A7F74")); gravity = Gravity.CENTER })
+        box.addView(TextView(this).apply { this.text = small; textSize = 13f; setTextColor(Color.parseColor("#675C54")); gravity = Gravity.CENTER })
         f.addView(box, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     }
 
@@ -405,7 +405,7 @@ class BookViewerActivity : AppCompatActivity() {
         box.addView(TextView(this).apply {
             text = L.t("נוצר באהבה ב-Moments", "Made with love in Moments")
             textSize = 14f
-            setTextColor(if (drawn) Color.WHITE else Color.parseColor("#8A7F74"))
+            setTextColor(if (drawn) Color.WHITE else Color.parseColor("#675C54"))
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, 0)
         })
@@ -436,7 +436,7 @@ class BookViewerActivity : AppCompatActivity() {
         if (!all) box.addView(TextView(this).apply {
             text = L.t("עברו על כל עמוד: לחצו על העמוד ואז על \"לאשר עמוד\". שינוי בעמוד מבטל את האישור שלו.", "Go over every page: tap it, then \"Approve page\". Changing a page clears its approval.")
             textSize = 13f
-            setTextColor(if (drawn) 0xDDFFFFFF.toInt() else Color.parseColor("#8A7F74"))
+            setTextColor(if (drawn) 0xDDFFFFFF.toInt() else Color.parseColor("#675C54"))
             gravity = Gravity.CENTER
             setPadding(dp(36), dp(10), dp(36), 0)
         })

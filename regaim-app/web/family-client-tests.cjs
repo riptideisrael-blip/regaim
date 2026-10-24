@@ -7,8 +7,8 @@ let source = html.split('<script>')[1].split('</script>')[0];
 source = source.slice(0, source.indexOf('  if (!me && code) askName();')) +
   'globalThis.familyTest = { load, react, comment, signedUrl, openConversation };\n})();';
 class Element {
-  setAttribute(){} removeAttribute(){} querySelector(){return null;}
-  constructor() { this.children=[]; this.style={}; this.value=''; this.textContent=''; this.innerHTML=''; this.classList={add(){},remove(){},contains(){return false;}}; }
+  setAttribute(){} removeAttribute(){} querySelector(){return null;} querySelectorAll(){return [];} contains(){return false;} focus(){}
+  constructor() { this.children=[]; this.style={}; this.dataset={}; this.value=''; this.textContent=''; this.innerHTML=''; this.classList={add(){},remove(){},contains(){return false;}}; }
   appendChild(e) { this.children.push(e); return e; }
   append(...items) { this.children.push(...items); }
   replaceChildren(...items) { this.children=items; }
@@ -27,7 +27,7 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
     atob:(text)=>Buffer.from(text,'base64').toString('binary'),
     location:{search:'?c='+(oldCode?'ABC123':'1'.repeat(32))+'&s='+server},
     localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},
-    document:{getElementById:get,createElement:()=>new Element(),visibilityState:'visible',addEventListener(){},activeElement:null},navigator:{userAgent:'test'},
+    document:{getElementById:get,createElement:()=>new Element(),visibilityState:'visible',addEventListener(){},activeElement:null,querySelectorAll:()=>[]},navigator:{userAgent:'test'},
     setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,
     fetch:async(url,options={})=>{
       requests.push({url,...options});
@@ -48,10 +48,10 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
   await assert.rejects(env.api.load(),/הקישור הישן/);
   assert.equal(env.requests.length,0,'old codes fail before Auth or data calls');
   env=environment({denyAuth:true});
-  await assert.rejects(env.api.load(),/Anonymous Sign-ins/);
+  await assert.rejects(env.api.load(),/^(?!.*Anonymous)(?=.*ממי ששלח).*$/s);
   assert.equal(env.requests.length,1,'disabled Auth does not fall back to public REST');
   env=environment({oldServer:true});
-  await assert.rejects(env.api.load(),/v3/);
+  await assert.rejects(env.api.load(),/^(?!.*v3)(?=.*בעדכון).*$/s);
   assert(!env.requests.some(r=>r.url.includes('/posts?')),'old server does not load insecure posts');
   env=environment();
   await env.api.load();
@@ -73,5 +73,13 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
   assert.equal(JSON.parse(request.body).post_id,'post-a');
   assert.equal(JSON.parse(request.body).author_id,'user-a');
   await assert.rejects(env.api.signedUrl('https://foreign.example/photo.jpg'),/אינו שייך/);
-  console.log('PASS: 9 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
+  // Accessibility regressions: the feed isn't a live region (not read again every refresh), the refresh waits while
+  // someone types / watches / is in a window, typed comments survive it, and parents see no developer words.
+  const page=require('fs').readFileSync(require('path').join(__dirname,'index.html'),'utf8');
+  assert(!/<main id="feed"[^>]*aria-live/.test(page),'feed is not aria-live');
+  assert(/function busy\(\)/.test(page)&&/busy\(\)\) return;/.test(page),'refresh skips while busy');
+  assert(/drafts\[p\.id\]/.test(page),'comment drafts survive a refresh');
+  assert(/dataset\.key/.test(page)&&/back\.focus\(\)/.test(page),'focus comes back after a reaction');
+  assert(!/Anonymous Sign-ins|עדכון האבטחה v3|Supabase/.test(page.replace(/<script>[\s\S]*?const SUPABASE[^\n]*\n/,'')),'no developer words for families');
+  console.log('PASS: 10 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -26,6 +26,7 @@ object ParentGate {
         val field = EditText(a).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             hint = "?"
+            contentDescription = L.t("התשובה לתרגיל", "The answer")
             textSize = 22f
             gravity = android.view.Gravity.CENTER
         }

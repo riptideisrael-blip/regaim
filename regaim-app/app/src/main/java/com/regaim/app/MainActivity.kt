@@ -204,8 +204,8 @@ class MainActivity : AppCompatActivity() {
         val story = if (today.isNotEmpty()) MemoryStore.story(this, today.first().dayKey) else ""
         storyText.text = when {
             story.isNotEmpty() -> story
-            today.isEmpty() -> L.t("הסיפור של היום עוד לא התחיל. הפעל את Moments, ובערב יחכה לך כאן סיכום חם של היום.", "Today's story hasn't started yet. Turn on Moments, and this evening a warm recap of your day will be waiting here.")
-            !ClaudeClient.hasKey(this) -> L.t("כדי שאכתוב את סיפור היום, הוסף מפתח AI בלשונית \"שאל\".", "To write today's story, add an AI key in the \"Ask\" tab.")
+            today.isEmpty() -> L.t("הסיפור של היום עוד לא התחיל. הפעילו את Moments, ובערב יחכה לכם כאן סיכום חם של היום.", "Today's story hasn't started yet. Turn on Moments, and this evening a warm recap of your day will be waiting here.")
+            !ClaudeClient.hasKey(this) -> L.t("כדי שנכתוב את סיפור היום, הפעילו \"הבנת רגעים\" בהגדרות.", "To write today's story, turn on \"Moment understanding\" in Settings.")
             today.size < 2 -> L.t("נתפס רגע אחד היום. מעוד רגע אחד אכתוב כאן את סיפור היום.", "One moment caught today. One more and I'll write today's story here.")
             else -> L.t("כותבת את סיפור היום...", "Writing today's story...")
         }

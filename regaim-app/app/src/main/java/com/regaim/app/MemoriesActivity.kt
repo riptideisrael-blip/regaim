@@ -115,10 +115,10 @@ class MemoriesActivity : AppCompatActivity() {
             addView(ImageView(this@MemoriesActivity).apply {
                 setImageResource(R.drawable.ic_trash)
                 setColorFilter(ui.color(R.color.ink_soft))
-                setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(8))
+                setPadding(ui.dp(14), ui.dp(13), ui.dp(14), ui.dp(13))
                 contentDescription = L.t("סל המחזור", "Trash")
                 background = ContextCompat.getDrawable(this@MemoriesActivity, R.drawable.chat_chip_bg)
-                layoutParams = LinearLayout.LayoutParams(ui.dp(40), ui.dp(38)).apply { marginEnd = ui.dp(8) }
+                layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)).apply { marginEnd = ui.dp(8) }
                 setOnClickListener { TrashActivity.open(this@MemoriesActivity) }
             })
             addView(TextView(this@MemoriesActivity).apply {
@@ -163,7 +163,8 @@ class MemoriesActivity : AppCompatActivity() {
         selectBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundResource(R.drawable.nav_bg)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(64))
+            minimumHeight = ui.dp(64)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             visibility = View.GONE
         }
         fun act(icon: Int, label: String, color: Int = R.color.ink, f: () -> Unit) {

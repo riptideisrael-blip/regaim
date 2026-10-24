@@ -73,7 +73,7 @@ class ArrowGameActivity : AppCompatActivity() {
             val chip = TextView(this).apply {
                 text = (i + 1).toString(); textSize = 15f; gravity = Gravity.CENTER; typeface = DS.emphasis
                 contentDescription = L.t("שלב ${i + 1}", "Level ${i + 1}")
-                layoutParams = LinearLayout.LayoutParams(ui.dp(34), ui.dp(34)).apply { marginStart = ui.dp(6) }
+                layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)).apply { marginStart = ui.dp(6) }
                 setOnClickListener { if (!busy) setLevel(i) }
             }
             levelChips.add(chip); top.addView(chip)
@@ -137,6 +137,7 @@ class ArrowGameActivity : AppCompatActivity() {
 
     private fun modeButton(label: String) = TextView(this).apply {
         text = label; textSize = 14f; typeface = DS.emphasis; gravity = Gravity.CENTER
+        minHeight = ui.dp(48)
         setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(8))
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ui.dp(4); marginEnd = ui.dp(4) }
     }
@@ -144,6 +145,8 @@ class ArrowGameActivity : AppCompatActivity() {
     private fun styleModes(now: TextView, think: TextView) {
         for ((v, on) in listOf(now to !planning, think to planning)) {
             v.setTextColor(if (on) Color.rgb(255, 207, 74) else Color.rgb(255, 248, 231))
+            v.isSelected = on
+            androidx.core.view.ViewCompat.setStateDescription(v, if (on) L.t("נבחר", "Selected") else null)
             v.background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = ui.dp(14).toFloat(); setStroke(ui.dp(2), if (on) Color.rgb(255, 207, 74) else Color.argb(60, 255, 255, 255))
             }
@@ -168,7 +171,9 @@ class ArrowGameActivity : AppCompatActivity() {
         level = i
         plan.clear(); drawPlan()
         levelChips.forEachIndexed { k, c ->
-            c.background = DS.rounded(if (k == i) Color.rgb(255, 207, 74) else Color.argb(30, 255, 255, 255), ui.dp(17).toFloat())
+            c.background = DS.rounded(if (k == i) Color.rgb(255, 207, 74) else Color.argb(30, 255, 255, 255), ui.dp(24).toFloat())
+            c.isSelected = k == i
+            androidx.core.view.ViewCompat.setStateDescription(c, if (k == i) L.t("השלב הנוכחי", "Current level") else null)
             c.setTextColor(if (k == i) Color.rgb(43, 33, 24) else Color.rgb(255, 248, 231))
         }
         board.setLevel(ArrowGame.LEVELS[i])

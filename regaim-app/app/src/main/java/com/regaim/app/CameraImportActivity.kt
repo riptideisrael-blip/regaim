@@ -435,7 +435,7 @@ class CameraImportActivity : AppCompatActivity() {
         }
         val (fg, bg) = when (c.tier) {
             Tier.STRONG -> Color.WHITE to 0xFF87664F.toInt()
-            Tier.GOOD -> 0xFF87664F.toInt() to 0xFFF0E6DC.toInt()
+            Tier.GOOD -> 0xFF72513D.toInt() to 0xFFF0E6DC.toInt()
             Tier.MAYBE -> 0xFF555555.toInt() to 0xFFF0E6DC.toInt()
         }
         col.addView(TextView(this).apply {
@@ -457,11 +457,11 @@ class CameraImportActivity : AppCompatActivity() {
         val check = TextView(this).apply {
             textSize = 16f
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(ui.dp(36), ui.dp(36))
-            contentDescription = L.t("לשמור", "Keep")
+            layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
         }
         fun paint() {
             check.text = if (item.selected) "✓" else ""
+            check.contentDescription = Wording.state(L.t("לשמור את הרגע", "Keep this moment"), item.selected, L.t("מסומן", "checked"), L.t("לא מסומן", "not checked"))
             check.setTextColor(Color.WHITE)
             check.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
