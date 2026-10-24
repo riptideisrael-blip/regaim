@@ -51,4 +51,12 @@ class WordingTest {
         assertFalse(Wording.showBackupTip(hasMoments = true, copiesToGallery = true, answered = false))
         assertFalse(Wording.showBackupTip(hasMoments = true, copiesToGallery = false, answered = true))
     }
+
+    @Test fun digestLineSaysWhoWhenKnown() {
+        assertEquals("רוקדים ביחד בסלון · נעם ואבא", Wording.digestLine("רוקדים ביחד בסלון", listOf("נעם", "אבא")))
+        assertEquals("רוקדים בסלון", Wording.digestLine("רוקדים בסלון", emptyList()))
+        // A name the title already says isn't repeated.
+        assertEquals("נעם רוקד בסלון · אורי", Wording.digestLine("נעם רוקד בסלון", listOf("נעם", "אורי")))
+        assertEquals("כולם · א, ב וג", Wording.digestLine("כולם", listOf("א", "ב", "ג")))
+    }
 }

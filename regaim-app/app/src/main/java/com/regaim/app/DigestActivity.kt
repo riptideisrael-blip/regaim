@@ -49,7 +49,7 @@ object Digest {
     fun message(ctx: Context, week: List<Memory>): String {
         val who = who(ctx, week)
         val picks = PeriodVideo.pick(week)
-        val lines = ReelMaker.best(week).take(3).map { "• " + Fmt.title(it) }
+        val lines = ReelMaker.best(week).take(3).map { "• " + Wording.digestLine(Fmt.title(it), Fmt.names(it)) }
         return buildString {
             append(L.t("שבת שלום! 💛", "Happy Friday! 💛")).append('\n')
             append(

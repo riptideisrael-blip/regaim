@@ -26,6 +26,17 @@ object Wording {
     /** The one-time "your moments aren't backed up" card: once there are moments, only if no copy goes anywhere yet. */
     fun showBackupTip(hasMoments: Boolean, copiesToGallery: Boolean, answered: Boolean): Boolean = hasMoments && !copiesToGallery && !answered
 
+    /**
+     * A line of the grandparents' digest: the moment's title, with who is in it when the app knows (recognized faces
+     * or names the parent added) and the title doesn't already say so: "רוקדים ביחד בסלון · נעם ואבא".
+     */
+    fun digestLine(title: String, names: List<String>): String {
+        val missing = names.map { it.trim() }.filter { it.isNotEmpty() && !title.contains(it) }.distinct()
+        if (missing.isEmpty()) return title
+        val who = if (missing.size == 1) missing[0] else missing.dropLast(1).joinToString(", ") + L.t(" ו", " and ") + missing.last()
+        return "$title · $who"
+    }
+
     /** Developer words that a parent should never see. */
     private val TECH = Regex("(?i)supabase|\\bsql\\b|\\.sql|edge function|anonymous sign-?ins|debug|\\bhttp\\s*\\d{3}|\\(\\d{3}\\)|\\bjson\\b|\\bapi\\b|stack ?trace|exception")
 
