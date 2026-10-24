@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.regaim.app.ProfilePersistenceTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-06T09:16:33" hostname="0c99c8128098" time="0.018">
+  <properties/>
+  <testcase name="legacyChildrenKeepBirthdaysWhenGeneralMembersAreAdded" classname="com.regaim.app.ProfilePersistenceTest" time="0.014"/>
+  <testcase name="memberRenameKeepsIdentityAndChildCompatibility" classname="com.regaim.app.ProfilePersistenceTest" time="0.0"/>
+  <testcase name="familyWithoutChildrenIsCompleteAndDoesNotGuessSurname" classname="com.regaim.app.ProfilePersistenceTest" time="0.001"/>
+  <testcase name="legacyChildUpdatesPreservePartnerAndSelfPhoto" classname="com.regaim.app.ProfilePersistenceTest" time="0.0"/>
+  <testcase name="separateFamiliesRenderOnlyTheirConfiguredData" classname="com.regaim.app.ProfilePersistenceTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

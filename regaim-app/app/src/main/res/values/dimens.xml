@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Moments design system: radii, spacing and depth (read in code through DS.kt). -->
+<resources>
+    <dimen name="ds_radius_card">22dp</dimen>
+    <dimen name="ds_radius_button">18dp</dimen>
+    <dimen name="ds_radius_media">18dp</dimen>
+    <dimen name="ds_radius_chip">14dp</dimen>
+    <dimen name="ds_radius_dialog">24dp</dimen>
+    <dimen name="ds_pad_card">18dp</dimen>
+    <dimen name="ds_button_height">50dp</dimen>
+    <dimen name="ds_elevation_card">1dp</dimen>
+    <dimen name="ds_line">1dp</dimen>
+</resources>

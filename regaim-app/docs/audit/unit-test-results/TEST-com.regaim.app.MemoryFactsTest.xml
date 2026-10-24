@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.regaim.app.MemoryFactsTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-06T09:16:33" hostname="0c99c8128098" time="0.017">
+  <properties/>
+  <testcase name="descriptionsAreQuotedAsStoredDescriptions" classname="com.regaim.app.MemoryFactsTest" time="0.001"/>
+  <testcase name="missingDateDoesNotBecomeUnixEpoch" classname="com.regaim.app.MemoryFactsTest" time="0.001"/>
+  <testcase name="importedDateIsNotClaimedToBeCaptureDate" classname="com.regaim.app.MemoryFactsTest" time="0.013"/>
+  <testcase name="hiddenPeopleAreRemovedAndManualNamesHaveTheirOwnProvenance" classname="com.regaim.app.MemoryFactsTest" time="0.001"/>
+  <testcase name="placeUsesStoredName" classname="com.regaim.app.MemoryFactsTest" time="0.0"/>
+  <testcase name="unsupportedNarrativeQuestionsNeedMoreEvidence" classname="com.regaim.app.MemoryFactsTest" time="0.0"/>
+  <testcase name="noDescriptionIsExplicitlyUnknown" classname="com.regaim.app.MemoryFactsTest" time="0.0"/>
+  <testcase name="missingPlaceDoesNotInferPlaceFromCoordinates" classname="com.regaim.app.MemoryFactsTest" time="0.001"/>
+  <testcase name="missingPeopleAreUnknown" classname="com.regaim.app.MemoryFactsTest" time="0.0"/>
+  <testcase name="storedDateAndTimeAreAnsweredWithoutInference" classname="com.regaim.app.MemoryFactsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

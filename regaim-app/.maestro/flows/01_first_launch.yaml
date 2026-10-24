@@ -1,0 +1,20 @@
+appId: com.regaim.app.qa
+name: First launch, without an account
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- tapOn:
+    text: "Skip"
+    optional: true
+- tapOn:
+    text: "Continue without an account"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000
+- assertVisible:
+    id: "tabMemories"
+- takeScreenshot: 01_home

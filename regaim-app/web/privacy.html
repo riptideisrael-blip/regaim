@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מדיניות פרטיות · Moments</title>
+<meta name="theme-color" content="#FAF8F5">
+<style>
+  :root { --bg: #FAF8F5; --ink: #1F1D2B; --soft: #6E6A80; --line: #ECE7E1; --accent: #5B4FE0; }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; max-width: 720px; padding: 28px 16px 72px; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; line-height: 1.65; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 30px 0 6px; }
+  p, li, td, th { font-size: 16px; }
+  .soft { color: var(--soft); font-size: 14px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: start; vertical-align: top; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th { font-size: 14px; color: var(--soft); font-weight: 600; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+  [lang="en"] { direction: ltr; text-align: left; }
+  @media (max-width: 520px) { table, tbody, tr, td, th { display: block; } thead { display: none; } td { border: 0; padding: 2px 0; } tr { border-bottom: 1px solid var(--line); padding: 8px 0; } }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>מדיניות פרטיות</h1>
+<p class="soft">האפליקציה Moments (com.regaim.app) · עודכן: 14 באוקטובר 2026</p>
+
+<div class="card">
+  <p><b>בקצרה:</b> Moments שומרת רגעים משפחתיים. ההקלטה, זיהוי הרגעים וזיהוי הפנים קורים בטלפון שלכם, והזיכרונות נשמרים בטלפון.
+  מידע יוצא מהטלפון רק כשאתם בוחרים בפעולה שצריכה אותו: שיתוף עם המשפחה או בקהילה, תיאור בעזרת AI, יצירת ספר או סרט מצויר, או תשלום. לא מוכרים מידע ולא משתמשים בו לפרסום.</p>
+</div>
+
+<h2>1. מה נשאר רק בטלפון</h2>
+<ul>
+  <li><b>מצלמה ומיקרופון בזמן הקלטה אוטומטית:</b> הטלפון שומר בזיכרון זמני רק את השניות האחרונות ומוחק אותן כל הזמן. הקול נבדק בטלפון (מודל YAMNet) כדי לזהות צחוק ורגעים שמחים, ורק אז נשמר קליפ קצר בטלפון. כל עוד ההקלטה פועלת מוצגת התראה קבועה.</li>
+  <li><b>הזיכרונות עצמם</b> (קליפים, תמונות, תיאורים, תאריכים, שמות).</li>
+  <li><b>זיהוי פנים:</b> "טביעות" הפנים ושמות האנשים נשמרים בטלפון בלבד, מוצפנים במפתח של Android Keystore.</li>
+  <li><b>פרופיל המשפחה</b> (שמות, קרבה, תאריכי לידה, תמונות פרופיל) ודמויות שמורות מספרים.</li>
+  <li><b>מיקום משוער</b> (שכונה או עיר, לא כתובת מדויקת), שנשמר עם הרגע. את שם המקום מספק שירות המיקום של Android (Google).</li>
+  <li><b>ייבוא מ-Google Photos:</b> התמונות שבחרתם נקראות דרך Google Photos Picker ונשמרות בטלפון.</li>
+  <li><b>הקלטת הקול שלכם</b> לקריאת ספר.</li>
+</ul>
+<p>הסרת האפליקציה מוחקת את כל המידע הזה.</p>
+
+<h2>2. מה יוצא מהטלפון, ולאן</h2>
+<table>
+  <thead><tr><th>מתי</th><th>מה נשלח</th><th>לאן</th></tr></thead>
+  <tbody>
+    <tr><td>הרשמה והתחברות</td><td>מייל, שם, תמונת פרופיל (בהתחברות עם Google)</td><td>השרת של Moments (Supabase)</td></tr>
+    <tr><td>תיאור רגע ושאלות על הזיכרונות, רק אחרי שאישרתם את הרגע</td><td>כמה תמונות קטנות מהרגע, תאריך, שם מקום, שמות האנשים שזוהו או סומנו ברגע; בשאלות: השאלה ופרטי הרגעים הרלוונטיים</td><td>Claude של Anthropic, דרך השרת שלנו</td></tr>
+    <tr><td>כתיבת סיפור לספר</td><td>שם הילד, גיל, הנושא, הפרטים שכתבתם, שמות בני המשפחה והקשר אליהם, תיאור כתוב של רגעים שבחרתם (בלי תמונות)</td><td>Claude של Anthropic</td></tr>
+    <tr><td>ציור ספר, סרט מצויר, הנפשה</td><td>תמונות פנים שאישרתם, פריימים מהסרטון, הדמויות המצוירות ועמודי הספר</td><td>fal.ai, שמריצה מודלים של OpenAI (GPT Image) ושל Kling; תוצאות נמחקות בבקשה מיד אחרי ההורדה ותוקפן שעה</td></tr>
+    <tr><td>ציורי קומיקס (כשהאפשרות פעילה)</td><td>פריימים מהרגע</td><td>Gemini של Google, דרך השרת שלנו</td></tr>
+    <tr><td>שיתוף למעגל המשפחה</td><td>הקטע שבחרתם (וידאו עם קול) או תמונה, כותרת, תיאור, שמות ושם המקום; תגובות והודעות</td><td>השרת של Moments, גלוי רק לבני המעגל</td></tr>
+    <tr><td>שיתוף בקהילה</td><td>הרגע או עמודי הספר עם סימן Moments, כותרת, חוות דעת; מוצג רק השם הפרטי, בלי מיקום ובלי זמן הצילום</td><td>השרת של Moments, גלוי למשתמשים מחוברים בני 18 ומעלה</td></tr>
+    <tr><td>👍/👎 על רגעים (אפשר לכבות בהגדרות)</td><td>סוג הקול שהפעיל את השמירה וטווח הציון בלבד, בלי מדיה</td><td>השרת של Moments, לשיפור הזיהוי לכולם</td></tr>
+    <tr><td>תשלום</td><td>אסימון הרכישה, המוצר ומספר ההזמנה (פרטי כרטיס לא מגיעים אלינו)</td><td>Google Play והשרת שלנו</td></tr>
+  </tbody>
+</table>
+<p>לפני כל פעולה כזו האפליקציה מסבירה מה יישלח. השרת שלנו מעביר תמונות לשירותי ה-AI ולא שומר אותן.
+לפי Anthropic, מידע שנשלח דרך ה-API שלה נמחק תוך 30 יום (למעט חריגים כמו בדיקת שימוש לרעה). השירותים האלה פועלים כספקי שירות בשבילנו.</p>
+
+<h2>3. למה אנחנו משתמשים במידע</h2>
+<p>רק כדי להפעיל את מה שביקשתם: חשבון, שיתוף, תיאורים, ספרים וסרטים, תשלום, ושיפור זיהוי הרגעים. אין פרסומות, אין מכירת מידע ואין העברה לצד שלישי למטרות שלו.</p>
+
+<h2>4. ילדים</h2>
+<p>Moments מיועדת להורים ולמבוגרים, ולא לשימוש של ילדים. היא שומרת רגעים של ילדים לבקשת ההורים, ושליטה על מה שיוצא מהטלפון נשארת אצל ההורה. הקהילה פתוחה רק למי שאישר שהוא בן 18 ומעלה.</p>
+
+<h2>5. אבטחה</h2>
+<p>כל התקשורת מוצפנת (HTTPS). מדיה בקהילה ובמעגל המשפחה נפתחת רק למשתמשים מורשים, דרך קישורים זמניים. מפתחות שירותי ה-AI נשמרים רק בשרת.</p>
+
+<h2>6. כמה זמן שומרים</h2>
+<p>מידע בשרת נשמר עד שתמחקו אותו או את החשבון. פוסט אפשר למחוק בכל רגע. במחיקת החשבון נמחקים החשבון וכל מה שהעליתם, כמפורט ב<a href="delete-account.html">עמוד מחיקת החשבון</a>.</p>
+
+<h2>7. הזכויות שלכם</h2>
+<p>אפשר לבקש לראות, לתקן או למחוק את המידע שלכם. מחיקת חשבון: בהגדרות ← "מחיקת החשבון", או ב<a href="delete-account.html">עמוד המחיקה</a>.</p>
+
+<h2>8. יצירת קשר</h2>
+<p><a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a></p>
+<p class="soft">אם המדיניות תשתנה, נעדכן את התאריך למעלה, ובשינוי מהותי נודיע באפליקציה.</p>
+
+<hr>
+
+<div lang="en">
+<h1>Privacy policy</h1>
+<p class="soft">Moments (com.regaim.app) · Updated October 14, 2026</p>
+<p><b>In short:</b> Moments keeps family moments. Recording, moment detection and face recognition run on your phone, and your memories are stored on your phone.
+Data leaves the phone only for an action you choose that needs it: sharing with family or the community, AI descriptions, making an illustrated book or film, or paying. We don't sell data or use it for advertising.</p>
+<h2>Stays on the phone</h2>
+<p>The rolling camera/microphone buffer during automatic recording (only the last few seconds, constantly deleted; sound is analyzed on the phone), your memories, face prints and names (encrypted with Android Keystore), the family profile, approximate location (neighborhood or town; place names come from Android's location service), Google Photos items you pick, and voice recordings for books. Uninstalling the app removes all of it.</p>
+<h2>Leaves the phone</h2>
+<ul>
+  <li><b>Account:</b> email, name, profile photo → our server (Supabase).</li>
+  <li><b>AI descriptions and questions</b> (after you approve a moment): a few small pictures, date, place name, names recognized or tagged → Anthropic's Claude, via our server.</li>
+  <li><b>Book stories:</b> the child's name and age, the theme, your details, family names and relations, written descriptions of chosen moments (no photos) → Anthropic's Claude.</li>
+  <li><b>Book, film and animation drawings:</b> face photos you approved, video frames, drawn characters and pages → fal.ai (running OpenAI GPT Image and Kling models); results are deleted on request right after download and expire within an hour.</li>
+  <li><b>Comic drawings</b> (when on): frames → Google Gemini, via our server.</li>
+  <li><b>Family circle:</b> the clip (video with sound) or photo you share, title, text, names, place; comments and messages → our server, visible only to circle members.</li>
+  <li><b>Community:</b> what you post (with the Moments mark), title, review; first name only, no location or capture time → visible to signed-in members aged 18+.</li>
+  <li><b>👍/👎 on moments</b> (can be turned off): the trigger type and score range only, no media.</li>
+  <li><b>Payments:</b> purchase token, product and order number via Google Play (we never see card details).</li>
+</ul>
+<p>These providers act as our service providers. Anthropic states that API data is deleted within 30 days (with exceptions such as abuse monitoring).</p>
+<h2>Use</h2><p>Only to provide what you asked for. No ads, no sale of data, no sharing for third parties' own purposes.</p>
+<h2>Children</h2><p>Moments is for parents and adults, not for children's own use. It keeps children's moments at the parent's request, and the parent controls what leaves the phone. The community is limited to users who confirm they are 18+.</p>
+<h2>Security</h2><p>All traffic uses HTTPS. Shared media opens only for authorized users through temporary links. AI service keys are kept on the server only.</p>
+<h2>Retention and deletion</h2><p>Server data is kept until you delete it or your account: in the app (Settings → Delete account) or via the <a href="delete-account.html">account deletion page</a>.</p>
+<h2>Contact</h2><p><a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a></p>
+</div>
+<nav class="foot" aria-label="קישורים">
+  <a href="index.html">מעגל המשפחה</a>
+  <a href="privacy.html">מדיניות פרטיות</a>
+  <a href="accessibility.html">הצהרת נגישות</a>
+  <a href="delete-account.html">מחיקת חשבון</a>
+</nav>
+</body>
+</html>

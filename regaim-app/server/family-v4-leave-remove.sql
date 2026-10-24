@@ -1,0 +1,7 @@
+-- Family circle: leaving really leaves, and the owner can remove someone. Run once, after secure-family-circle-v3.sql.
+-- One statement per line (the Supabase editor on phones adds brackets to multi-line pastes).
+create or replace function public.leave_family(p_circle_id uuid) returns void language sql security definer set search_path = '' as $$ delete from public.family_memberships where circle_id = p_circle_id and user_id = auth.uid(); $$;
+create or replace function public.family_is_owner(p_circle_id uuid) returns boolean language sql stable security definer set search_path = '' as $$ select exists(select 1 from public.circles c where c.id = p_circle_id and c.owner_id = auth.uid()); $$;
+create or replace function public.remove_family_member(p_circle_id uuid, p_user_id uuid) returns void language plpgsql security definer set search_path = '' as $$ begin if not exists(select 1 from public.circles c where c.id = p_circle_id and c.owner_id = auth.uid()) then raise exception 'Only the family owner can remove members' using errcode = '42501'; end if; if p_user_id = auth.uid() then raise exception 'The owner cannot remove themselves' using errcode = '22023'; end if; delete from public.family_memberships where circle_id = p_circle_id and user_id = p_user_id; end; $$;
+revoke all on function public.leave_family(uuid), public.family_is_owner(uuid), public.remove_family_member(uuid, uuid) from public, anon;
+grant execute on function public.leave_family(uuid), public.family_is_owner(uuid), public.remove_family_member(uuid, uuid) to authenticated;

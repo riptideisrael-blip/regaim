@@ -1,0 +1,27 @@
+appId: com.regaim.app.qa
+name: Pitzki's screen opens, with the parent gate before the settings
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: ".*Go for a walk.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn: ".*Go for a walk.*"
+- extendedWaitUntil:
+    visible: "Hi, I'm Pitzki"
+    timeout: 20000
+- takeScreenshot: 04_pitzki
+# The settings ask a grown-up first (a sum): the gate must be there.
+- scrollUntilVisible:
+    element:
+      text: ".*Settings.*"
+    direction: DOWN
+    timeout: 15000
+- tapOn: ".*⚙️.*"
+- takeScreenshot: 04_parent_gate
+- back

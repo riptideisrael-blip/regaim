@@ -1,0 +1,13 @@
+# Maestro smoke tests for the QA build (com.regaim.app.qa: no paid AI, no updates, no crash reports).
+# Run: maestro test .maestro   (in CI: .github/workflows/qa.yml, on an Android emulator)
+# The emulator is in English, so the app is in English: texts below are the English ones.
+flows:
+  - "flows/*"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - 01_first_launch
+    - 02_tabs
+    - 03_settings
+    - 04_pitzki
+    - 05_arrows_game

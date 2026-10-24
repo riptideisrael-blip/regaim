@@ -1,0 +1,23 @@
+appId: com.regaim.app.qa
+name: Settings open, privacy and accessibility are there
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000
+- tapOn: "Profile and settings"
+- scrollUntilVisible:
+    element:
+      text: ".*Accessibility and contact.*"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: ".*Privacy policy.*"
+- takeScreenshot: 03_settings_top
+- scrollUntilVisible:
+    element:
+      text: "Also keep a copy in the phone's gallery"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: 03_settings_privacy
+- back

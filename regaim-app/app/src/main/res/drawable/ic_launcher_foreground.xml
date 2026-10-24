@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Moments: a memory bubble with a spark inside, two small bubbles rising -->
+    <path
+        android:fillColor="@color/ds_on_photo"
+        android:fillType="evenOdd"
+        android:pathData="M50,38a21,21 0,1 0,0.01 0zM50,42.5a16.5,16.5 0,1 1,-0.01 0z" />
+    <path
+        android:fillColor="@color/ds_on_photo"
+        android:pathData="M50,48.5C51.1,55.2 53.6,57.7 60.5,59C53.6,60.3 51.1,62.8 50,69.5C48.9,62.8 46.4,60.3 39.5,59C46.4,57.7 48.9,55.2 50,48.5Z" />
+    <path
+        android:fillColor="@color/ds_on_photo"
+        android:fillAlpha="0.85"
+        android:pathData="M71,32a6,6 0,1 0,0.01 0z" />
+    <path
+        android:fillColor="@color/ds_on_photo"
+        android:fillAlpha="0.6"
+        android:pathData="M73,26.3a3.2,3.2 0,1 0,0.01 0z" />
+</vector>

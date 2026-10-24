@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A thin, rounded video timeline (3dp), like Instagram and YouTube. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background" android:gravity="center_vertical|fill_horizontal">
+        <shape android:shape="rectangle">
+            <size android:height="3dp" />
+            <corners android:radius="2dp" />
+            <solid android:color="@color/ds_photo_track" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress" android:gravity="center_vertical|fill_horizontal">
+        <scale android:scaleWidth="100%">
+            <shape android:shape="rectangle">
+                <size android:height="3dp" />
+                <corners android:radius="2dp" />
+                <solid android:color="@color/ds_on_photo" />
+            </shape>
+        </scale>
+    </item>
+</layer-list>

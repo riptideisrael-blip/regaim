@@ -8,7 +8,7 @@ name: Deploy family web page (Netlify)
 on:
   push:
     branches: [main]
-    paths: [regaim-app.zip]
+    paths: ["regaim-app.zip", "regaim-app/web/**"]
   workflow_dispatch: {}
 
 permissions:
@@ -23,7 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unzip
-        run: unzip -oq regaim-app.zip
+        # The code is in the repository (regaim-app/); an old-style upload of regaim-app.zip is used only if it isn't.
+        run: if [ -d regaim-app/app ]; then echo "source from the repository"; else unzip -oq regaim-app.zip; fi
       - name: Deploy
         run: |
           if [ -z "$NETLIFY_AUTH_TOKEN" ]; then

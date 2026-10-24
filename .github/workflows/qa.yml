@@ -1,0 +1,87 @@
+name: QA (emulator tests)
+
+# Builds the QA app (com.regaim.app.qa: no paid AI, no updates, no crash reports), runs the unit tests, then the
+# Maestro smoke tests (regaim-app/.maestro) on an Android emulator. Screenshots and the report are kept with the run.
+# Runs on every pull request (a change waiting for approval) and by hand (Actions > QA > Run workflow).
+
+on:
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source
+        run: if [ -d regaim-app/app ]; then echo "source from the repository"; else unzip -oq regaim-app.zip; fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Laughter model
+        working-directory: regaim-app
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fL --retry 3 -o app/src/main/assets/yamnet.tflite "https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/audio_classification/android/lite-model_yamnet_classification_tflite_1.tflite"
+      - name: Unit tests
+        id: unit
+        continue-on-error: true
+        working-directory: regaim-app
+        run: gradle :app:testDebugUnitTest --no-daemon
+      - name: Build the QA app
+        working-directory: regaim-app
+        run: gradle :app:assembleQa --no-daemon
+      - name: Allow the emulator (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Smoke tests on an emulator
+        id: maestro
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash regaim-app/scripts/run_maestro.sh
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## QA"
+            echo "- Unit tests: ${{ steps.unit.outcome }}"
+            echo "- Maestro: ${{ steps.maestro.outcome }}"
+            if [ -f maestro-report.xml ]; then
+              python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          r = ET.parse("maestro-report.xml").getroot()
+          for tc in r.iter("testcase"):
+              bad = tc.find("failure") is not None or tc.find("error") is not None
+              print(f"  - {'❌' if bad else '✅'} {tc.get('name')}")
+          PY
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-screenshots-and-report
+          path: |
+            maestro-out/
+            maestro-report.xml
+            regaim-app/app/build/reports/tests/
+          if-no-files-found: ignore
