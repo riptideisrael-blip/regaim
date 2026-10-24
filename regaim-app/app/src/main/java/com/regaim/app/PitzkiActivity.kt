@@ -287,15 +287,7 @@ class PitzkiActivity : AppCompatActivity() {
         box.addView(ui.button(L.t("🎥 טיול מוקלט לשיתוף", "🎥 A recorded walk to share"), primary = false, top = 10) { ParentGate.ask(this) { askToRecord() } })
         // A pilot: the child talks with Pitzki (questions, pictures to tap, his voice). The parent starts it.
         box.addView(ui.button(L.t("💬 לדבר עם פיצקי (חדש)", "💬 Talk with Pitzki (new)"), primary = false, top = 10) {
-            AlertDialog.Builder(this)
-                .setTitle(L.t("שיחה עם פיצקי", "Talking with Pitzki"))
-                .setMessage(L.t("פיצקי ישאל כמה שאלות קצרות (צבעים, חיות, בטיחות, נימוס…), יקשיב ויענה, ואחר כך תור הילד לספר לו דברים ולשאול אותו. אפשר לענות בקול או בלחיצה על תמונה. כ-5 דקות, עם הורה ליד. " +
-                    "מה שהילד אומר עובר רק דרך זיהוי הדיבור של הטלפון, ולא נשמר. פיצקי עונה מתוך תשובות שנכתבו מראש, בלי AI, ולא חוזר על מילים לא יפות. בסוף תראו מה דיברו.",
-                    "Pitzki asks a few short questions (colors, animals, safety, manners…), listens and answers; then it's the child's turn to tell him things and ask him. Answer out loud or tap a picture. About 5 minutes, with a parent nearby. " +
-                    "What the child says goes only through the phone's speech recognition and isn't saved. Pitzki answers from replies written ahead, with no AI, and never repeats rude words. You'll see what was said at the end."))
-                .setPositiveButton(L.t("להתחיל", "Start")) { _, _ -> PitzkiChatActivity.open(this, chosen?.memberId.orEmpty()) }
-                .setNegativeButton(L.t("לא עכשיו", "Not now"), null)
-                .show()
+            PitzkiTalkIntro.ask(this, chosen?.memberId.orEmpty())
         })
         val stars = chosen?.let { PitzkiStore.stars(this, it.memberId) } ?: 0
         val done = chosen?.let { PitzkiStore.lessonsDone(this, it.memberId) } ?: 0
@@ -2689,9 +2681,16 @@ class PitzkiActivity : AppCompatActivity() {
             text = "✕"; textSize = 22f; setTextColor(DS.onPhoto(this@PitzkiActivity))
             setShadowLayer(8f, 0f, 1f, DS.scrim(this@PitzkiActivity))
             setPadding(ui.dp(18), ui.dp(12), ui.dp(18), ui.dp(12))
-            contentDescription = L.t("יציאה", "Exit")
+            contentDescription = L.t("יציאה מהטיול (לחיצה ארוכה)", "Leave the walk (long press)")
+            gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48)
             layoutParams = lp(wrap, wrap, Gravity.TOP or Gravity.RIGHT)
-            setOnClickListener { stopLesson(); setup() }
+            // A small child taps everything: one tap only says how to leave; a long press (a grown-up's) leaves.
+            setOnClickListener {
+                android.widget.Toast.makeText(this@PitzkiActivity, L.t("ליציאה מהטיול: לחיצה ארוכה על ✕", "To leave the walk: press and hold ✕"), android.widget.Toast.LENGTH_SHORT).show()
+            }
+            setOnLongClickListener { stopLesson(); setup(); true }
+            androidx.core.view.ViewCompat.replaceAccessibilityAction(this, androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
+                L.t("יציאה מהטיול", "Leave the walk")) { _, _ -> stopLesson(); setup(); true }
         })
         progress = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

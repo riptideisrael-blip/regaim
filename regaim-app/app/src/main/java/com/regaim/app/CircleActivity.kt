@@ -288,6 +288,9 @@ class CircleActivity : AppCompatActivity() {
                         else L.t("אין חיבור כרגע. נסו שוב בעוד רגע.", "No connection right now. Try again in a moment.")
                     return@runOnUiThread
                 }
+                // What goes besides the moments, said before choosing (not only once it's on).
+                val alsoShared = L.t("עובר גם: הילדים מהפרופיל (שם, תאריך לידה, תמונה והדמות של הסרט), סרטים שיצרתם (במלואם) והסרטים של פיצקי עם הילדים. ילד שאין אצל השני נוסף אצלו לבד.",
+                    "Also shared: the children from the profile (name, birthday, picture and film character), films you made (whole) and the children's Pitzki films. A child the other phone doesn't have is added there.")
                 val others = members.filter { it.userId != Account.id(app) }
                 val chosen = others.firstOrNull { it.userId == status.first }
                 line.text = when {
@@ -296,13 +299,19 @@ class CircleActivity : AppCompatActivity() {
                     status.second -> L.t("✓ פעיל עם ${chosen.name}: רגעים חדשים עוברים ביניכם אוטומטית.", "✓ On with ${chosen.name}: new moments go between you automatically.")
                     else -> L.t("בחרת ב${chosen.name}. מחכים ש${chosen.name} יבחר/תבחר בך באפליקציה שלו/שלה.", "You chose ${chosen.name}. Waiting for ${chosen.name} to choose you in their app.")
                 }
+                if (chosen == null) card.addView(ui.hint(alsoShared, top = 4))
                 if (chosen != null && status.second) PartnerShare.turnOn(app, chosen.userId)
                 actions.addView(ui.action(if (chosen == null) L.t("לבחור את בן/בת הזוג", "Choose your partner") else L.t("להחליף", "Change")) {
                     if (others.isEmpty()) { toast(L.t("קודם הזמינו את בן/בת הזוג למעגל.", "First invite your partner to the circle.")); return@action }
                     AlertDialog.Builder(this).setTitle(L.t("עם מי לשתף את הגלריה?", "Share the gallery with?"))
                         .setItems(others.map { it.name.ifBlank { L.t("בן משפחה", "Family member") } }.toTypedArray()) { _, i ->
                             val who = others[i]
-                            Thread {
+                            val whoName = who.name.ifBlank { L.t("בן המשפחה", "this family member") }
+                            // Said once more, in the choice itself, before anything is shared.
+                            AlertDialog.Builder(this)
+                                .setTitle(L.t("לשתף עם $whoName?", "Share with $whoName?"))
+                                .setMessage(L.t("כל רגע שאחד מכם שומר יעבור אוטומטית לשני (קטעים של 10 שניות), רק לשניכם.\n\n", "Every moment one of you keeps goes automatically to the other (10-second clips), only to the two of you.\n\n") + alsoShared)
+                                .setPositiveButton(L.t("לשתף", "Share")) { _, _ -> Thread {
                                 val r = try { Circle.setPartner(app, who.userId) } catch (e: Exception) { null }
                                 runOnUiThread {
                                     if (isDestroyed) return@runOnUiThread
@@ -310,12 +319,13 @@ class CircleActivity : AppCompatActivity() {
                                     if (r) { PartnerShare.turnOn(app, who.userId); Thread { PartnerShare.sync(app) }.start() }
                                     render()
                                 }
-                            }.start()
+                            }.start() }
+                                .setNegativeButton(L.t("ביטול", "Cancel"), null)
+                                .show()
                         }.show()
                 })
                 if (chosen != null && status.second) {
-                    card.addView(ui.hint(L.t("עובר גם: הילדים מהפרופיל (שם, תאריך לידה, תמונה והדמות של הסרט), סרטים שיצרתם (במלואם) והסרטים של פיצקי עם הילדים. ילד שאין אצל השני נוסף אצלו לבד.",
-                        "Also shared: the children from the profile (name, birthday, picture and film character), films you made (whole) and the children's Pitzki films. A child the other phone doesn't have is added there."), top = 4))
+                    card.addView(ui.hint(alsoShared, top = 4))
                     if (!PartnerShare.sharingOld(app)) actions.addView(ui.action(L.t("לשתף גם את כל הישנים", "Share all the older ones too")) {
                         PartnerShare.shareOld(app)
                         Thread { PartnerShare.sync(app) }.start()

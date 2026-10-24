@@ -178,7 +178,9 @@
     t.textContent = "יש לכם את אפליקציית Moments?";
     const b = document.createElement("a");
     b.textContent = "הצטרפו דרך האפליקציה ›";
-    b.href = "intent://join?" + q + "#Intent;scheme=moments;package=com.regaim.app;end";
+    // Without the app on this phone, Android comes back here (not to a store page where the app may not be).
+    const back = location.origin + location.pathname + location.search + "#noapp";
+    b.href = "intent://join?" + q + "#Intent;scheme=moments;package=com.regaim.app;S.browser_fallback_url=" + encodeURIComponent(back) + ";end";
     b.setAttribute("style", "background:#fff;color:#2B2B2B;border-radius:999px;padding:8px 14px;text-decoration:none;font-weight:600;white-space:nowrap");
     bar.appendChild(t); bar.appendChild(b);
     document.body.insertBefore(bar, document.body.firstChild);
@@ -215,6 +217,11 @@
   // What someone is typing in a comment box survives a refresh of the feed.
   const drafts = {};
 
+  // Came back from "join through the app" on a phone without it: say what to do, and stay on this page.
+  if (location.hash === "#noapp") {
+    history.replaceState(null, "", location.pathname + location.search);
+    setTimeout(() => toast("האפליקציה עוד לא מותקנת בטלפון הזה. אפשר להמשיך כאן: לראות את הרגעים ולהגיב. להתקנה, בקשו ממי ששלח לכם את ההזמנה."), 400);
+  }
   function toast(msg) {
     const t = $("toast"); t.textContent = msg; t.style.display = "block";
     clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = "none"; }, 2600);

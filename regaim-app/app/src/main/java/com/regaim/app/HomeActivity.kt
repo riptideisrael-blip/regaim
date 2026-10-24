@@ -586,7 +586,8 @@ class HomeActivity : AppCompatActivity() {
         row.addView(chip(L.t("🌳 יוצאים לטיול", "🌳 Go for a walk"), true) { PitzkiActivity.open(this) })
         row.addView(chip(L.t("💬 לדבר עם פיצקי", "💬 Talk with Pitzki"), false) {
             val kid = PitzkiStore.children(this).firstOrNull()
-            if (kid != null) PitzkiChatActivity.open(this, kid.memberId) else PitzkiActivity.open(this)
+            // Through the same explanation as on Pitzki's screen (the microphone listens to the child).
+            if (kid != null) PitzkiTalkIntro.ask(this, kid.memberId) else PitzkiActivity.open(this)
         })
         bottom.addView(row)
         box.addView(bottom, android.widget.FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
