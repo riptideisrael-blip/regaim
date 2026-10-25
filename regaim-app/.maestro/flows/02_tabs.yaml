@@ -1,0 +1,22 @@
+appId: com.regaim.app.qa
+name: Every tab opens
+---
+- runFlow: ../common/home.yaml
+- tapOn:
+    id: "tabMemories"
+- assertVisible:
+    id: "tabMemories"
+- takeScreenshot: 02_memories
+- tapOn:
+    id: "tabStudio"
+- takeScreenshot: 02_studio
+- tapOn:
+    id: "tabFamily"
+- takeScreenshot: 02_family
+- tapOn:
+    id: "tabCommunity"
+- takeScreenshot: 02_community
+- tapOn:
+    id: "tabHome"
+- assertVisible:
+    id: "tabHome"

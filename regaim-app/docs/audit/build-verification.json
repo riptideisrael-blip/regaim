@@ -1,0 +1,72 @@
+{
+  "final_build": "PASS",
+  "log": "/workspace/scratch/324cbd36f07b/final-validation-build.log",
+  "tasks": 99,
+  "executed": 25,
+  "up_to_date": 74,
+  "duration": "1m 6s",
+  "versionCode": 15,
+  "versionName": "0.15",
+  "tests": [
+    {
+      "name": "com.regaim.app.HighlightPolicyTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.regaim.app.MemoryAnalysisMergeTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.regaim.app.MemoryFactsTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.regaim.app.ProfilePersistenceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "total_tests": 39,
+  "lint": {
+    "Warning": 188
+  },
+  "artifacts": [
+    {
+      "path": "/workspace/scratch/324cbd36f07b/project/regaim-app/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 90115055,
+      "sha256": "0b4c3c7bb22054c461623040e69a24a391be6105406a31de886d9d5ecb1db243",
+      "bundled_model_sha256": "10c95ea3eb9a7bb4cb8bddf6feb023250381008177ac162ce169694d05c317de"
+    },
+    {
+      "path": "/workspace/scratch/324cbd36f07b/project/regaim-app/app/build/outputs/apk/release/app-release-unsigned.apk",
+      "bytes": 88275942,
+      "sha256": "c51562311be56f143b4b0609690df56e2b5ed03680d818b97aefc3c78385776b",
+      "bundled_model_sha256": "10c95ea3eb9a7bb4cb8bddf6feb023250381008177ac162ce169694d05c317de"
+    }
+  ],
+  "native_ui_verified": false,
+  "native_ui_reason": "Software emulator did not finish framework boot. Premature APK install failed in OS PackageManagerInternal initialization. Emulator stopped when memory reached 8189 MiB of 8192 MiB during build; no app launch/screenshot claimed.",
+  "live_backend_verified": false,
+  "capture_hardware_verified": false,
+  "verified_at_utc": "2026-10-06T09:18:47.224521+00:00",
+  "toolchain": {
+    "gradle": "8.7",
+    "jdk": "OpenJDK 17.0.20",
+    "android_compile_sdk": 34,
+    "android_build_tools": "34.0.0"
+  },
+  "debug_signature_verified": true,
+  "debug_signature_matches_original_baseline": true,
+  "release_signature_verified": false,
+  "release_unsigned_confirmed": true,
+  "baseline_build_log": "/workspace/scratch/324cbd36f07b/baseline-source-build.log",
+  "lint_report": "/workspace/scratch/324cbd36f07b/project/regaim-app/app/build/reports/lint-results-debug.xml",
+  "unit_test_report": "/workspace/scratch/324cbd36f07b/project/regaim-app/app/build/reports/tests/testDebugUnitTest/index.html"
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="motionTag" type="id" />
+    <item name="fontApplied" type="id" />
+    <item name="tagBarsApplied" type="id" />
+    <item name="tagA11yApplied" type="id" />
+</resources>

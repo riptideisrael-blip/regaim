@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path name="comics" path="comics/" />
+    <cache-path name="share" path="share/" />
+    <cache-path name="update" path="update/" />
+    <files-path name="edited_media" path="edited_media/" />
+    <files-path name="moments_media" path="moments_media/" />
+    <external-path name="recorded_memories" path="Movies/Moments/" />
+</paths>

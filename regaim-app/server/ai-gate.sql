@@ -1,0 +1,9 @@
+-- AI gate budget: a call counter per family (or per user without a family) per month. No content is stored.
+-- One statement per line (the Supabase editor on phones adds brackets to multi-line pastes). Run once.
+create table if not exists public.ai_usage (budget_key text not null, month text not null, calls int not null default 0, images int not null default 0, primary key (budget_key, month));
+alter table public.ai_usage enable row level security;
+create or replace function public.ai_budget_key(p_user uuid) returns text language plpgsql security definer set search_path = public as $$ declare k text; begin begin select 'family:' || circle_id::text into k from family_memberships where user_id = p_user order by joined_at limit 1; exception when others then k := null; end; return coalesce(k, 'user:' || p_user::text); end $$;
+create or replace function public.ai_use(p_user uuid, p_images int, p_limit int) returns int language plpgsql security definer set search_path = public as $$ declare k text := public.ai_budget_key(p_user); m text := to_char(now(), 'YYYY-MM'); c int; begin insert into ai_usage(budget_key, month) values (k, m) on conflict do nothing; update ai_usage set calls = calls + 1, images = images + p_images where budget_key = k and month = m and calls < p_limit returning calls into c; return coalesce(c, -1); end $$;
+create or replace function public.ai_left(p_user uuid, p_limit int) returns int language plpgsql security definer set search_path = public as $$ begin return p_limit - coalesce((select calls from ai_usage where budget_key = public.ai_budget_key(p_user) and month = to_char(now(), 'YYYY-MM')), 0); end $$;
+revoke all on function public.ai_budget_key(uuid), public.ai_use(uuid, int, int), public.ai_left(uuid, int) from public, anon, authenticated;
+grant execute on function public.ai_budget_key(uuid), public.ai_use(uuid, int, int), public.ai_left(uuid, int) to service_role;

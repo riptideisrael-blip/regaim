@@ -1,0 +1,27 @@
+appId: com.regaim.app.qa
+name: First launch, without an account
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- tapOn:
+    text: "Skip"
+    optional: true
+# The welcome screen is taller than the phone: its buttons are below the fold.
+- scrollUntilVisible:
+    element:
+      text: "Continue without an account"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: "Continue without an account"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000
+- assertVisible:
+    id: "tabMemories"
+- takeScreenshot: 01_home

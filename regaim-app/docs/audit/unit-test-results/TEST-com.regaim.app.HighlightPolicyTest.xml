@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.regaim.app.HighlightPolicyTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-10-06T09:16:32" hostname="0c99c8128098" time="0.016">
+  <properties/>
+  <testcase name="missingOrInvalidMarkersUseTheMiddleWithFallbackProvenance" classname="com.regaim.app.HighlightPolicyTest" time="0.013"/>
+  <testcase name="selectedIntervalsAcceptBothLengthBoundariesAndClipEdges" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="malformedSelectionWithoutAMarkerUsesFallback" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="nonpositiveDurationsHaveNoWindow" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="markersNearEitherEdgeClampWithoutShorteningThePreview" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="malformedOrUnsuitableSelectionsFallBackToKnownMarker" classname="com.regaim.app.HighlightPolicyTest" time="0.001"/>
+  <testcase name="shortClipsUseTheirEntireDuration" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="provenanceFlagsAndLabelsMatchTheActualChoice" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="largeDurationsDoNotOverflowWindowBounds" classname="com.regaim.app.HighlightPolicyTest" time="0.001"/>
+  <testcase name="unsupportedSourcesNeverBecomeSelectedHighlights" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="selectedIntervalIsPreservedEvenWhenItsMarkerIsElsewhere" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="knownMarkerCentersThePreview" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <testcase name="imagesNeverGetAVideoWindow" classname="com.regaim.app.HighlightPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

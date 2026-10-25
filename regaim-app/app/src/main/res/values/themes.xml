@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Moments: Minimal Luxury. Every color here comes from colors.xml (the design system). -->
+    <style name="Theme.Regaim" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/ds_button</item>
+        <item name="colorOnPrimary">@color/ds_on_button</item>
+        <item name="colorPrimaryContainer">@color/ds_card_alt</item>
+        <item name="colorOnPrimaryContainer">@color/ds_ink</item>
+        <item name="colorSecondary">@color/ds_primary</item>
+        <item name="colorSecondaryContainer">@color/ds_button_secondary</item>
+        <item name="colorOnSecondaryContainer">@color/ds_ink</item>
+        <item name="colorSurface">@color/ds_bg</item>
+        <item name="colorOnSurface">@color/ds_ink</item>
+        <item name="colorSurfaceVariant">@color/ds_card</item>
+        <item name="colorOnSurfaceVariant">@color/ds_ink_soft</item>
+        <item name="colorSurfaceContainerHigh">@color/ds_bg</item>
+        <item name="colorOutline">@color/ds_line</item>
+        <item name="colorError">@color/ds_error</item>
+        <item name="android:colorBackground">@color/ds_bg</item>
+        <item name="android:textColorPrimary">@color/ds_ink</item>
+        <item name="android:textColorSecondary">@color/ds_ink_soft</item>
+        <item name="android:textColorHint">@color/ds_ink_soft</item>
+        <item name="colorControlActivated">@color/ds_primary</item>
+        <item name="colorControlNormal">@color/ds_ink_soft</item>
+        <item name="colorAccent">@color/ds_primary</item>
+        <item name="android:statusBarColor">@color/ds_bg</item>
+        <item name="android:navigationBarColor">@color/ds_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@drawable/bg_gradient</item>
+        <!-- Pop-up dialogs: cream, rounded, the same buttons as the app. -->
+        <item name="alertDialogTheme">@style/Theme.Regaim.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Theme.Regaim.Dialog</item>
+    </style>
+
+    <style name="Theme.Regaim.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/ds_primary</item>
+        <item name="colorSurface">@color/ds_bg</item>
+        <item name="colorSurfaceContainerHigh">@color/ds_bg</item>
+        <item name="colorOnSurface">@color/ds_ink</item>
+        <item name="colorOnSurfaceVariant">@color/ds_ink_soft</item>
+        <item name="android:textColorPrimary">@color/ds_ink</item>
+        <item name="android:textColorSecondary">@color/ds_ink_soft</item>
+        <item name="shapeAppearanceCornerExtraLarge">@style/Shape.Regaim.Dialog</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Regaim.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Regaim.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Regaim.DialogButton</item>
+    </style>
+
+    <style name="Shape.Regaim.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/ds_radius_dialog</item>
+    </style>
+
+    <style name="Widget.Regaim.DialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/ds_primary</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+</resources>

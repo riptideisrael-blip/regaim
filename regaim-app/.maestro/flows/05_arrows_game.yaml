@@ -1,0 +1,30 @@
+appId: com.regaim.app.qa
+name: The arrows game opens and Pitzki moves
+---
+- runFlow: ../common/home.yaml
+- scrollUntilVisible:
+    element:
+      text: ".*Go for a walk.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn: ".*Go for a walk.*"
+- extendedWaitUntil:
+    visible: "Hi, I'm Pitzki"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "Walk with Pitzki"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Walk with Pitzki"
+- extendedWaitUntil:
+    visible: "Pitzki follows the arrows"
+    timeout: 15000
+- takeScreenshot: 05_arrows_start
+# The board is described for screen readers; the up arrow moves him a stone.
+- tapOn: "⬆️"
+- waitForAnimationToEnd
+- tapOn: "🐸"
+- waitForAnimationToEnd
+- takeScreenshot: 05_arrows_moved
+- tapOn: "Close"
