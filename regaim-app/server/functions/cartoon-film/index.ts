@@ -670,6 +670,8 @@ Deno.serve(async (req) => {
     // A book sends its own reference ("ref"): asking again for the same book never takes a second credit
     // (a phone on a weak signal may resend a request whose answer was lost). Needs book-credits.sql; without it, the old way.
     const ref = clean(body.ref, 80);
+    // The admin makes and tests films without spending film credits (his own account, checked by email here).
+    if (action === "reserve" && PRINT_ADMINS.includes(String(u?.user?.email ?? "").toLowerCase())) return json({ ok: true, charged: false });
     if (action === "reserve" && ref) {
       const { data, error } = await admin.rpc("film_reserve_once", { p_user: uid, p_ref: ref, p_again: body.again === true });
       if (!error) {

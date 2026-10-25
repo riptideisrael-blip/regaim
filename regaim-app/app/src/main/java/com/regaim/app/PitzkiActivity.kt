@@ -146,7 +146,7 @@ class PitzkiActivity : AppCompatActivity() {
         }
         // The title and Pitzki moving at the top stay put (the rest below is drawn again as things change).
         outer.addView(topBar())
-        outer.addView(hero())
+        outer.addView(hero().also { heroView = it })
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         outer.addView(box)
         scroll.addView(outer)
@@ -211,6 +211,8 @@ class PitzkiActivity : AppCompatActivity() {
 
     /** Started again when the screen comes back (a video view stops when the screen is left). */
     private var heroVideo: FillVideoView? = null
+    /** Pitzki's big picture at the top: hidden while the child's own photo with Pitzki is shown (one big picture, not two). */
+    private var heroView: View? = null
 
     /** The settings page (the child's film, photos, microphone, admin), instead of the simple start page. */
     private var showSettings = false
@@ -222,10 +224,32 @@ class PitzkiActivity : AppCompatActivity() {
             PitzkiStore.awaitingIntro(this, c) ||
             (PitzkiScript.CHILD_KEYS.any { PitzkiStore.clipFile(this, c.memberId, it).exists() } && !PitzkiStore.reviewed(this, c.memberId))
 
+    /** A short card on the start page: what about the child's film waits for the parent, and a button to it. */
+    private fun filmWaiting(c: PitzkiStore.Child): View {
+        val name = c.kid.name
+        val running = PitzkiStore.drawing?.let { !it.finished && (it.member == c.memberId || it.member.endsWith(c.memberId)) } == true
+        val text = when {
+            running -> L.t("⏳ מציירים עכשיו את $name. אפשר לצאת לטיול בינתיים.", "⏳ $name is being drawn now. You can go for a walk meanwhile.")
+            PitzkiStore.heroCandidate(this, c.memberId).exists() || PitzkiStore.candidate(this, c.memberId).exists() ->
+                L.t("✨ דמות חדשה של $name מחכה לאישור שלכם.", "✨ A new character of $name is waiting for your OK.")
+            PitzkiStore.awaitingIntro(this, c) -> L.t("👀 משהו בסרט של $name מחכה לאישור שלכם.", "👀 Something in $name's film is waiting for your OK.")
+            else -> L.t("👀 סצנות חדשות של $name מחכות שתעברו עליהן לפני הטיול.", "👀 New scenes of $name are waiting for you to go over them before the walk.")
+        }
+        val card = ui.card(top = 14)
+        card.addView(ui.text(text, 15f))
+        card.addView(ui.action(L.t("לסרט של $name ›", "To $name's film ›")) {
+            ParentGate.ask(this) { showSettings = true; renderSetup(); scrollTop() }
+        })
+        if (running) watchDrawing()
+        return card
+    }
+
     private fun renderSetup() {
         val box = setupBox ?: return
         box.removeAllViews()
-        if (showSettings) { renderSettings(box); return }
+        if (showSettings) { heroView?.visibility = View.VISIBLE; renderSettings(box); return }
+        val photo = chosen?.let { PitzkiStore.photos(this, it.memberId).firstOrNull() }
+        heroView?.visibility = if (photo != null) View.GONE else View.VISIBLE
         bigPhoto(box)
         setupTitle?.text = if (PitzkiScript.isNumbers) L.t("סופרים עם פיצקי", "Counting with Pitzki") else if (PitzkiScript.isPlay) L.t("משחקים עם פיצקי", "Games with Pitzki") else if (PitzkiScript.isNight) L.t("לילה טוב עם פיצקי", "Good night with Pitzki") else if (PitzkiScript.isFarm) L.t("החווה של פיצקי", "Pitzki's farm") else if (PitzkiScript.isTrain) L.t("תחנת הרכבת של פיצקי", "Pitzki's train station") else L.t("היער של פיצקי", "Pitzki's forest")
         box.addView(ui.heading(L.t("שלום, אני פיצקי", "Hi, I'm Pitzki"), 28f, top = 14))
@@ -261,7 +285,8 @@ class PitzkiActivity : AppCompatActivity() {
         // The child's film: here only when it needs the parent; everything else is in the settings.
         chosen?.let { c ->
             PitzkiVoice.sayName = c.kid.name to PitzkiStore.sayName(this, c.memberId)
-            if (needsParent(c)) box.addView(childCard(c))
+            // The film's whole card lives in the settings; here only one short line about what waits, and a way there.
+            if (needsParent(c)) box.addView(filmWaiting(c))
             else if (PitzkiScript.CHILD_KEYS.any { PitzkiStore.clipFile(this, c.memberId, it).exists() })
                 box.addView(ui.hint(L.t("✓ ${c.kid.name} ${if (c.kid.girl) "מצוירת" else "מצויר"} בתוך הטיול", "✓ ${c.kid.name} is in the walk"), top = 14))
         }
@@ -1242,7 +1267,8 @@ class PitzkiActivity : AppCompatActivity() {
                 syncOld(card, c)
                 if (PitzkiStore.needsAnimation(this, c)) card.addView(ui.button(
                     L.t("להנפיש: פיצקי ו$name ילכו ויטיילו", "Animate: Pitzki and $name walk and explore"), primary = true, top = 10) { confirmDraw(c, again = false, animate = true) })
-                if (c.photos.isNotEmpty()) card.addView(ui.action(L.t("$name לא מספיק דומה? ליצור דמות מהתמונות", "Not like $name enough? Make a character from the photos")) { confirmCharacter(c) })
+                // (Not when a drawn character already exists: "A new character" in step 2 does that.)
+                if (c.photos.isNotEmpty() && c.look?.hero != true) card.addView(ui.action(L.t("$name לא מספיק דומה? ליצור דמות מהתמונות", "Not like $name enough? Make a character from the photos")) { confirmCharacter(c) })
                 val row = ui.horizontal(top = 6)
                 row.addView(ui.action(L.t("ליצור מחדש", "Make again")) { confirmDraw(c, again = true, animate = clips > 0) })
                 // Short animations (from when the walks were 5 seconds): continued from their last frame, not made again.
