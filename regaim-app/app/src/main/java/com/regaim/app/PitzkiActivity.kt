@@ -106,6 +106,7 @@ class PitzkiActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        resumeCapture()
         try { if (recordingWalk) { recordingWalk = false; WalkRecordService.stop() } } catch (_: Exception) {}
         selfie?.stop()
         destroyed = true
@@ -137,6 +138,7 @@ class PitzkiActivity : AppCompatActivity() {
     private var setupBox: LinearLayout? = null
 
     private fun setup() {
+        resumeCapture() // a walk that ended (any way): the automatic recording comes back
         inLesson = false
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val scroll = ScrollView(this).apply { setBackgroundColor(DS.bg(this@PitzkiActivity)); isFillViewport = true }
@@ -2528,13 +2530,31 @@ class PitzkiActivity : AppCompatActivity() {
         // The child's own drawings wherever they exist (also when the lesson grew and some are still missing).
         useDrawn = chosen?.let { PitzkiStore.partial(this, it) > 0 } == true
         if (PitzkiStore.listenOn(this) && !micGranted()) requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 41)
+        // Moments' automatic recording holds the microphone: then Pitzki hears only silence. It pauses for the walk
+        // and starts again when the walk ends.
+        if (PitzkiStore.listenOn(this) && Status.running) {
+            pausedCapture = true
+            try { startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP)) } catch (_: Exception) { }
+            android.widget.Toast.makeText(this, L.t("ההקלטה האוטומטית נעצרה לזמן הטיול, כדי שפיצקי ישמע. היא תחזור בסוף.",
+                "Automatic recording is paused for the walk so Pitzki can hear. It comes back at the end."), android.widget.Toast.LENGTH_LONG).show()
+        }
         buildLesson()
         showScene()
         runBeat()
         showMicTip()
     }
 
+    /** The automatic recording was paused for this walk (it holds the microphone): started again when it ends. */
+    private var pausedCapture = false
+
+    private fun resumeCapture() {
+        if (!pausedCapture) return
+        pausedCapture = false
+        try { androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)) } catch (_: Exception) { }
+    }
+
     private fun stopLesson() {
+        resumeCapture()
         endRecording(share = false)
         if (::stage.isInitialized) lingering?.let { stage.removeView(it) }
         lingering = null
