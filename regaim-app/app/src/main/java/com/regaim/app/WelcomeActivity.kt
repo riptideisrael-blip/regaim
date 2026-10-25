@@ -207,7 +207,9 @@ class WelcomeActivity : AppCompatActivity() {
             for (r in 0 until 2) col.addView(photoTile(c * 2 + r, heights[c][r]))
             wall.addView(col)
         }
-        val hero = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(330)) }
+        // The pictures take at most about a quarter of the screen, so the buttons below fit without scrolling.
+        val heroH = minOf(ui.dp(330), (resources.displayMetrics.heightPixels * 0.27f).toInt())
+        val hero = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heroH) }
         hero.addView(wall)
         // Fade the pictures into the page.
         hero.addView(View(this).apply {
@@ -252,7 +254,7 @@ class WelcomeActivity : AppCompatActivity() {
             textSize = 18f
             gravity = Gravity.CENTER
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink_soft))
-            setPadding(0, ui.dp(6), 0, ui.dp(22))
+            setPadding(0, ui.dp(4), 0, ui.dp(14))
         })
 
         val points = listOf(
@@ -260,20 +262,17 @@ class WelcomeActivity : AppCompatActivity() {
             Triple("✨", L.t("מבין מה קרה ומספר את זה", "Understands and tells the story"), L.t("כותרת, תיאור וסיפור שבועי עם מוזיקה, כדי לחזור לרגעים גם אחרי שנים.", "A title, a description and a weekly story with music, so you can relive it years from now.")),
             Triple("👨‍👩‍👧", L.t("משפחה אחת, מעגל פרטי", "One family, one private circle"), L.t("משתפים רגעים נבחרים עם סבא וסבתא ועם מי שתזמינו, ורק איתם.", "Share the moments you choose with grandparents and anyone you invite, and only them.")),
         )
-        for ((icon, title, body) in points) {
-            val card = ui.card(top = 8)
-            val line = ui.horizontal(top = 0)
-            line.addView(TextView(this).apply { text = icon; textSize = 26f; setPadding(0, 0, ui.dp(12), 0) })
-            val texts = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            texts.addView(ui.text(title, 16f, bold = true))
-            texts.addView(ui.hint(body, top = 2))
-            line.addView(texts)
+        // One compact card: a line per point (the intro already told the longer story), so the buttons stay in view.
+        val card = ui.card(top = 0)
+        for ((i, p) in points.withIndex()) {
+            val (icon, title, body) = p
+            val line = ui.horizontal(top = if (i == 0) 0 else 10)
+            line.contentDescription = "$title. $body"
+            line.addView(TextView(this).apply { text = icon; textSize = 20f; setPadding(0, 0, ui.dp(10), 0); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+            line.addView(ui.text(title, 15f, bold = true).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
             card.addView(line)
-            root.addView(card)
         }
+        root.addView(card)
         root.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(14)) })
     }
 
