@@ -2316,6 +2316,16 @@ class PitzkiActivity : AppCompatActivity() {
         val text = ui.text("", 14f, R.color.ds_primary, bold = true, top = 4)
         box.addView(bar)
         box.addView(text)
+        // Not what you wanted? Stop: nothing more is drawn or sent (and paid for); what's done is kept.
+        if (!d.cancelled) box.addView(ui.action(L.t("⏹ לעצור", "⏹ Stop"), R.color.ds_error) {
+            AlertDialog.Builder(this)
+                .setTitle(L.t("לעצור?", "Stop?"))
+                .setMessage(L.t("לא יצוירו ולא יישלחו עוד סצנות. מה שכבר צויר נשמר. סצנות שכבר נשלחו להנפשה (כבר שולמו) נשמרות, ואפשר לאסוף אותן אחר כך בלי לשלם שוב. עצירה לוקחת עד כמה שניות.",
+                    "No more scenes are drawn or sent. What's drawn is kept. Scenes already sent to be animated (already paid) are kept, and can be collected later without paying again. Stopping takes a few seconds."))
+                .setPositiveButton(L.t("לעצור", "Stop")) { _, _ -> d.cancelled = true; d.note = L.t("עוצרים…", "Stopping…"); renderSetup() }
+                .setNegativeButton(L.t("להמשיך", "Keep going"), null)
+                .show()
+        })
         etas.add(Triple(d, bar, text))
         fillEta(d, bar, text)
         return box

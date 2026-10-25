@@ -286,8 +286,13 @@ object PitzkiStore {
     }
 
     /** What's being drawn right now (one child at a time), for the screen to show. */
+    /** Said when the parent stopped a drawing. */
+    fun STOPPED() = L.t("עצרתם. מה שכבר צויר נשמר.", "Stopped. What's already drawn is kept.")
+
     class Drawing(val member: String, @Volatile var done: Int = 0, @Volatile var failed: String = "", @Volatile var finished: Boolean = false) {
         /** "draw" (the pictures), then "anim" (bringing them to life); "character" for a new character. */
+        /** The parent pressed "stop": no more pictures or animations are sent (what's done or already sent is kept). */
+        @Volatile var cancelled = false
         @Volatile var phase = "draw"
             set(v) { field = v; phaseAt = System.currentTimeMillis() }
         /** When the current phase started. */
@@ -402,6 +407,7 @@ object PitzkiStore {
                 for ((i, n) in PitzkiScript.CHILD_KEYS.withIndex()) {
                     val f = sceneFile(app, c.memberId, n)
                     if (f.exists()) { d.done = i + 1; continue }
+                    if (d.cancelled) throw IllegalStateException(STOPPED())
                     // The first scene first: the parent sees how the child looks in the film and approves it,
                     // before the other drawings and the animations are paid for.
                     if (n != PitzkiScript.INTRO_KEY && !introApproved(app, c)) { d.waitingApproval = true; return@execute }
@@ -643,6 +649,7 @@ object PitzkiStore {
         val jobs = ArrayList<Triple<String, String, String>>()
         sent.forEach { (n, j) -> jobs.add(Triple(n, j.first, j.second)) }
         for (n in todo.filter { it !in sent }) {
+            if (d.cancelled) break // stopped: scenes not sent yet are not sent (and not paid for)
             try {
                 val bmp = BitmapFactory.decodeFile(picture(n).absolutePath) ?: continue
                 val start = startOf(n)?.let { BitmapFactory.decodeFile(it.absolutePath) }
@@ -683,6 +690,13 @@ object PitzkiStore {
         var errors = 0
         val until = System.currentTimeMillis() + 20 * 60_000L
         while (left.isNotEmpty() && System.currentTimeMillis() < until && errors <= 30) {
+            if (d.cancelled) {
+                // Already sent = already paid: kept, and collected later with one tap, without paying again.
+                savePending(app, store, left)
+                d.failed = STOPPED() + " " + L.t("סצנות שכבר נשלחו להנפשה ימשיכו להיות מוכנות, ואפשר לאסוף אותן אחר כך בלי לשלם שוב.",
+                    "Scenes already sent to be animated keep being made; you can collect them later without paying again.")
+                return
+            }
             Thread.sleep(6000)
             val token = Account.token(app)
             if (token == null) { errors++; d.note = L.t("החיבור לחשבון נותק, מנסים שוב…", "Signed out, trying again…"); continue }
