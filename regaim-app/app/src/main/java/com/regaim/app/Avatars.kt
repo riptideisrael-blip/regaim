@@ -8,7 +8,7 @@ import kotlin.math.min
 
 /** Profile pictures: memory-safe decoding, a face-friendly square crop (keeps the top of portraits), and name initials. */
 object Avatars {
-    private val cache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
+    private val cache = object : LruCache<String, Bitmap>(BitmapLru.share(16, 24 * 1024 * 1024)) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 

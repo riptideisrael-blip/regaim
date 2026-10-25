@@ -42,7 +42,7 @@ class BookActivity : AppCompatActivity() {
     private var bookView: BookLoadingView? = null
     private var bookViewFor = ""
     private val arrived = ArrayList<String>()
-    private val pictureCache = HashMap<String, android.graphics.Bitmap>()
+    private val pictureCache = BitmapLru(BitmapLru.share(8, 48 * 1024 * 1024)) // book pages are big: limited
 
     private fun bookView(bookId: String): BookLoadingView {
         if (bookViewFor != bookId) { bookView = null; bookViewFor = bookId; arrived.clear(); pictureCache.clear() }
@@ -79,7 +79,7 @@ class BookActivity : AppCompatActivity() {
 
     private val thumbs = java.util.concurrent.Executors.newFixedThreadPool(2)
     private var showMoments = false
-    private val thumbCache = HashMap<String, android.graphics.Bitmap>()
+    private val thumbCache = BitmapLru(BitmapLru.share(16, 16 * 1024 * 1024))
     private val picker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) BookMaker.current?.usePhoto(uri)
     }

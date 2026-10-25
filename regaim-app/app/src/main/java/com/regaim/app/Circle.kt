@@ -919,7 +919,7 @@ object Circle {
 
     // ---------- images from the web ----------
 
-    private val imgCache = object : android.util.LruCache<String, Bitmap>(16 * 1024 * 1024) {
+    private val imgCache = object : android.util.LruCache<String, Bitmap>(BitmapLru.share(16, 16 * 1024 * 1024)) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
