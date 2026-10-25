@@ -2,12 +2,15 @@ appId: com.regaim.app.qa
 name: The arrows game opens and Pitzki moves
 ---
 - runFlow: ../common/home.yaml
+# Pitzki lives in the Studio tab (not on the home screen).
+- tapOn:
+    id: "tabStudio"
 - scrollUntilVisible:
     element:
-      text: ".*Go for a walk.*"
+      text: ".*Pitzki's forest.*"
     direction: DOWN
     timeout: 10000
-- tapOn: ".*Go for a walk.*"
+- tapOn: ".*Pitzki's forest.*"
 - extendedWaitUntil:
     visible: "Hi, I'm Pitzki"
     timeout: 20000

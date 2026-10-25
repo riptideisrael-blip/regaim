@@ -2,12 +2,15 @@ appId: com.regaim.app.qa
 name: Pitzki's screen opens, with the parent gate before the settings
 ---
 - runFlow: ../common/home.yaml
+# Pitzki lives in the Studio tab (not on the home screen).
+- tapOn:
+    id: "tabStudio"
 - scrollUntilVisible:
     element:
-      text: ".*Go for a walk.*"
+      text: ".*Pitzki's forest.*"
     direction: DOWN
     timeout: 10000
-- tapOn: ".*Go for a walk.*"
+- tapOn: ".*Pitzki's forest.*"
 - extendedWaitUntil:
     visible: "Hi, I'm Pitzki"
     timeout: 20000

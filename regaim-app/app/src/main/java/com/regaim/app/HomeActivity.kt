@@ -237,7 +237,6 @@ class HomeActivity : AppCompatActivity() {
         content.removeAllViews()
         header()
         updateFab()
-        pitzkiCard()
         filmInProgress()
         peopleStrip(all)
         queueCard(waiting)
@@ -516,90 +515,6 @@ class HomeActivity : AppCompatActivity() {
     // ---------- studio ----------
 
     /** A 3D film being made right now: the way back to it, with how far it got. */
-    /**
-     * Pitzki, up front: moving (his forest loop, without sound) with two quick ways in, a walk or a talk. The
-     * highlight of the app for the kids.
-     */
-    private var pitzkiShown = false
-
-    private fun pitzkiCard() {
-        val w = resources.displayMetrics.widthPixels - ui.dp(32)
-        // Taller with a large phone font, so the title and the two buttons aren't cut.
-        val h = (ui.dp(190) * resources.configuration.fontScale.coerceIn(1f, 1.6f)).toInt()
-        val box = android.widget.FrameLayout(this).apply {
-            background = DS.rounded(android.graphics.Color.parseColor("#2E4A26"), ui.dp(24).toFloat())
-            clipToOutline = true
-            elevation = ui.dp(4).toFloat()
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h).apply { topMargin = ui.dp(14) }
-            contentDescription = L.t("פיצקי", "Pitzki")
-            setOnClickListener { PitzkiActivity.open(this@HomeActivity) }
-        }
-        // His picture at once; his moving loop on it when it's on the phone (the talk's place, or his song).
-        val still = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-        box.addView(still, android.widget.FrameLayout.LayoutParams(-1, -1))
-        // Pitzki himself, always moving (the parent's choice): his place as the picture under the moving loop.
-        val pic = PitzkiStore.sharedScene(this, PitzkiStore.CHAT).takeIf { it.exists() } ?: PitzkiStore.sharedScene(this, "song").takeIf { it.exists() }
-        // On its own thread: behind the other background work (the daily votes over the network) it could wait long,
-        // leaving an empty green card. A picture that can't be read falls back to Pitzki's own.
-        Thread {
-            val b = try { pic?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }) } } catch (_: Throwable) { null }
-                ?: try { PitzkiStore.art(applicationContext, "pitzki") } catch (_: Throwable) { null }
-            runOnUiThread { if (!isFinishing && b != null) still.setImageBitmap(b) }
-        }.start()
-        // Him looking at you first (the listening loop), else talking, else his song.
-        val loop = PitzkiStore.sharedClip(this, PitzkiStore.CHAT_LISTEN).takeIf { it.exists() && it.length() > 0 }
-            ?: PitzkiStore.sharedClip(this, PitzkiStore.CHAT).takeIf { it.exists() && it.length() > 0 }
-            ?: PitzkiStore.talkTest(this).takeIf { it.exists() && it.length() > 0 }
-        if (loop != null) {
-            // Wide video, a little cut at the top and bottom to fill the card.
-            // (A TextureView: a VideoView left a black block while the page scrolls.)
-            val video = FillVideoView(this).apply { alpha = 0f; muted = true }
-            box.addView(video, android.widget.FrameLayout.LayoutParams(w, maxOf(h, w * 9 / 16), Gravity.CENTER))
-            video.onReady = { video.animate().alpha(1f).setDuration(400).start() }
-            video.onFailed = { video.visibility = View.GONE }
-            video.play(loop.absolutePath)
-        } else {
-            // No loop yet: he sways gently.
-            still.animate().scaleX(1.06f).scaleY(1.06f).setDuration(4000).start()
-        }
-        // The words and the two ways in, over a soft shadow at the bottom.
-        val bottom = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(ui.dp(16), ui.dp(28), ui.dp(16), ui.dp(12))
-            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,
-                intArrayOf(android.graphics.Color.argb(200, 0, 0, 0), android.graphics.Color.TRANSPARENT))
-        }
-        bottom.addView(TextView(this).apply {
-            text = L.t("🧝 פיצקי מחכה לכם!", "🧝 Pitzki is waiting for you!")
-            textSize = 20f; typeface = DS.heading; setTextColor(android.graphics.Color.WHITE)
-        })
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, ui.dp(8), 0, 0) }
-        fun chip(label: String, primary: Boolean, go: () -> Unit) = TextView(this).apply {
-            text = label; textSize = 15f; typeface = DS.heading
-            setTextColor(if (primary) android.graphics.Color.WHITE else android.graphics.Color.parseColor("#2E2A24"))
-            gravity = Gravity.CENTER; minHeight = ui.dp(48)
-            setPadding(ui.dp(16), ui.dp(8), ui.dp(16), ui.dp(8))
-            background = DS.rounded(if (primary) DS.button(this@HomeActivity) else android.graphics.Color.argb(235, 255, 252, 245), ui.dp(20).toFloat())
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }
-            setOnClickListener { go() }
-        }
-        row.addView(chip(L.t("🌳 יוצאים לטיול", "🌳 Go for a walk"), true) { PitzkiActivity.open(this) })
-        row.addView(chip(L.t("💬 לדבר עם פיצקי", "💬 Talk with Pitzki"), false) {
-            val kid = PitzkiStore.children(this).firstOrNull()
-            // Through the same explanation as on Pitzki's screen (the microphone listens to the child).
-            if (kid != null) PitzkiTalkIntro.ask(this, kid.memberId) else PitzkiActivity.open(this)
-        })
-        bottom.addView(row)
-        box.addView(bottom, android.widget.FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
-        // A small hello: he pops in (once, not on every refresh of the screen).
-        if (!pitzkiShown) {
-            pitzkiShown = true
-            box.scaleX = 0.96f; box.scaleY = 0.96f; box.alpha = 0f
-            box.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(450).setInterpolator(android.view.animation.OvershootInterpolator()).start()
-        }
-        content.addView(box)
-    }
-
     private fun filmInProgress() {
         val s = CartoonFilm.current?.takeIf { it.isActive || it.state == CartoonFilm.Session.State.DONE } ?: return
         val done = s.state == CartoonFilm.Session.State.DONE
