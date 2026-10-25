@@ -35,10 +35,14 @@ jobs:
         id: unit
         continue-on-error: true
         working-directory: regaim-app
-        run: gradle :app:testDebugUnitTest --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --no-daemon 2>&1 | tee ../unit.log || { grep -E '^e: |FAILED|error:|What went wrong' -A3 ../unit.log | head -40 | sed 's/^/::error title=Unit tests::/'; exit 1; }
       - name: Build the QA app
         working-directory: regaim-app
-        run: gradle :app:assembleQa --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:assembleQa --no-daemon 2>&1 | tee ../qa-build.log || { grep -E '^e: |FAILED|error:|What went wrong|ERROR' -A3 ../qa-build.log | head -40 | sed 's/^/::error title=QA build::/'; exit 1; }
       - name: Allow the emulator (KVM)
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
