@@ -122,7 +122,8 @@ object Circle {
         p(ctx).edit().apply { if (memberId.isNullOrEmpty()) remove(k) else putString(k, memberId) }.apply()
     }
     fun code(ctx: Context) = p(ctx).getString("circle_code", "") ?: ""
-    fun name(ctx: Context) = p(ctx).getString("circle_name", "") ?: ""
+    /** The circle's name, in the app's language ("The רביבו family" saved in English reads "משפחת רביבו" in Hebrew). */
+    fun name(ctx: Context) = Wording.familyName(p(ctx).getString("circle_name", "") ?: "")
     fun me(ctx: Context) = (p(ctx).getString("circle_me", "") ?: "").ifEmpty {
         Profile.parentName(ctx).ifEmpty { Profile.relationLabel(Profile.role(ctx)) }.ifEmpty { L.t("אני", "Me") }
     }
@@ -776,7 +777,9 @@ object Circle {
                 try { mmr.release() } catch (_: Exception) {}
             }
         }
-        return Covers.get(ctx, m)
+        // The whole picture at a good size first: the card cover can fall back to the small round preview, which is
+        // a close crop of a face (a post then showed only a mouth and a shirt).
+        return Covers.sharp(ctx, m, 1280) ?: Covers.get(ctx, m)
     }
 
     private fun sharedKey(ctx: Context, memoryId: String) = "circle_shared_${Account.id(ctx)}_${circleId(ctx)}_$memoryId"

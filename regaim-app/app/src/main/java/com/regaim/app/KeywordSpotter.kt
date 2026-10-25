@@ -226,7 +226,14 @@ class KeywordSpotter(
                 try { recognizer?.destroy() } catch (_: Exception) {}
                 recognizer = null
             }
-            retry(if (errors > 5) 10_000 else 1_000)
+            // No internet (a walk outside): try again less and less often, up to once a minute, instead of every
+            // 10 seconds for hours (battery and heat). Back to normal as soon as it listens again.
+            val offline = error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT
+            retry(when {
+                offline && errors > 2 -> minOf(60_000L, 5_000L * errors)
+                errors > 5 -> 10_000L
+                else -> 1_000L
+            })
         }
     }
 }

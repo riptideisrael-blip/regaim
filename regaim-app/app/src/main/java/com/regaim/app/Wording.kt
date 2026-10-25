@@ -37,6 +37,22 @@ object Wording {
         return "$title · $who"
     }
 
+    /** A family's name in the app's language: "The X family" ↔ "משפחת X" (a name saved in the other language). */
+    fun familyName(saved: String): String {
+        val n = saved.trim()
+        val en = Regex("^The (.+) family$", RegexOption.IGNORE_CASE).find(n)?.groupValues?.get(1)?.trim()
+        val he = if (n.startsWith("משפחת ")) n.removePrefix("משפחת ").trim() else null
+        return when {
+            en != null -> L.t("משפחת $en", "The $en family")
+            he != null -> L.t("משפחת $he", "The $he family")
+            else -> n
+        }
+    }
+
+    /** A circle member's relation as the server has it: a placeholder ("בן/בת") says what to do instead. */
+    fun memberRelation(saved: String, label: String): String =
+        if (saved.isBlank() || saved.trim() in setOf("בן/בת", "בן משפחה", "בת משפחה", "member")) L.t("נגיעה לקישור", "Tap to link") else label
+
     /** Developer words that a parent should never see. */
     private val TECH = Regex("(?i)supabase|\\bsql\\b|\\.sql|edge function|anonymous sign-?ins|debug|\\bhttp\\s*\\d{3}|\\(\\d{3}\\)|\\bjson\\b|\\bapi\\b|stack ?trace|exception")
 

@@ -154,7 +154,7 @@ class FamilyActivity : AppCompatActivity() {
                 addView(mv.avatar(member.name, 48, byName = false, photoPath = linked?.photo.orEmpty()))
                 addView(ui.text(member.name, 14f, bold = true, top = 5))
                 val sub = when {
-                    linked == null -> Profile.relationLabel(member.relationship)
+                    linked == null -> Wording.memberRelation(member.relationship, Profile.relationLabel(member.relationship))
                     Profile.sameName(linked.name, member.name) -> "✓ " + Profile.relationLabel(linked.relation)
                     else -> "✓ " + linked.name
                 }

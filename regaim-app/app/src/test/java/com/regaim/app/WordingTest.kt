@@ -59,4 +59,16 @@ class WordingTest {
         assertEquals("נעם רוקד בסלון · אורי", Wording.digestLine("נעם רוקד בסלון", listOf("נעם", "אורי")))
         assertEquals("כולם · א, ב וג", Wording.digestLine("כולם", listOf("א", "ב", "ג")))
     }
+
+    @Test fun familyNameInTheAppLanguage() {
+        assertEquals("משפחת רביבו", Wording.familyName("The רביבו family"))
+        assertEquals("משפחת רביבו", Wording.familyName("משפחת רביבו"))
+        assertEquals("המעגל שלנו", Wording.familyName("המעגל שלנו"))
+    }
+
+    @Test fun memberRelationPlaceholderSaysWhatToDo() {
+        assertEquals("נגיעה לקישור", Wording.memberRelation("בן/בת", "בן/בת"))
+        assertEquals("נגיעה לקישור", Wording.memberRelation("", ""))
+        assertEquals("אמא", Wording.memberRelation("אמא", "אמא"))
+    }
 }

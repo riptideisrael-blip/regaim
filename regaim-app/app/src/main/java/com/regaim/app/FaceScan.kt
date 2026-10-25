@@ -30,6 +30,9 @@ object FaceScan {
         val app = ctx.applicationContext
         if (!PeopleStore.peopleEnabled(app)) return
         later(app)
+        // While recording, the camera, the encoder and the laugh model already work the phone hard (heat): faces
+        // are found after the recording stops (CaptureService kicks again then), or by the backup run.
+        if (Status.running) return
         if (!running.compareAndSet(false, true)) return
         Thread {
             try {
@@ -81,6 +84,7 @@ class FaceScanWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, param
     override fun doWork(): Result {
         val app = applicationContext
         if (!PeopleStore.peopleEnabled(app)) return Result.success()
+        if (Status.running) return Result.retry() // not while recording (heat): later
         // Stopped by Android halfway (battery got low...): the next run carries on where this one stopped.
         return if (FaceScan.drain(app) || isStopped) Result.success() else Result.retry()
     }

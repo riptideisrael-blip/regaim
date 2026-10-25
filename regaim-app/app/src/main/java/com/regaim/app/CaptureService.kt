@@ -91,6 +91,27 @@ class CaptureService : Service() {
     private var zoomRange: Pair<Float, Float>? = null
     @Volatile private var repeatingBuilder: CaptureRequest.Builder? = null
 
+    /**
+     * The small viewfinder stream is only fed while someone can see it (the record screen) or the face watcher uses
+     * it. With the screen off or the app closed, the camera sends only the recording stream: less work, less heat.
+     */
+    @Volatile private var previewTarget: Surface? = null
+    @Volatile private var previewOn = true
+    private val previewCheck = object : Runnable {
+        override fun run() {
+            if (!running) return
+            val want = Status.uiVisible || faceWatcher != null
+            val b = repeatingBuilder
+            val t = previewTarget
+            if (b != null && t != null && want != previewOn) try {
+                if (want) b.addTarget(t) else b.removeTarget(t)
+                session?.setRepeatingRequest(b.build(), null, camHandler)
+                previewOn = want
+            } catch (e: Exception) { Log.w(TAG, "preview on/off", e) }
+            camHandler?.postDelayed(this, 2000)
+        }
+    }
+
     /** Changes zoom live, without stopping the recording. */
     private fun applyZoom() {
         val range = zoomRange ?: return
@@ -333,6 +354,10 @@ class CaptureService : Service() {
     private fun stopCapture() {
         if (!running) return
         main.removeCallbacksAndMessages(null)
+        // The faces of the moments saved while recording are found now (not during the recording: heat). Its own
+        // handler: the service's callbacks are cleared when it stops.
+        val app = applicationContext
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ try { FaceScan.kick(app) } catch (_: Throwable) { } }, 3000)
         val pending = pendingTriggerUs
         if (pending >= 0) saveClip(pending, pendingLabel) // keep a moment that was mid-way
 
@@ -547,7 +572,11 @@ class CaptureService : Service() {
                             }
                         }
                         repeatingBuilder = req
+                        previewTarget = previewSurface
+                        previewOn = previewSurface != null
                         s.setRepeatingRequest(req.build(), null, handler)
+                        handler.removeCallbacks(previewCheck)
+                        if (previewSurface != null) handler.postDelayed(previewCheck, 2000)
                     } catch (e: Exception) {
                         Log.e(TAG, "repeating", e)
                         Status.error = L.t("המצלמה לא התחילה לצלם: ${e.message}", "The camera didn't start recording: ${e.message}")
