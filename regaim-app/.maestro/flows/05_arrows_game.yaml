@@ -1,11 +1,7 @@
 appId: com.regaim.app.qa
 name: The arrows game opens and Pitzki moves
 ---
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "tabHome"
-    timeout: 20000
+- runFlow: ../common/home.yaml
 - scrollUntilVisible:
     element:
       text: ".*Go for a walk.*"

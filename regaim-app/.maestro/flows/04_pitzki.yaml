@@ -1,11 +1,7 @@
 appId: com.regaim.app.qa
 name: Pitzki's screen opens, with the parent gate before the settings
 ---
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "tabHome"
-    timeout: 20000
+- runFlow: ../common/home.yaml
 - scrollUntilVisible:
     element:
       text: ".*Go for a walk.*"

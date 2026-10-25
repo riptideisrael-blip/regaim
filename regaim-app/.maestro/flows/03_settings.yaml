@@ -1,18 +1,14 @@
 appId: com.regaim.app.qa
 name: Settings open, privacy and accessibility are there
 ---
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "tabHome"
-    timeout: 20000
+- runFlow: ../common/home.yaml
 - tapOn: "Profile and settings"
 - scrollUntilVisible:
     element:
-      text: ".*Accessibility and contact.*"
+      text: ".*Privacy policy.*"
     direction: DOWN
     timeout: 15000
-- assertVisible: ".*Privacy policy.*"
+- assertVisible: ".*Accessibility and contact.*"
 - takeScreenshot: 03_settings_top
 - scrollUntilVisible:
     element:

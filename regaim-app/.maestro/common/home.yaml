@@ -1,0 +1,20 @@
+appId: com.regaim.app.qa
+name: (helper) open the app on the home screen, whatever screen an earlier test left
+---
+- launchApp
+- tapOn:
+    text: "Skip"
+    optional: true
+- scrollUntilVisible:
+    element:
+      text: "Continue without an account"
+    direction: DOWN
+    timeout: 5000
+    optional: true
+- tapOn:
+    text: "Continue without an account"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000

@@ -1,11 +1,7 @@
 appId: com.regaim.app.qa
 name: Every tab opens
 ---
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "tabHome"
-    timeout: 20000
+- runFlow: ../common/home.yaml
 - tapOn:
     id: "tabMemories"
 - assertVisible:
