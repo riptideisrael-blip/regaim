@@ -64,7 +64,8 @@ object Learning {
             )
         }
         val r = JSONObject().put("items", a).put("dismissed", arr(dismissed.takeLast(40))).put("updated", updated)
-        file(ctx).writeText(r.toString())
+        // All or nothing: a cut-off file would lose the rules the parent wrote.
+        if (!SafeFiles.write(file(ctx), r.toString())) throw java.io.IOException(L.t("לא הצלחנו לשמור", "Couldn't save"))
     }
 
     /** The old version kept a plain ✓/✗ text; turn it into items (without evidence). */
@@ -143,7 +144,7 @@ object Learning {
     private fun saveRejected(ctx: Context, list: List<Rejected>) {
         val a = JSONArray()
         list.forEach { a.put(JSONObject().put("text", it.text).put("time", it.time)) }
-        rejectedFile(ctx).writeText(a.toString())
+        if (!SafeFiles.write(rejectedFile(ctx), a.toString())) throw java.io.IOException(L.t("לא הצלחנו לשמור", "Couldn't save"))
     }
 
     /** "I didn't delete it because of that": drop a deleted example from learning. */

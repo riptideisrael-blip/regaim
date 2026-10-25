@@ -53,10 +53,18 @@ object SecureFiles {
             c.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, MAGIC.size, IV_LEN))
             String(c.doFinal(b, MAGIC.size + IV_LEN, b.size - MAGIC.size - IV_LEN), Charsets.UTF_8)
         } catch (e: Exception) {
-            try { f.renameTo(File(f.parentFile, f.name + ".unreadable")) } catch (_: Exception) { }
+            // Moved aside only when the data really can't be opened any more (wrong tag, or the key is gone for good),
+            // with the time in the name so an earlier copy is never overwritten. A passing Keystore hiccup (known on
+            // some phones) just throws: the file stays, and the next read tries again.
+            if (unopenable(e)) try { f.renameTo(File(f.parentFile, f.name + ".unreadable." + System.currentTimeMillis())) } catch (_: Exception) { }
             throw e
         }
     }
+
+    private fun unopenable(e: Throwable): Boolean =
+        e is javax.crypto.AEADBadTagException ||
+            e is android.security.keystore.KeyPermanentlyInvalidatedException ||
+            e is java.security.UnrecoverableKeyException
 
     /** Encrypts and writes atomically (temp file, then rename). Falls back to plain only if the Keystore is broken. */
     fun writeText(f: File, text: String) {

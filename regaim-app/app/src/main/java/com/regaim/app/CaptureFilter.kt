@@ -71,7 +71,7 @@ object CaptureFilter {
         val keep = (deletedLooks(ctx).filter { now - it.second < DELETED_DAYS * 86_400_000L } + (hash to now)).takeLast(DELETED_KEEP)
         val a = org.json.JSONArray()
         keep.forEach { a.put(org.json.JSONObject().put("h", it.first.toString()).put("t", it.second)) }
-        try { deletedFile(ctx).writeText(a.toString()) } catch (_: Exception) { }
+        SafeFiles.write(deletedFile(ctx), a.toString())
     }
 
     @Synchronized
@@ -87,7 +87,7 @@ object CaptureFilter {
         val keep = deletedLooks(ctx).filterNot { it.first == hash }
         val a = org.json.JSONArray()
         keep.forEach { a.put(org.json.JSONObject().put("h", it.first.toString()).put("t", it.second)) }
-        try { deletedFile(ctx).writeText(a.toString()) } catch (_: Exception) { }
+        SafeFiles.write(deletedFile(ctx), a.toString())
     }
 
     @Synchronized

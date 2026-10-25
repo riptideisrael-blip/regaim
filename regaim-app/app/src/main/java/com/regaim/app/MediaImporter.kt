@@ -45,7 +45,9 @@ object MediaImporter {
                 mmr.setDataSource(ctx, uri)
                 duration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0
                 require(duration > 0) { L.t("לא הצלחנו לקרוא את הסרטון הזה", "Couldn't read this video") }
-                mmr.getFrameAtTime(duration * 500, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                // A small frame (a 4K video's full frame is ~33 MB and could run the phone out of memory).
+                if (android.os.Build.VERSION.SDK_INT >= 27) mmr.getScaledFrameAtTime(duration * 500, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 960, 960)
+                else mmr.getFrameAtTime(duration * 500, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
             } finally {
                 try { mmr.release() } catch (_: Exception) {}
             }

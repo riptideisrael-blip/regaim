@@ -182,8 +182,9 @@ class MainActivity : AppCompatActivity() {
         // Let the AI catch up: describe new moments, then write the story of the day.
         if (ClaudeClient.hasKey(this)) {
             worker.execute {
-                val described = MemoryStore.analyzePending(applicationContext)
-                val wrote = MemoryStore.refreshStories(applicationContext, 1)
+                // (Caught: an exception here would take the whole app down from the background.)
+                val described = try { MemoryStore.analyzePending(applicationContext) } catch (_: Throwable) { 0 }
+                val wrote = try { MemoryStore.refreshStories(applicationContext, 1) } catch (_: Throwable) { false }
                 if (described > 0 || wrote) runOnUiThread {
                     if (!isFinishing) {
                         shownMemoryCount = -1

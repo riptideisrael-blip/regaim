@@ -26,7 +26,8 @@ object PartnerShare {
     fun shareOld(ctx: Context) { p(ctx).edit().putLong("partner_since", 1L).apply() }
     fun sharingOld(ctx: Context) = since(ctx) == 1L
 
-    @Volatile private var running = false
+    // Taken in one step (two screens opening at once could otherwise both start a sharing and send a moment twice).
+    private val running = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
      * Background thread. Shares what the other parent doesn't have yet: moments kept since it was turned on (or all
@@ -41,10 +42,10 @@ object PartnerShare {
     }
 
     /** A sharing is running now (started when the app opened): a second one waits for it. */
-    val busy: Boolean get() = running
+    val busy: Boolean get() = running.get()
 
     fun sync(ctx: Context, max: Int = 30) {
-        if (running) return
+        if (running.get()) return
         val app = ctx.applicationContext
         val partner = partner(app)
         val from = since(app)
@@ -53,7 +54,7 @@ object PartnerShare {
         // Any connection (mobile data too: most plans here have no limit).
         val cm = app.getSystemService(android.net.ConnectivityManager::class.java) ?: run { note(app, L.t("אין אינטרנט", "No internet")); return }
         if (cm.activeNetwork == null) { note(app, L.t("אין אינטרנט", "No internet")); return }
-        running = true
+        if (!running.compareAndSet(false, true)) return
         try {
             // Only when both chose each other (the server checks it too).
             val status = Circle.partnerStatus(app) ?: run { note(app, L.t("השרת לא ענה", "The server didn't answer")); return }
@@ -82,7 +83,7 @@ object PartnerShare {
             note(app, L.t("עבד ✓", "Worked ✓") + kids)
         } catch (e: Exception) { // no connection, or the server isn't ready: next time
             if (!lastResult(app).contains(L.t("נכשלה", "failed"))) note(app, L.t("נעצר: ", "Stopped: ") + (e.message ?: e.javaClass.simpleName).take(80))
-        } finally { running = false }
+        } finally { running.set(false) }
     }
 
     /**

@@ -74,7 +74,7 @@ class MemoryViews(private val a: Activity) {
                 val fresh = MemoryStore.get(a, m.id) ?: m
                 fav = !fresh.favorite
                 val updated = fresh.copy(favorite = fav)
-                MemoryStore.update(a, updated)
+                if (!MemoryStore.saveFromUi(a) { MemoryStore.update(a, updated) }) { fav = fresh.favorite; return@setOnClickListener }
                 if (fav) Detections.feedbackFor(a, m.id, 1)
                 paint()
                 scaleX = 0.6f; scaleY = 0.6f

@@ -212,7 +212,8 @@ class ReviewActivity : AppCompatActivity() {
 
     /** 👍: into the archive as approved (not a favorite, not "chosen"), a vote for its label, then the usual description. */
     private fun keep(m: Memory) {
-        MemoryStore.approve(this, m.id)
+        // (A full phone: the card comes back instead of leaving an empty screen.)
+        if (!MemoryStore.saveFromUi(this) { MemoryStore.approve(this, m.id) }) { render(); return }
         CaptureVotes.up(this, m.label, score(m))
         kept++
         // Failures are recorded per moment inside analyzePending (and retried later by kind); this only guards the screen.

@@ -34,7 +34,7 @@ object Facts {
     fun remove(ctx: Context, id: String) = synchronized(lock) {
         val all = read(ctx)
         all.remove(id)
-        try { file(ctx).writeText(all.toString()) } catch (_: Exception) { }
+        SafeFiles.write(file(ctx), all.toString())
     }
 
     fun get(ctx: Context, id: String): JSONObject? = synchronized(lock) { read(ctx).optJSONObject(id) }

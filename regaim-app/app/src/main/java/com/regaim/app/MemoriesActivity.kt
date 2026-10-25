@@ -234,7 +234,7 @@ class MemoriesActivity : AppCompatActivity() {
         val ids = selected.toSet()
         val all = MemoryStore.kept(this).filter { it.id in ids }
         val makeFav = all.any { !it.favorite }
-        MemoryStore.updateMany(this, ids) { it.copy(favorite = makeFav) }
+        if (!MemoryStore.saveFromUi(this) { MemoryStore.updateMany(this, ids) { it.copy(favorite = makeFav) } }) return
         if (makeFav) all.filter { !it.favorite }.forEach { Detections.feedbackFor(this, it.id, 1) }
         snack(if (makeFav) L.t("נוספו למועדפים ♥", "Added to favorites ♥") else L.t("הוסרו מהמועדפים", "Removed from favorites"))
         stopSelecting(); reload()
@@ -266,7 +266,7 @@ class MemoriesActivity : AppCompatActivity() {
                     0 -> {
                         val cats = Categories.ALL.toTypedArray()
                         AlertDialog.Builder(this).setTitle(L.t("איזו קטגוריה?", "Which category?")).setItems(cats.map { L.category(it) }.toTypedArray()) { _, i ->
-                            MemoryStore.updateMany(this, ids) { it.copy(category = cats[i]) }
+                            if (!MemoryStore.saveFromUi(this) { MemoryStore.updateMany(this, ids) { it.copy(category = cats[i]) } }) return@setItems
                             snack(L.t("הקטגוריה עודכנה", "Category updated")); stopSelecting(); reload()
                         }.setNegativeButton(L.t("ביטול", "Cancel"), null).show()
                     }
@@ -277,13 +277,13 @@ class MemoriesActivity : AppCompatActivity() {
                             .setPositiveButton(L.t("שמירה", "Save")) { _, _ ->
                                 val t = input.text.toString().trim().take(80)
                                 if (t.isNotEmpty()) {
-                                    MemoryStore.updateMany(this, ids) { it.copy(title = t, titleByUser = true) }
+                                    if (!MemoryStore.saveFromUi(this) { MemoryStore.updateMany(this, ids) { it.copy(title = t, titleByUser = true) } }) return@setPositiveButton
                                     snack(L.t("הכותרת עודכנה", "Title updated")); stopSelecting(); reload()
                                 }
                             }.setNegativeButton(L.t("ביטול", "Cancel"), null).show()
                     }
                     else -> {
-                        MemoryStore.updateMany(this, ids) { it.copy(privacy = if (Community.wasPublished(this, it)) it.privacy else "private") }
+                        if (!MemoryStore.saveFromUi(this) { MemoryStore.updateMany(this, ids) { it.copy(privacy = if (Community.wasPublished(this, it)) it.privacy else "private") } }) return@setItems
                         snack(L.t("סומנו כפרטיים", "Marked as private")); stopSelecting(); reload()
                     }
                 }
@@ -322,8 +322,9 @@ class MemoriesActivity : AppCompatActivity() {
         reload()
         if (ClaudeClient.hasKey(this)) {
             worker.execute {
-                val described = MemoryStore.analyzePending(applicationContext)
-                val wrote = MemoryStore.refreshStories(applicationContext)
+                // (Caught: an exception here would take the whole app down from the background.)
+                val described = try { MemoryStore.analyzePending(applicationContext) } catch (_: Throwable) { 0 }
+                val wrote = try { MemoryStore.refreshStories(applicationContext) } catch (_: Throwable) { false }
                 if (described > 0 || wrote) runOnUiThread { if (!isFinishing) reload() }
             }
         }

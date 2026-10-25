@@ -377,7 +377,7 @@ class MomentActivity : AppCompatActivity() {
             .setNeutralButton(L.t("חזרה לתצוגה המקורית", "Back to original")) { _, _ ->
                 val fresh = MemoryStore.get(this, memory.id) ?: return@setNeutralButton
                 memory = fresh.copy(highlightStartMs = -1, highlightEndMs = -1, highlightSource = "")
-                MemoryStore.update(this, memory)
+                if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return@setNeutralButton
                 bind(false)
             }
             .setNegativeButton(L.t("ביטול", "Cancel"), null).create()
@@ -393,7 +393,7 @@ class MomentActivity : AppCompatActivity() {
                 }
                 val fresh = MemoryStore.get(this, memory.id) ?: return@setOnClickListener
                 memory = fresh.copy(highlightStartMs = chosenStart, highlightEndMs = chosenEnd, highlightSource = "user")
-                MemoryStore.update(this, memory)
+                if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return@setOnClickListener
                 bind(false)
                 dialog.dismiss()
             }
@@ -603,7 +603,7 @@ class MomentActivity : AppCompatActivity() {
             hiddenPeople = faces.filter { it !in names }.joinToString(", "),
             analyzed = if (rewrite) false else fresh.analyzed,
         )
-        MemoryStore.update(this, memory)
+        if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return
         triedAnalyze = false
         bind(first = false)
         // The face recognition learns from the fix too (on the phone): a removed name isn't this face, an added one is.
@@ -622,7 +622,7 @@ class MomentActivity : AppCompatActivity() {
     private fun toggleFavorite() {
         val fresh = MemoryStore.get(this, memory.id) ?: memory
         memory = fresh.copy(favorite = !fresh.favorite)
-        MemoryStore.update(this, memory)
+        if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return
         if (memory.favorite) Detections.feedbackFor(this, memory.id, 1)
         bindInfo()
         bindActions()
@@ -715,7 +715,7 @@ class MomentActivity : AppCompatActivity() {
                         // A range you chose yourself stays yours.
                         if (fresh.highlightSource != "user") {
                             memory = fresh.copy(highlightStartMs = found.first, highlightEndMs = found.second, highlightSource = "ai")
-                            MemoryStore.update(this, memory)
+                            if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return@runOnUiThread
                         }
                         Toast.makeText(this, L.t("נמצא: ${Fmt.duration(found.first)}–${Fmt.duration(found.second)}", "Found: ${Fmt.duration(found.first)}–${Fmt.duration(found.second)}"), Toast.LENGTH_LONG).show()
                         bind(first = false)
@@ -1055,11 +1055,13 @@ class MomentActivity : AppCompatActivity() {
             .setView(field)
             .setPositiveButton(L.t("שמור", "Save")) { _, _ ->
                 val ms = field.text.toString().trim()
-                memory = memory.copy(
+                // From the saved moment (not the copy opened earlier): a description the AI wrote meanwhile stays.
+                val fresh = MemoryStore.get(this, memory.id) ?: memory
+                memory = fresh.copy(
                     milestone = ms,
-                    category = if (ms.isNotEmpty()) "אבן דרך" else if (memory.category == "אבן דרך") "אחר" else memory.category,
+                    category = if (ms.isNotEmpty()) "אבן דרך" else if (fresh.category == "אבן דרך") "אחר" else fresh.category,
                 )
-                MemoryStore.update(this, memory)
+                if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return@setPositiveButton
                 bind(first = false)
             }
             .setNegativeButton(L.t("ביטול", "Cancel"), null)
@@ -1115,7 +1117,7 @@ class MomentActivity : AppCompatActivity() {
                     noLearn = noLearn,
                     analyzed = true,
                 )
-                MemoryStore.update(this, memory)
+                if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, memory) }) return@setPositiveButton
                 bind(first = false)
                 Toast.makeText(this, L.t("נשמר. Moments ילמד מהתיקון בלמידה הבאה", "Saved. Moments will learn from this next time"), Toast.LENGTH_SHORT).show()
             }

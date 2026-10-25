@@ -252,6 +252,18 @@ object MemoryStore {
     @Synchronized
     fun update(ctx: Context, m: Memory) = write(ctx, read(ctx).map { if (it.id == m.id) m else it })
 
+    /**
+     * A change the parent made on screen (♥, a title, names…). A full phone can't save it: say so instead of
+     * crashing the app. Main thread only. Returns whether it was saved.
+     */
+    fun saveFromUi(ctx: Context, work: () -> Unit): Boolean = try {
+        work(); true
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(ctx.applicationContext, L.t("לא הצלחנו לשמור את השינוי. ייתכן שהטלפון מלא: פנו קצת מקום ונסו שוב.",
+            "Couldn't save the change. The phone may be full: free some space and try again."), android.widget.Toast.LENGTH_LONG).show()
+        false
+    }
+
     /** Describes every moment that wasn't analyzed yet. Background thread only. Returns how many succeeded. */
     private val analyzing = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -351,7 +363,7 @@ object MemoryStore {
         val f = storiesFile(ctx)
         val root = try { if (f.exists()) JSONObject(f.readText()) else JSONObject() } catch (_: Exception) { JSONObject() }
         root.put(dayKey, JSONObject().put("text", text).put("count", count))
-        f.writeText(root.toString())
+        if (!SafeFiles.write(f, root.toString())) throw java.io.IOException(L.t("לא הצלחנו לשמור", "Couldn't save"))
     }
 
     /** Writes or refreshes the story of each day whose moments changed. Background thread only. */
@@ -487,8 +499,9 @@ object MemoryStore {
         // Written to disk for real (fsync) before it replaces the index, and the last good index is kept as .bak.
         java.io.FileOutputStream(tmp).use { out -> out.write(arr.toString().toByteArray()); out.fd.sync() }
         val f = file(ctx)
-        if (f.exists()) try { f.copyTo(File(ctx.filesDir, "memories.json.bak"), overwrite = true) } catch (_: Exception) { }
         if (!tmp.renameTo(f)) { cache = null; throw java.io.IOException(L.t("לא הצלחנו לשמור את הזיכרונות", "Couldn't save your memories")) }
+        // The backup is taken from what was just written whole (never from a file that may be the damaged one).
+        try { SafeFiles.writeBytes(File(ctx.filesDir, "memories.json.bak"), f.readBytes()) } catch (_: Exception) { }
         cache = Triple(f.lastModified(), f.length(), list.sortedByDescending { it.time })
     }
 

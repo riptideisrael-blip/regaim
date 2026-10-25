@@ -397,10 +397,22 @@ object PeopleStore {
     private fun toJson(a: FloatArray) = JSONArray().also { j -> a.forEach { j.put(it.toDouble()) } }
     private fun fromJson(j: JSONArray) = FloatArray(j.length()) { j.optDouble(it).toFloat() }
 
+    /**
+     * The last read of the people / faces file failed (it exists but couldn't be opened just now). While so, nothing
+     * is written over it: a save would replace the whole family's names and faces with an almost empty list.
+     */
+    @Volatile private var peopleUnread = false
+    @Volatile private var facesUnread = false
+
+    /** The last people list read, with the file's time and size then: avatars ask often, the file rarely changes. */
+    @Volatile private var peopleCache: Triple<Long, Long, List<Person>>? = null
+
     @Synchronized
     fun people(ctx: Context): List<Person> = try {
         loadCut(ctx)
-        val arr = JSONArray(SecureFiles.readText(peopleFile(ctx)) ?: "[]")
+        val pf = peopleFile(ctx)
+        peopleCache?.takeIf { pf.exists() && it.first == pf.lastModified() && it.second == pf.length() }?.let { return it.third }
+        val arr = JSONArray(SecureFiles.readText(pf) ?: "[]")
         (0 until arr.length()).map {
             val o = arr.getJSONObject(it)
             val pr = o.optJSONArray("prints") ?: JSONArray()
@@ -410,13 +422,21 @@ object PeopleStore {
                 (0 until pr.length()).map { k -> fromJson(pr.getJSONArray(k)) },
                 (0 until rj.length()).map { k -> fromJson(rj.getJSONArray(k)) },
                 (0 until pa.length()).map { k -> fromJson(pa.getJSONArray(k)) })
+        }.also { list ->
+            peopleUnread = false
+            peopleCache = if (pf.exists()) Triple(pf.lastModified(), pf.length(), list) else null
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        // A file that opens but isn't valid JSON can't be read later either: set aside (kept), start clean.
+        // Anything else (a passing Keystore hiccup) leaves the file and blocks writing over it until it reads again.
+        if (e is org.json.JSONException) { SafeFiles.quarantine(peopleFile(ctx)); peopleUnread = false }
+        else peopleUnread = peopleFile(ctx).exists()
         emptyList()
     }
 
     @Synchronized
     private fun savePeople(ctx: Context, list: List<Person>) {
+        if (peopleUnread && peopleFile(ctx).exists()) throw java.io.IOException(L.t("לא הצלחנו לפתוח כרגע את רשימת האנשים. נסו שוב בעוד רגע.", "Couldn't open the people list right now. Try again in a moment."))
         val arr = JSONArray()
         list.forEach { p ->
             arr.put(JSONObject().put("id", p.id).put("name", p.name).put("photo", p.photo)
@@ -424,6 +444,7 @@ object PeopleStore {
                 .put("rejects", JSONArray().also { j -> p.rejects.forEach { j.put(toJson(it)) } })
                 .put("past", JSONArray().also { j -> p.past.forEach { j.put(toJson(it)) } }))
         }
+        peopleCache = null
         SecureFiles.writeText(peopleFile(ctx), arr.toString()) // encrypted on the phone
     }
 
@@ -435,13 +456,16 @@ object PeopleStore {
             FaceShot(o.optString("id"), o.optString("memoryId"), o.optString("path"),
                 fromJson(o.optJSONArray("print") ?: JSONArray()),
                 o.optString("personId").ifEmpty { null }, o.optBoolean("ignored"), o.optLong("time"), o.optBoolean("confirmed"), o.optBoolean("flat"))
-        }
-    } catch (_: Exception) {
+        }.also { facesUnread = false }
+    } catch (e: Exception) {
+        if (e is org.json.JSONException) { SafeFiles.quarantine(facesFile(ctx)); facesUnread = false }
+        else facesUnread = facesFile(ctx).exists()
         emptyList()
     }
 
     @Synchronized
     private fun saveFaces(ctx: Context, list: List<FaceShot>) {
+        if (facesUnread && facesFile(ctx).exists()) throw java.io.IOException(L.t("לא הצלחנו לפתוח כרגע את רשימת הפנים. נסו שוב בעוד רגע.", "Couldn't open the faces list right now. Try again in a moment."))
         val arr = JSONArray()
         list.forEach { f ->
             arr.put(JSONObject().put("id", f.id).put("memoryId", f.memoryId).put("path", f.path)

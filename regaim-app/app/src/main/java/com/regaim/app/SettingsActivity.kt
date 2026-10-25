@@ -968,8 +968,8 @@ fun PeopleStore.clearAll(ctx: Context) {
     synchronized(this) {
         File(ctx.filesDir, "people.json").delete()
         File(ctx.filesDir, "faces.json").delete()
-        File(ctx.filesDir, "people.json.unreadable").delete()
-        File(ctx.filesDir, "faces.json.unreadable").delete()
+        // Every set-aside copy too (they carry the time in their name now).
+        ctx.filesDir.listFiles { f -> f.name.startsWith("people.json.unreadable") || f.name.startsWith("faces.json.unreadable") || f.name.startsWith("people.json.bad") || f.name.startsWith("faces.json.bad") }?.forEach { it.delete() }
         File(ctx.filesDir, "faces").listFiles()?.forEach { it.delete() }
     }
     // Family profile photos are learned again (they were marked "done" forever), and failed scans start over.

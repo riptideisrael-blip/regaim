@@ -1,0 +1,30 @@
+appId: com.regaim.app.qa
+name: The camera's capture button is reachable by its spoken name (screen readers)
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- tapOn:
+    text: "Skip"
+    optional: true
+- tapOn:
+    text: "Continue without an account"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "tabHome"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: ".*Capture your first moment.*"
+    direction: DOWN
+    timeout: 10000
+- tapOn: ".*Capture your first moment.*"
+# The button is found by its accessibility label, as TalkBack reads it.
+- extendedWaitUntil:
+    visible: "Take a photo"
+    timeout: 15000
+- assertVisible: "Switch camera"
+- takeScreenshot: 07_capture
+- back

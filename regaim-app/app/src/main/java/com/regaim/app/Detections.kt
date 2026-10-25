@@ -75,7 +75,7 @@ object Detections {
         val a = try { JSONArray(feedbackFile(ctx).readText()) } catch (_: Exception) { JSONArray() }
         a.put(JSONObject().put("pattern", pattern).put("type", type).put("vote", vote).put("t", System.currentTimeMillis()))
         val trimmed = if (a.length() > MAX_FEEDBACK) JSONArray().also { n -> for (i in a.length() - MAX_FEEDBACK until a.length()) n.put(a.get(i)) } else a
-        try { feedbackFile(ctx).writeText(trimmed.toString()) } catch (_: Exception) { }
+        SafeFiles.write(feedbackFile(ctx), trimmed.toString())
     }
 
     /** Ranking multipliers learned from the family's answers (by pattern and by kind). */

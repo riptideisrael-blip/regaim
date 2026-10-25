@@ -166,6 +166,9 @@ class CaptureService : Service() {
     @Volatile private var faceWatcher: FaceWatcher? = null
     @Volatile private var lastFaceMs = 0L
     private val saveExecutor = Executors.newSingleThreadExecutor()
+    // The AI description of a saved moment runs here, never on [saveExecutor]: a slow network must not hold up
+    // saving the next clips (or keep their video in memory meanwhile).
+    private val aiExecutor = Executors.newSingleThreadExecutor()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -190,6 +193,7 @@ class CaptureService : Service() {
     override fun onDestroy() {
         stopCapture()
         saveExecutor.shutdown()
+        aiExecutor.shutdown()
         unwatchHeat()
         super.onDestroy()
     }
@@ -912,7 +916,9 @@ class CaptureService : Service() {
                     if (running) updateNotification()
                     notifyMoment(memory)
                     // Let the AI describe it right away — only kept moments; a queued one waits for 👍 (nothing leaves the phone).
-                    if (!memory.isPending) MemoryStore.analyzePending(applicationContext)
+                    if (!memory.isPending) try {
+                        aiExecutor.execute { try { MemoryStore.analyzePending(applicationContext) } catch (e: Exception) { Log.w(TAG, "analyze", e) } }
+                    } catch (_: java.util.concurrent.RejectedExecutionException) { /* stopping: the next app open describes it */ }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "save", e)
