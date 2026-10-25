@@ -8,6 +8,13 @@ name: First launch, without an account
 - tapOn:
     text: "Skip"
     optional: true
+# The welcome screen is taller than the phone: its buttons are below the fold.
+- scrollUntilVisible:
+    element:
+      text: "Continue without an account"
+    direction: DOWN
+    timeout: 15000
+    optional: true
 - tapOn:
     text: "Continue without an account"
     optional: true
