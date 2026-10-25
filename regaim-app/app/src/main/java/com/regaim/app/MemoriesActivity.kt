@@ -117,8 +117,9 @@ class MemoriesActivity : AppCompatActivity() {
                 setColorFilter(ui.color(R.color.ink_soft))
                 setPadding(ui.dp(14), ui.dp(13), ui.dp(14), ui.dp(13))
                 contentDescription = L.t("סל המחזור", "Trash")
-                background = ContextCompat.getDrawable(this@MemoriesActivity, R.drawable.chat_chip_bg)
-                layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)).apply { marginEnd = ui.dp(8) }
+                // The same rounded pill as "Select" next to it (it was a square).
+                background = DS.rounded(DS.buttonSecondary(this@MemoriesActivity), ui.dp(24).toFloat())
+                layoutParams = LinearLayout.LayoutParams(ui.dp(56), ui.dp(48)).apply { marginEnd = ui.dp(8) }
                 setOnClickListener { TrashActivity.open(this@MemoriesActivity) }
             })
             addView(TextView(this@MemoriesActivity).apply {
@@ -126,8 +127,9 @@ class MemoriesActivity : AppCompatActivity() {
                 textSize = 14f
                 setTextColor(ui.color(R.color.accent_dark))
                 typeface = DS.emphasis
-                background = ContextCompat.getDrawable(this@MemoriesActivity, R.drawable.chat_chip_bg)
-                setPadding(ui.dp(16), ui.dp(8), ui.dp(16), ui.dp(8))
+                background = DS.rounded(DS.buttonSecondary(this@MemoriesActivity), ui.dp(24).toFloat())
+                gravity = android.view.Gravity.CENTER; minHeight = ui.dp(48)
+                setPadding(ui.dp(18), ui.dp(8), ui.dp(18), ui.dp(8))
                 setOnClickListener { startSelecting(null) }
             })
             Nav.addProfileButton(this@MemoriesActivity, this)
@@ -618,13 +620,19 @@ class MemoriesActivity : AppCompatActivity() {
             setOnLongClickListener { chooseCover(key, title, ms); true }
         }
         val top = AlbumCovers.ordered(this, key, ms)
-        top.getOrNull(0)?.let { box.addView(cover(it, mv.dp(110))) }
+        val small = top.drop(1).take(3)
+        // Every album tile has the same height: one with a single moment gets a taller picture (no empty gap next to
+        // its neighbor), and the small pictures keep a third of the width each even when there are only one or two.
+        top.getOrNull(0)?.let { box.addView(cover(it, mv.dp(if (small.isEmpty()) 170 else 110))) }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, mv.dp(56)).apply { topMargin = mv.dp(4) }
         }
-        top.drop(1).take(3).forEachIndexed { i, m ->
+        small.forEachIndexed { i, m ->
             row.addView(cover(m, mv.dp(56), weight = 1f).apply { if (i > 0) (layoutParams as LinearLayout.LayoutParams).marginStart = mv.dp(4) })
+        }
+        if (small.isNotEmpty()) repeat(3 - small.size) {
+            row.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, mv.dp(56), 1f).apply { marginStart = mv.dp(4) } })
         }
         if (row.childCount > 0) box.addView(row)
         tileText(box, title, if (ms.size == 1) L.t("רגע אחד", "1 moment") else L.t("${ms.size} רגעים", "${ms.size} moments"))
@@ -715,15 +723,16 @@ class MemoriesActivity : AppCompatActivity() {
                     layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 })
                 else -> BubbleVH(inf.inflate(R.layout.item_bubble, parent, false).apply {
-                    // Round moments, a third of the width each, like a WhatsApp video message: a mocha ring and the
+                    // Round moments, a third of the width each, like a WhatsApp video message: a soft ring and the
                     // picture inside; the clip most in view plays silently (RoundVideo).
                     val w = (if (parent.width > 0) parent.width else resources.displayMetrics.widthPixels) / 3
                     layoutParams = layoutParams.apply { height = w - mv.dp(2) }
                     val gap = mv.dp(ROUND_GAP_DP)
                     background = android.graphics.drawable.RippleDrawable(
                         android.content.res.ColorStateList.valueOf(DS.ripple(context)),
-                        android.graphics.drawable.InsetDrawable(DS.oval(DS.button(context)), gap),
-                        android.graphics.drawable.InsetDrawable(DS.oval(DS.button(context)), gap),
+                        // A soft beige ring (the strong mocha one was heavy around every moment).
+                        android.graphics.drawable.InsetDrawable(DS.oval(DS.buttonSecondary(context)), gap),
+                        android.graphics.drawable.InsetDrawable(DS.oval(DS.buttonSecondary(context)), gap),
                     )
                     findViewById<ImageView>(R.id.bubbleImage).apply {
                         outlineProvider = RoundVideo.OVAL

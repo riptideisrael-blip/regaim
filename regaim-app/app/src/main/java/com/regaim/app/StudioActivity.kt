@@ -175,7 +175,7 @@ class StudioActivity : AppCompatActivity() {
         }
 
         content.addView(ui.section(L.t("עוד דברים שאפשר ליצור", "More to make")))
-        option(R.drawable.ic_star, L.t("היער של פיצקי · לילדים", "Pitzki's forest · for kids"),
+        option(R.drawable.ic_sparkle, L.t("היער של פיצקי · לילדים", "Pitzki's forest · for kids"),
             L.t("טיול ביער עם פיצקי: לומדים צבעים בעברית ובאנגלית, והילד/ה שלכם בתוך הסיפור, עם התמונות שלכם.", "A forest walk with Pitzki: colors in Hebrew and English, with your child in the story and your own photos.")) { PitzkiActivity.open(this) }
         if (Profile.members(this).any { it.isChild }) option(R.drawable.ic_star, L.t("ספר ילדים אישי", "A personal children's book"),
             L.t("ספר מאויר שהילד/ה הגיבור/ה שלו: נפרדים מהמוצץ, לא מפחדים מהחושך, אח חדש ועוד.", "An illustrated book starring your child: the pacifier, the dark, a new sibling and more.")) { BookActivity.open(this) }

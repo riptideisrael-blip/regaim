@@ -93,6 +93,20 @@ object Covers {
             var f: Bitmap? = null
             if (Build.VERSION.SDK_INT >= 27) f = try { mmr.getScaledFrameAtTime(atUs, if (exact) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxSide, maxSide) } catch (_: Throwable) { null }
             if (f == null) f = try { mmr.getFrameAtTime(atUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) } catch (_: Throwable) { null }
+            // A card cover that shows almost nothing (a wall, the floor, a blur): try two other moments of the clip
+            // and keep the one with the most to see.
+            if (f != null && !exact && Build.VERSION.SDK_INT >= 27 && score(f) < FrameScore.DULL) {
+                val from = window?.startMs ?: 0L
+                val to = window?.endMs ?: dur
+                var best = f; var bestScore = score(f)
+                for (part in listOf(0.2, 0.8)) {
+                    val t = ((from + (to - from) * part).toLong()).coerceIn(0L, maxOf(dur, 0L)) * 1000
+                    val other = try { mmr.getScaledFrameAtTime(t, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, maxSide, maxSide) } catch (_: Throwable) { null } ?: continue
+                    val sc = score(other)
+                    if (sc > bestScore) { best = other; bestScore = sc }
+                }
+                f = best
+            }
             if (f != null) return fit(f, maxSide)
         } catch (_: Throwable) {
         } finally {
@@ -103,6 +117,14 @@ object Covers {
         }
         return null
     }
+
+    /** [FrameScore.detail] of a small copy of [b]. */
+    private fun score(b: Bitmap): Double = try {
+        val small = Bitmap.createScaledBitmap(b, 48, maxOf(1, 48 * b.height / maxOf(1, b.width)), true)
+        val px = IntArray(small.width * small.height)
+        small.getPixels(px, 0, small.width, 0, 0, small.width, small.height)
+        FrameScore.detail(px, small.width, small.height)
+    } catch (_: Throwable) { 100.0 }
 
     private fun fit(b: Bitmap, maxSide: Int): Bitmap {
         val s = maxSide.toFloat() / maxOf(b.width, b.height)
