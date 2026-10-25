@@ -725,6 +725,9 @@ class PitzkiActivity : AppCompatActivity() {
                 }
             }
             card.addView(row)
+            // Which picture the film comes from (parents expected the profile photo to count).
+            card.addView(ui.hint(L.t("מהתמונות האלה מציירים את $name כדמות (שלב 2). תמונת הפרופיל לא משמשת לסרט.",
+                "$name's character (step 2) is drawn from these photos. The profile photo isn't used for the film."), top = 4))
         }
         fun pickGallery() {
             facesFor = c.memberId
@@ -858,7 +861,8 @@ class PitzkiActivity : AppCompatActivity() {
                 card.addView(row)
             }
             hero.exists() -> {
-                card.addView(ui.hint(L.t("הסרט מצויר מהדמות הזו.", "The film is drawn from this character."), top = 4))
+                card.addView(ui.hint(L.t("כל הסצנות של הסרט מצוירות מהדמות הזו. לא דומה ל$name? \"דמות חדשה\" מציירת אותה שוב מהתמונות שבשלב 1 (אפשר לצלם קודם תמונות חדשות), או \"לחזור לתמונות האמיתיות\". אחרי זה מציירים את הסצנות מחדש בשלב 3.",
+                    "Every scene of the film is drawn from this character. Not like $name? \"A new character\" draws it again from the photos in step 1 (you can take new ones first), or \"Back to the real photos\". Then the scenes are drawn again in step 3."), top = 4))
                 card.addView(picture(hero, 200))
                 // The character from every side: turn it around with a finger.
                 val sheet = PitzkiStore.heroSheet(this, c.memberId)
@@ -1269,8 +1273,11 @@ class PitzkiActivity : AppCompatActivity() {
                     L.t("להנפיש: פיצקי ו$name ילכו ויטיילו", "Animate: Pitzki and $name walk and explore"), primary = true, top = 10) { confirmDraw(c, again = false, animate = true) })
                 // (Not when a drawn character already exists: "A new character" in step 2 does that.)
                 if (c.photos.isNotEmpty() && c.look?.hero != true) card.addView(ui.action(L.t("$name לא מספיק דומה? ליצור דמות מהתמונות", "Not like $name enough? Make a character from the photos")) { confirmCharacter(c) })
+                // What each button changes, in plain words (redrawing fixes the likeness; new motion doesn't).
+                card.addView(ui.hint(L.t("$name לא ${g("דומה", "דומה")} בסצנות? קודם מתקנים את הדמות בשלב 2, ואז \"לצייר את הסצנות מחדש\". \"רק תנועה חדשה\" משאיר את אותם ציורים.",
+                    "$name doesn't look right in the scenes? First fix the character in step 2, then \"Draw the scenes again\". \"Only new motion\" keeps the same drawings."), top = 10))
                 val row = ui.horizontal(top = 6)
-                row.addView(ui.action(L.t("ליצור מחדש", "Make again")) { confirmDraw(c, again = true, animate = clips > 0) })
+                card.addView(ui.action(L.t("🎨 לצייר את הסצנות מחדש", "🎨 Draw the scenes again")) { confirmDraw(c, again = true, animate = clips > 0) })
                 // Short animations (from when the walks were 5 seconds): continued from their last frame, not made again.
                 val short = PitzkiStore.shortClips(this, c)
                 if (short.isNotEmpty()) card.addView(ui.button(L.t("להאריך את הסצנות הקצרות (${short.size})", "Make the short scenes longer (${short.size})"), primary = false, top = 8) {
@@ -1282,7 +1289,7 @@ class PitzkiActivity : AppCompatActivity() {
                         .show()
                 })
                 // The same drawings, moving anew (e.g. after the motion was improved): only the animations are paid.
-                if (clips > 0) row.addView(ui.action(L.t("להנפיש מחדש", "Animate again")) {
+                if (clips > 0) row.addView(ui.action(L.t("רק תנועה חדשה", "Only new motion")) {
                     AlertDialog.Builder(this)
                         .setMessage(L.t("הציורים נשארים, ורק התנועה של $name ופיצקי נוצרת מחדש (קרדיט סרט אחד).", "The drawings stay; only $name and Pitzki's motion is made again (one film credit)."))
                         .setPositiveButton(L.t("להנפיש מחדש", "Animate again")) { _, _ ->
