@@ -402,6 +402,23 @@ object Circle {
         else L.t("🧝 כדי לצפות בסרט: נכנסים לפיצקי ובוחרים את $child", "🧝 To watch the film: open Pitzki and choose $child")
     }
 
+    /** A family post that arrived since the last look (for the "new moment from the family" notification). */
+    class News(val id: String, val author: String, val authorId: String, val title: String, val createdIso: String, val kind: String)
+
+    /**
+     * Posts shared in the circle after [sinceIso] (newest first, a few at most), not counting the family's own
+     * profile sync. Small: only the words, no pictures. Background thread only.
+     */
+    fun newsSince(ctx: Context, sinceIso: String): List<News> {
+        secureReady(ctx)
+        val since = java.net.URLEncoder.encode(sinceIso, "UTF-8")
+        val rows = rest(ctx, "GET", "posts?circle_id=eq.${circleId(ctx)}&created_at=gt.$since&or=(kind.is.null,kind.neq.family)&order=created_at.desc&limit=10&select=id,author,author_id,title,kind,created_at,only_for")
+        val me = Account.id(ctx)
+        return (0 until rows.length()).map { rows.getJSONObject(it) }
+            .filter { o -> o.optString("only_for").nullless().let { it.isEmpty() || it == me } }
+            .map { o -> News(o.optString("id"), o.optString("author"), o.optString("author_id").nullless(), o.optString("title").nullless(), o.optString("created_at"), o.optString("kind")) }
+    }
+
     fun feed(ctx: Context): Feed {
         secureReady(ctx)
         // (The children's details sent to the other parent aren't something to show in the gallery.)

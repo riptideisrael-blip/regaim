@@ -53,6 +53,14 @@ object Wording {
     fun memberRelation(saved: String, label: String): String =
         if (saved.isBlank() || saved.trim() in setOf("בן/בת", "בן משפחה", "בת משפחה", "member")) L.t("נגיעה לקישור", "Tap to link") else label
 
+    /** The "new from the family" notification: title and line, for (author, title) of the new posts, newest first. */
+    fun familyNews(news: List<Pair<String, String>>): Pair<String, String> {
+        val (author, title) = news.first()
+        val who = author.ifBlank { L.t("מישהו מהמשפחה", "Someone in the family") }
+        return if (news.size == 1) L.t("$who שיתף/ה רגע חדש", "$who shared a new moment") to title.ifBlank { L.t("לחצו כדי לראות", "Tap to see it") }
+        else L.t("${news.size} רגעים חדשים במשפחה", "${news.size} new family moments") to L.t("האחרון מ$who", "The latest from $who")
+    }
+
     /** Developer words that a parent should never see. */
     private val TECH = Regex("(?i)supabase|\\bsql\\b|\\.sql|edge function|anonymous sign-?ins|debug|\\bhttp\\s*\\d{3}|\\(\\d{3}\\)|\\bjson\\b|\\bapi\\b|stack ?trace|exception")
 

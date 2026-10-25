@@ -71,4 +71,10 @@ class WordingTest {
         assertEquals("נגיעה לקישור", Wording.memberRelation("", ""))
         assertEquals("אמא", Wording.memberRelation("אמא", "אמא"))
     }
+
+    @Test fun familyNewsNotification() {
+        assertEquals("מיכל שיתף/ה רגע חדש" to "נעם בגן", Wording.familyNews(listOf("מיכל" to "נעם בגן")))
+        assertEquals("מיכל שיתף/ה רגע חדש" to "לחצו כדי לראות", Wording.familyNews(listOf("מיכל" to "")))
+        assertEquals("3 רגעים חדשים במשפחה" to "האחרון ממיכל", Wording.familyNews(listOf("מיכל" to "a", "סבא" to "b", "מיכל" to "c")))
+    }
 }

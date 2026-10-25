@@ -16,6 +16,7 @@ class RegaimApp : Application() {
         Fonts.install(this)
         Reminders.schedule(this)
         FaceScan.schedule(this)
+        FamilyNews.schedule(this) // "a new moment from the family" notifications
         registerActivityLifecycleCallbacks(SystemBars)
         A11y.install(this)
     }
