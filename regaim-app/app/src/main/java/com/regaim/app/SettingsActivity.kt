@@ -726,7 +726,7 @@ open class SettingsActivity : AppCompatActivity() {
         card.addView(ui.switch(L.t("\"היום לפני שנה\": התראה כשיש רגע מהיום הזה", "\"On this day\": a notification when there's a moment from this day"), Reminders.onThisDayOn(this), top = 0) { on ->
             Reminders.setOnThisDay(this, on)
         })
-        card.addView(ui.switch(L.t("התראה כשמישהו במשפחה משתף רגע", "Notify me when family shares a moment"), FamilyNews.on(this)) { on -> FamilyNews.setOn(this, on) }
+        card.addView(ui.switch(L.t("התראה כשמישהו במשפחה משתף רגע", "Notify me when family shares a moment"), FamilyNews.on(this)) { on -> FamilyNews.setOn(this, on) })
         card.addView(ui.switch(L.t("סיכום לסבא וסבתא בכל יום שישי", "Grandparents' digest every Friday"), Reminders.digestOn(this)) { on ->
             Reminders.setDigest(this, on)
         })
