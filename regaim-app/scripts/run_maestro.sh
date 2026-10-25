@@ -16,16 +16,34 @@ grep -A12 'FATAL EXCEPTION' maestro-out/logcat.txt | grep -A12 'com.regaim.app' 
 adb shell pm clear com.regaim.app.qa >/dev/null 2>&1 || true
 adb shell monkey -p com.regaim.app.qa -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
 sleep 8
-adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 && adb pull /sdcard/ui.xml maestro-out/first-screen.xml >/dev/null 2>&1
 python3 - <<'PY3' || true
-import re
-try:
-    x = open("maestro-out/first-screen.xml", encoding="utf-8").read()
-    texts = [t for t in re.findall(r'(?:text|content-desc)="([^"]+)"', x) if t.strip()]
-    pkg = set(re.findall(r'package="([^"]+)"', x))
-    print(f"::notice title=First screen::{' | '.join(sorted(pkg))} :: {' | '.join(texts[:40])}")
-except Exception as e:
-    print(f"::notice title=First screen::no dump ({e})")
+import re, subprocess, time
+def dump(step):
+    subprocess.run("adb shell uiautomator dump /sdcard/ui.xml", shell=True, capture_output=True)
+    x = subprocess.run("adb shell cat /sdcard/ui.xml", shell=True, capture_output=True, text=True).stdout
+    nodes = re.findall(r'<node [^>]*>', x)
+    texts = []
+    for n in nodes:
+        t = (re.search(r' text="([^"]*)"', n) or [None, ""])[1] or (re.search(r'content-desc="([^"]*)"', n) or [None, ""])[1]
+        if t.strip(): texts.append(t)
+    pkg = sorted(set(re.findall(r'package="([^"]+)"', x)))
+    print(f"::notice title=Screen {step}::{' | '.join(pkg)} :: {' | '.join(texts[:40])}")
+    return nodes
+def tap(nodes, label):
+    for n in nodes:
+        t = (re.search(r' text="([^"]*)"', n) or [None, ""])[1]
+        if t.strip() == label:
+            b = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+            if b:
+                x1, y1, x2, y2 = map(int, b.groups())
+                subprocess.run(f"adb shell input tap {(x1+x2)//2} {(y1+y2)//2}", shell=True)
+                return True
+    return False
+nodes = dump("1 start")
+for i, label in enumerate(["Skip", "Continue without an account"], start=2):
+    ok = tap(nodes, label)
+    time.sleep(5)
+    nodes = dump(f"{i} after {label} ({'tapped' if ok else 'not found'})")
 PY3
 adb logcat -d -t 400 | grep -E 'AndroidRuntime|regaim' | tail -15 | sed 's/^/::notice title=Log::/' || true
 # Each flow's result as a note on the run (readable without downloading the logs).
