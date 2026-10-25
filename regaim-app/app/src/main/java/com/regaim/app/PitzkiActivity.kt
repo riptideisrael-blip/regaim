@@ -2744,16 +2744,11 @@ class PitzkiActivity : AppCompatActivity() {
             text = "✕"; textSize = 22f; setTextColor(DS.onPhoto(this@PitzkiActivity))
             setShadowLayer(8f, 0f, 1f, DS.scrim(this@PitzkiActivity))
             setPadding(ui.dp(18), ui.dp(12), ui.dp(18), ui.dp(12))
-            contentDescription = L.t("יציאה מהטיול (לחיצה ארוכה)", "Leave the walk (long press)")
+            contentDescription = L.t("יציאה מהטיול", "Leave the walk")
             gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48)
             layoutParams = lp(wrap, wrap, Gravity.TOP or Gravity.RIGHT)
-            // A small child taps everything: one tap only says how to leave; a long press (a grown-up's) leaves.
-            setOnClickListener {
-                android.widget.Toast.makeText(this@PitzkiActivity, L.t("ליציאה מהטיול: לחיצה ארוכה על ✕", "To leave the walk: press and hold ✕"), android.widget.Toast.LENGTH_SHORT).show()
-            }
-            setOnLongClickListener { stopLesson(); setup(); true }
-            androidx.core.view.ViewCompat.replaceAccessibilityAction(this, androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
-                L.t("יציאה מהטיול", "Leave the walk")) { _, _ -> stopLesson(); setup(); true }
+            // One tap leaves (a long press was asked for here before: too annoying for the parent).
+            setOnClickListener { stopLesson(); setup() }
         })
         progress = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
