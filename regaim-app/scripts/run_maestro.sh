@@ -4,6 +4,12 @@
 set -u
 APK=regaim-app/app/build/outputs/apk/qa/app-qa.apk
 adb wait-for-device
+# A fresh emulator is slow: wait until it has fully started, and keep "X isn't responding" windows from covering the app.
+for i in $(seq 1 60); do [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break; sleep 2; done
+adb shell settings put global hide_error_dialogs 1 || true
+adb shell settings put global anr_show_background 0 || true
+sleep 15
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
 adb install -r -g "$APK" || { echo "install failed"; exit 1; }
 # The emulator in English (the tests use the English texts).
 adb shell "settings put system system_locales en-US" || true
