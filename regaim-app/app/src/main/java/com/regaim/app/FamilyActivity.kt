@@ -233,13 +233,18 @@ class FamilyActivity : AppCompatActivity() {
             val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             for (m in mine.take(8)) strip.addView(mv.mini(m) { MomentActivity.open(this, m.id) })
             card.addView(ui.scrollRow(strip, top = 12))
-            card.setOnClickListener { openPerson(p.name) }
+            card.setOnClickListener { if (!(p.isKid && ChildActivity.openByName(this, p.name))) openPerson(p.name) }
+            if (p.isKid) card.addView(ui.action(L.t("הדף של ${p.name} ›", "${p.name}'s page ›")) { ChildActivity.openByName(this, p.name) })
             card.addView(ui.action(L.t("כל הרגעים של ${p.name} ›", "All of ${p.name}'s moments ›")) { openPerson(p.name) })
             if (p.isKid) card.addView(ui.action(L.t("ציר הזמן של ${p.name} ›", "${p.name}'s timeline ›")) { TimelineActivity.open(this, p.name) })
             PeopleStore.people(this).firstOrNull { it.name == p.name }?.let { person ->
                 card.addView(ui.action(L.t("זוהה בטעות? תיקון הפנים של ${p.name} ›", "Wrongly recognized? Fix ${p.name}'s faces ›")) { PersonFacesActivity.open(this, person.id) })
             }
-        } else if (p.isKid && PeopleStore.people(this).none { it.name == p.name }) {
+        } else if (p.isKid) {
+            card.setOnClickListener { ChildActivity.openByName(this, p.name) }
+            card.addView(ui.action(L.t("הדף של ${p.name} ›", "${p.name}'s page ›")) { ChildActivity.openByName(this, p.name) })
+        }
+        if (mine.isEmpty() && p.isKid && PeopleStore.people(this).none { it.name == p.name }) {
             card.addView(ui.hint(L.t("כדי למצוא את ${p.name} ברגעים, תנו את השם הזה לפנים שלו במסך \"מי זה?\".", "To find ${p.name} in your moments, give their face this name on the \"Who's this?\" screen."), top = 10))
             card.addView(ui.action(L.t("מי זה? ›", "Who's this? ›")) { PeopleActivity.open(this) })
         }

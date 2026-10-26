@@ -415,6 +415,8 @@ class HomeActivity : AppCompatActivity() {
                     setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink_soft))
                 })
                 setOnClickListener {
+                    // A child: their page. Anyone else: their moments.
+                    if (ChildActivity.openByName(this@HomeActivity, n)) return@setOnClickListener
                     if (count(n) > 0) startActivity(Intent(this@HomeActivity, MemoriesActivity::class.java)
                         .putExtra(MemoriesActivity.EXTRA_PERSON, n).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                     else Toast.makeText(this@HomeActivity, L.t("עדיין אין רגעים עם $n", "No moments with $n yet"), Toast.LENGTH_SHORT).show()
