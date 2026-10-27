@@ -173,6 +173,10 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".ChildActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".CameraImportActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
