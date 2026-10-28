@@ -21,7 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 class FamilyFileActivity : AppCompatActivity() {
     companion object {
         private const val EXTRA_CHILD = "child"
-        fun open(ctx: Context, child: String = "") = ctx.startActivity(Intent(ctx, FamilyFileActivity::class.java).putExtra(EXTRA_CHILD, child))
+        fun open(ctx: Context, child: String = "") = ctx.startActivity(Intent(ctx, FamilyFileActivity::class.java).putExtra(EXTRA_CHILD, child).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
 
         /** A soft background and a darker ink per category (the app's warm palette, told apart by lightness too). */
         private val TINTS = mapOf(
@@ -70,6 +70,11 @@ class FamilyFileActivity : AppCompatActivity() {
         setContentView(R.layout.activity_screen)
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         findViewById<TextView>(R.id.screenTitle).text = L.t("תיק המשפחה", "Family file")
+        // A tab of its own: the tab bar instead of "Close".
+        findViewById<View>(R.id.btnClose).visibility = View.GONE
+        findViewById<View>(R.id.bottomNav).visibility = View.VISIBLE
+        Nav.setup(this, Nav.Tab.FILE)
+        Nav.addProfileButton(this, findViewById<View>(R.id.screenTitle).parent as ViewGroup)
         val screen = findViewById<LinearLayout>(R.id.screenContent)
         scroller = screen.parent as View
         ui = Ui(this)
@@ -90,6 +95,13 @@ class FamilyFileActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() { worker.shutdownNow(); super.onDestroy() }
+
+    /** Opened again (the tab, or a child's page): show what was asked for (one child, or everyone). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        child = intent.getStringExtra(EXTRA_CHILD).orEmpty()
+    }
 
     override fun onResume() { super.onResume(); render() }
 

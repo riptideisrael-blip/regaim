@@ -90,6 +90,19 @@ class ChildActivity : AppCompatActivity() {
         head.addView(ui.hint(ChildPage.counts(mine.size, mine.count { it.favorite }), top = 4).apply { gravity = Gravity.CENTER })
         content.addView(head)
 
+        // What a parent does from here most: Pitzki for this child (already chosen), the book, the timeline.
+        val acts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) } }
+        listOf(
+            L.t("פיצקי", "Pitzki") to { PitzkiActivity.openFor(this, kid.id) },
+            L.t("ספר", "Book") to { BookActivity.open(this) },
+            L.t("ציר זמן", "Timeline") to { TimelineActivity.open(this, kid.name) },
+        ).forEachIndexed { n, (label, go) ->
+            acts.addView(ui.button(label, primary = n == 0, top = 0) { go() }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { if (n < 2) marginEnd = ui.dp(8) }
+            })
+        }
+        content.addView(acts)
+
         // The latest moments.
         content.addView(ui.section(L.t("רגעים אחרונים", "Latest moments")))
         if (mine.isEmpty()) {
@@ -139,11 +152,8 @@ class ChildActivity : AppCompatActivity() {
         // More about the child.
         content.addView(ui.section(L.t("עוד", "More")))
         val more = ui.card(top = 8)
-        more.addView(ui.row(L.t("ציר הזמן", "Timeline"), L.t("חודש אחרי חודש", "Month by month"), top = 0) { TimelineActivity.open(this, kid.name) })
-        more.addView(ui.row(L.t("ספר ילדים אישי", "A personal children's book"), "") { BookActivity.open(this) })
-        more.addView(ui.row(L.t("פיצקי · תוכנית הלמידה", "Pitzki · learning program"), "") { PitzkiActivity.open(this) })
         PeopleStore.people(this).firstOrNull { it.name == kid.name }?.let { person ->
-            more.addView(ui.row(L.t("תיקון הפנים שזוהו", "Fix recognized faces"), "") { PersonFacesActivity.open(this, person.id) })
+            more.addView(ui.row(L.t("תיקון הפנים שזוהו", "Fix recognized faces"), "", top = 0) { PersonFacesActivity.open(this, person.id) })
         }
         more.addView(ui.row(L.t("עריכת הפרטים", "Edit details"), "") { startActivity(Intent(this, ProfileActivity::class.java)) })
         content.addView(more)

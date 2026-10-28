@@ -27,7 +27,10 @@ import java.util.concurrent.Executors
  */
 class PitzkiActivity : AppCompatActivity() {
     companion object {
+        private const val EXTRA_CHILD = "child_member"
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, PitzkiActivity::class.java))
+        /** Opens with this child already chosen (from the child's page). */
+        fun openFor(ctx: Context, memberId: String) = ctx.startActivity(Intent(ctx, PitzkiActivity::class.java).putExtra(EXTRA_CHILD, memberId))
     }
 
     private lateinit var ui: Ui
@@ -56,7 +59,7 @@ class PitzkiActivity : AppCompatActivity() {
         PitzkiScript.worldId = (Settings.prefs(this).getString("pitzki_world", "forest") ?: "forest")
             .let { if (it == NumbersWorld.ID) PlayWorld.ID else it } // the numbers are part of the games now
         children = PitzkiStore.children(this)
-        chosen = children.firstOrNull()
+        chosen = intent.getStringExtra(EXTRA_CHILD)?.let { id -> children.firstOrNull { it.memberId == id } } ?: children.firstOrNull()
         // An animation cut off when the app was closed: picked up again (what was already sent isn't paid again).
         children.firstOrNull { PitzkiStore.interrupted(this, it) }?.let { PitzkiStore.resume(this, it); chosen = it }
         setup()

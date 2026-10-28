@@ -1016,8 +1016,25 @@ object Circle {
         BitmapFactory.decodeFile(f.absolutePath, opts)
         var sample = 1
         while (opts.outWidth / (sample * 2) >= 720) sample *= 2
-        val bmp = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val raw = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val bmp = upright(f, raw)
         imgCache.put(key, bmp)
         return bmp
+    }
+
+    /** A phone photo is often stored sideways with a note (EXIF) saying how to turn it: turn it, so it isn't shown on its side. */
+    private fun upright(f: File, bmp: Bitmap): Bitmap {
+        val deg = try {
+            when (android.media.ExifInterface(f.absolutePath).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90, android.media.ExifInterface.ORIENTATION_TRANSPOSE -> 90f
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                android.media.ExifInterface.ORIENTATION_ROTATE_270, android.media.ExifInterface.ORIENTATION_TRANSVERSE -> 270f
+                else -> 0f
+            }
+        } catch (_: Exception) { 0f } // not a JPEG/HEIC with a note (a cover we made, a video frame): as it is
+        if (deg == 0f) return bmp
+        return try {
+            Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, android.graphics.Matrix().apply { postRotate(deg) }, true)
+        } catch (_: OutOfMemoryError) { bmp }
     }
 }

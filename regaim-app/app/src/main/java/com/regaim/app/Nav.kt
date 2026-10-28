@@ -11,18 +11,19 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 
 /**
- * Bottom tab bar: בית · זיכרונות · סטודיו · משפחה · קהילה. The camera is a mode (the "+" button), not a tab.
+ * Bottom tab bar: בית · זיכרונות · סטודיו · משפחה · תיק · קהילה. The camera is a mode (the "+" button), not a tab.
  * The profile and settings live behind the round picture at the top of each tab; "ask Moments" lives in Memories.
  */
 object Nav {
     /** ASK and PROFILE are screens reached from inside a tab: no tab is highlighted there. */
-    enum class Tab { HOME, MEMORIES, STUDIO, FAMILY, COMMUNITY, ASK, PROFILE }
+    enum class Tab { HOME, MEMORIES, STUDIO, FAMILY, FILE, COMMUNITY, ASK, PROFILE }
 
     private val ids = mapOf(
         Tab.HOME to R.id.tabHome,
         Tab.MEMORIES to R.id.tabMemories,
         Tab.STUDIO to R.id.tabStudio,
         Tab.FAMILY to R.id.tabFamily,
+        Tab.FILE to R.id.tabFile,
         Tab.COMMUNITY to R.id.tabCommunity,
     )
 
@@ -31,6 +32,7 @@ object Nav {
         Tab.MEMORIES to MemoriesActivity::class.java,
         Tab.STUDIO to StudioActivity::class.java,
         Tab.FAMILY to FamilyActivity::class.java,
+        Tab.FILE to FamilyFileActivity::class.java,
         Tab.COMMUNITY to CommunityActivity::class.java,
     )
 

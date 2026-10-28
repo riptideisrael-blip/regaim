@@ -14,6 +14,9 @@ name: Every tab opens
     id: "tabFamily"
 - takeScreenshot: 02_family
 - tapOn:
+    id: "tabFile"
+- takeScreenshot: 02_file
+- tapOn:
     id: "tabCommunity"
 - takeScreenshot: 02_community
 - tapOn:

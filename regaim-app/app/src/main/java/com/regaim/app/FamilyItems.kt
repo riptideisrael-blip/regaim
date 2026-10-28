@@ -343,4 +343,10 @@ object FamilyItems {
     /** The items the smart search pointed at (by the short ids it was given), in its order. */
     fun pick(items: List<Item>, shortIds: List<String>): List<Item> =
         shortIds.mapNotNull { sid -> items.firstOrNull { it.id.take(8) == sid } }.distinctBy { it.id }
+
+    /** A card number in groups of 4 ("9376 7600 7182 9507"), easier to read out at the checkout; other codes as they are. */
+    fun grouped(code: String): String {
+        if (!code.all { it.isDigit() || it == '-' || it == ' ' }) return code
+        return if (code.all { it.isDigit() } && code.length >= 12) code.chunked(4).joinToString(" ") else code.replace('-', ' ')
+    }
 }

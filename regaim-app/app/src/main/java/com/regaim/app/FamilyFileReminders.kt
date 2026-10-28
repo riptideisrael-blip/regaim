@@ -53,9 +53,11 @@ object FamilyFileReminders {
             val (title, body) = FamilyItems.reminderText(d.item, d.days)
             try {
                 val code = 7400 + (d.item.id.hashCode() and 0xFFFF)
-                val open = PendingIntent.getActivity(ctx, code,
-                    FamilyItemActivity.intent(ctx, d.item.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                // Back from the item goes to the family file (not out of the app).
+                val open = androidx.core.app.TaskStackBuilder.create(ctx)
+                    .addNextIntent(Intent(ctx, FamilyFileActivity::class.java))
+                    .addNextIntent(FamilyItemActivity.intent(ctx, d.item.id))
+                    .getPendingIntent(code, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 nm.notify(code, NotificationCompat.Builder(ctx, CHANNEL)
                     .setSmallIcon(R.drawable.ic_notif)
                     .setContentTitle(title)

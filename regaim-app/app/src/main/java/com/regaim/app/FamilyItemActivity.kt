@@ -48,6 +48,8 @@ class FamilyItemActivity : AppCompatActivity() {
     private var busy = false
     /** A new photo or file was picked for an item that's already in the file (replaces its old one on Save). */
     private var attached = false
+    /** A saved voucher opens to be shown at the checkout; its form only after "Edit the details". */
+    private var editing = false
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) { if (bytes == null && sharedText == null) finish(); return@registerForActivityResult }
@@ -154,7 +156,7 @@ class FamilyItemActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 bytes = b; mime = m; picture = pic
-                if (!isNew) { attached = true; item = item.copy(mime = m) }
+                if (!isNew) { attached = true; editing = true; item = item.copy(mime = m) }
                 else item = item.copy(mime = m, hash = FamilyFile.hash(b), source = if (sharedText != null) item.source else if (intent.action == null) "pick" else "share",
                     kind = if (item.kind == FamilyItems.Kind.DOCUMENT) FamilyItems.Kind.RECEIPT else item.kind)
                 render()
@@ -220,6 +222,16 @@ class FamilyItemActivity : AppCompatActivity() {
             if (attached) content.addView(ui.hint(L.t("התמונה החדשה תישמר כשתלחצו שמירה", "The new photo is kept when you tap Save"), top = 4))
         }
 
+        // A voucher at the checkout: what to show the cashier, then "used" and "edit"; the form only on request.
+        val viewing = !isNew && FamilyItems.isWallet(item) && !editing
+        checkoutLight(viewing)
+        if (viewing) {
+            content.addView(ui.button(L.t("✓ מומש · הסרה מהארנק", "✓ Used · remove from the wallet"), primary = true, top = 16) { confirmUsed() })
+            content.addView(ui.button(L.t("עריכת פרטים", "Edit the details"), top = 8) { editing = true; render() })
+            content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
+            return
+        }
+
         // Auto-fill (on request only).
         if (isNew && (bytes != null || sharedText != null)) {
             content.addView(ui.button(if (busy) L.t("קוראים את הפרטים…", "Reading the details…") else L.t("✨ מילוי אוטומטי", "✨ Auto-fill"), primary = false, top = 12) { autoFill() }.apply { isEnabled = !busy })
@@ -253,10 +265,10 @@ class FamilyItemActivity : AppCompatActivity() {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
         fDate = ui.field(if (protection) L.t("תאריך קנייה (יום.חודש.שנה)", "Bought on (day.month.year)") else L.t("תאריך (יום.חודש.שנה)", "Date (day.month.year)"), FamilyItems.short(item.date))
-        listOf(fTitle, fVendor, fAmount, fDate).forEach { content.addView(it) }
+        listOf(fTitle, fVendor, fAmount, fDate).forEach { addField(it) }
         if (voucher || protection || item.kind == FamilyItems.Kind.DOCUMENT) {
             fExpires = ui.field(if (warranty) L.t("האחריות עד (יום.חודש.שנה)", "Warranty until (day.month.year)") else if (item.kind == FamilyItems.Kind.EXCHANGE) L.t("אפשר להחליף עד (יום.חודש.שנה)", "Exchange until (day.month.year)") else L.t("בתוקף עד (יום.חודש.שנה)", "Valid until (day.month.year)"), FamilyItems.short(item.expires))
-            content.addView(fExpires)
+            addField(fExpires)
             // The usual lengths, counted from the purchase date (or today).
             if (protection) {
                 val opts: List<Pair<String, (String) -> String>> = if (warranty) listOf(
@@ -281,10 +293,10 @@ class FamilyItemActivity : AppCompatActivity() {
             fBalance = ui.field(L.t("יתרה ידועה ב-₪ (אם יש)", "Known balance in ₪ (if any)"), item.balance?.let { FamilyItems.money(it).removeSuffix(" ₪") }.orEmpty()).apply {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             }
-            content.addView(fCode); content.addView(fBalance)
+            addField(fCode); addField(fBalance)
         } else { fCode = null; fBalance = null }
         fNote = ui.field(L.t("הערה", "Note"), item.note, multiline = true)
-        content.addView(fNote)
+        addField(fNote)
 
         content.addView(ui.button(L.t("שמירה", "Save"), primary = true, top = 18) { save() })
         if (!isNew) {
@@ -378,7 +390,7 @@ class FamilyItemActivity : AppCompatActivity() {
                 if (isDestroyed) return@runOnUiThread
                 r.onSuccess {
                     Toast.makeText(this, L.t("נשמר בתיק המשפחה ✓", "Saved to the family file ✓"), Toast.LENGTH_SHORT).show()
-                    if (isNew) startActivity(Intent(this, FamilyFileActivity::class.java))
+                    if (isNew) FamilyFileActivity.open(this) // the file that's already open, not another copy
                     finish()
                 }.onFailure {
                     Toast.makeText(this, L.t("לא הצלחנו לשמור (אולי אין מקום בטלפון)", "Couldn't save (maybe the phone is full)"), Toast.LENGTH_LONG).show()
@@ -435,7 +447,8 @@ class FamilyItemActivity : AppCompatActivity() {
             }
             if (item.code.isNotEmpty()) {
                 addView(TextView(this@FamilyItemActivity).apply {
-                    text = item.code; textSize = 20f; setTextColor(white); typeface = android.graphics.Typeface.MONOSPACE
+                    text = FamilyItems.grouped(item.code); textSize = 28f; setTextColor(white); typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+                    contentDescription = item.code.toCharArray().joinToString(" ")
                     textDirection = View.TEXT_DIRECTION_LTR; textAlignment = View.TEXT_ALIGNMENT_CENTER
                     letterSpacing = 0.06f; setTextIsSelectable(true)
                     background = DS.rounded(0x26FFFFFF, ui.dp(12).toFloat())
@@ -466,5 +479,29 @@ class FamilyItemActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
             })
         }
+    }
+
+    /** A field with its name above it, so a filled-in "150" or "1.10.2026" still says what it is. */
+    private fun addField(f: EditText?) {
+        f ?: return
+        val name = f.hint?.toString().orEmpty().substringBefore(" (")
+        content.addView(ui.text(name, 13f, R.color.ink_soft, bold = true, top = 12).apply { labelFor = View.generateViewId().also { f.id = it } })
+        (f.layoutParams as? LinearLayout.LayoutParams)?.topMargin = ui.dp(4)
+        content.addView(f)
+    }
+
+    /** At the checkout: the screen at full brightness and kept on, so the cashier can read or scan the code. */
+    private fun checkoutLight(on: Boolean) {
+        window.attributes = window.attributes.apply { screenBrightness = if (on) 1f else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+        if (on) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun confirmUsed() {
+        AlertDialog.Builder(this)
+            .setTitle(L.t("השובר מומש?", "Was the voucher used?"))
+            .setMessage(L.t("הוא יוסר מהארנק ומהטלפון. אם נשארה בו יתרה, עדיף לעדכן אותה ב\"עריכת פרטים\".", "It's removed from the wallet and the phone. If some balance is left, update it under \"Edit the details\" instead."))
+            .setPositiveButton(L.t("מומש, להסיר", "Used, remove")) { _, _ -> FamilyFile.delete(this, item.id); finish() }
+            .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
     }
 }
