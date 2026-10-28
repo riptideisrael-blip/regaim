@@ -514,6 +514,47 @@ object Circle {
         }
     } catch (_: Exception) { null }
 
+    // ---------- the other parent's moments, for the shared gallery in Memories ----------
+
+    private fun partnerFile(ctx: Context) = File(ctx.filesDir, "partner_moments_" + (Account.id(ctx) + "_" + circleId(ctx)).filter { it.isLetterOrDigit() || it == '_' || it == '-' } + ".json")
+
+    /** The other parent's moments kept from last time (shown at once; refreshed in the background). */
+    fun cachedPartnerMoments(ctx: Context): List<Post> = try {
+        val f = partnerFile(ctx)
+        if (!f.exists() || circleId(ctx).isEmpty()) emptyList() else {
+            val o = JSONObject(f.readText())
+            val l = o.optJSONObject("links") ?: JSONObject()
+            val links = l.keys().asSequence().associateWith { l.optString(it) }
+            val rows = o.optJSONArray("posts") ?: JSONArray()
+            (0 until rows.length()).map { post(ctx, rows.getJSONObject(it), links) }
+        }
+    } catch (_: Exception) { emptyList() }
+
+    /** When the kept list was fetched (0 = never). */
+    fun partnerMomentsAt(ctx: Context): Long = try { JSONObject(partnerFile(ctx).readText()).optLong("at") } catch (_: Exception) { 0L }
+
+    /**
+     * The moments the other parent shared with this parent only (the shared gallery), newest first, with their
+     * pictures' links (covers only: a moment is played from its post). Background thread only.
+     */
+    fun partnerMoments(ctx: Context): List<Post> {
+        secureReady(ctx)
+        val me = Account.id(ctx)
+        val partner = PartnerShare.partner(ctx)
+        if (me.isEmpty() || partner.isEmpty() || circleId(ctx).isEmpty()) return emptyList()
+        val rows = rest(ctx, "GET", "posts?circle_id=eq.${circleId(ctx)}&author_id=eq.${enc(partner)}&only_for=eq.${enc(me)}" +
+            "&or=(kind.is.null,kind.in.(photo,video))&order=created_at.desc&limit=1000" +
+            "&select=id,author,author_id,title,story,people,place,kind,taken_at,video,cover,created_at,style,memory_id,only_for")
+        val list = (0 until rows.length()).map { rows.getJSONObject(it) }
+        val covers = list.map { o -> mediaPath(ctx, o.optString("cover").nullless().ifEmpty { o.optString("video").nullless() }) }
+        val links = HashMap<String, String>()
+        covers.filter { it.isNotEmpty() }.distinct().chunked(100).forEach { links.putAll(signMany(ctx, it)) }
+        try {
+            SafeFiles.write(partnerFile(ctx), JSONObject().put("at", System.currentTimeMillis()).put("posts", rows).put("links", JSONObject(links as Map<*, *>)).toString())
+        } catch (_: Exception) { }
+        return list.map { post(ctx, it, links) }
+    }
+
     /** Signed links for many files in one request (falls back to one by one if the server won't). */
     private fun signMany(ctx: Context, paths: List<String>): Map<String, String> {
         val wanted = paths.filter { it.isNotEmpty() }.distinct()
