@@ -1,0 +1,4 @@
+-- State before shared-children.sql (2026-10-28): family_children and family_is_parent did not exist;
+-- no existing table or function is changed by it. To undo completely:
+--   drop table if exists public.family_children;
+--   drop function if exists public.family_is_parent(uuid);
