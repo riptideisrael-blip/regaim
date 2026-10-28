@@ -194,6 +194,12 @@ class FamilyItemActivity : AppCompatActivity() {
             content.addView(ui.chips(names, sel, top = 6) { i -> fromFields(); item = item.copy(child = if (i == 0) "" else kids[i - 1].id); render() })
         }
 
+        // For what: the parent picks where it's filed (receipts and documents).
+        if (item.kind == FamilyItems.Kind.RECEIPT || item.kind == FamilyItems.Kind.DOCUMENT) {
+            content.addView(ui.text(L.t("קטגוריה", "Category"), 15f, bold = true, top = 14))
+            content.addView(categoryPicker())
+        }
+
         val voucher = item.kind == FamilyItems.Kind.COUPON || item.kind == FamilyItems.Kind.VOUCHER || item.kind == FamilyItems.Kind.GIFT
         fTitle = ui.field(L.t("כותרת (למשל: שכר לימוד אוקטובר)", "Title (e.g. October tuition)"), item.title, top = 14)
         fVendor = ui.field(L.t("ממי (גן, חנות, חברה)", "From (kindergarten, store, company)"), item.vendor)
@@ -222,6 +228,32 @@ class FamilyItemActivity : AppCompatActivity() {
             content.addView(ui.action(L.t("מחיקה מהתיק", "Delete from the file"), R.color.ds_error) { confirmDelete() })
         }
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
+    }
+
+    /** All the categories at once, wrapping onto lines (not a row to scroll). */
+    private fun categoryPicker(): View {
+        val group = com.google.android.material.chip.ChipGroup(this).apply {
+            isSingleSelection = true
+            chipSpacingHorizontal = ui.dp(8); chipSpacingVertical = ui.dp(4)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(6) }
+        }
+        val on = DS.primary(this); val off = DS.buttonSecondary(this)
+        for (c in FamilyItems.Category.values()) {
+            val chosen = item.category == c.id
+            group.addView(com.google.android.material.chip.Chip(this).apply {
+                text = c.label
+                textSize = 14f
+                isCheckable = true
+                isChecked = chosen
+                isCheckedIconVisible = false
+                chipBackgroundColor = android.content.res.ColorStateList.valueOf(if (chosen) on else off)
+                setTextColor(if (chosen) DS.onButton(this@FamilyItemActivity) else DS.ink(this@FamilyItemActivity))
+                chipStrokeWidth = 0f
+                minHeight = ui.dp(48)
+                setOnClickListener { fromFields(); item = item.copy(category = if (chosen) "" else c.id); render() }
+            })
+        }
+        return group
     }
 
     private fun autoFill() {

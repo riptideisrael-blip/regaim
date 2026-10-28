@@ -507,6 +507,7 @@ object ClaudeClient {
              "date": "yyyy-MM-dd the document's date, or null",
              "expires": "yyyy-MM-dd expiry date, or null",
              "code": "coupon/voucher code or card number exactly as written, or null",
+             "category": "for a receipt or document, one of: daycare (מעון/גן/צהרון), classes (חוגים), health (רופא, בדיקות, תרופות, קופת חולים), vacation (חופשה, מלון, טיסה), phone (סלולר, אינטרנט), clothes (ביגוד, הנעלה), equipment (ציוד, צעצועים), gifts (מתנות, אירועים), home (חשמל, מים, ארנונה, בית), other; or null",
              "child": "one of these names only if it is clearly written in the item: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
             Rules: copy numbers, codes and dates exactly; never guess. If something isn't written, use null.
             Dates in the item are usually day/month/year (Israel). Today is $today.

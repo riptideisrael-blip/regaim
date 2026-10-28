@@ -72,8 +72,24 @@ class FamilyItemsTest {
         assertEquals("", FamilyItems.fromSuggestion(base, JSONObject("""{"child":"אוריה"}"""), mapOf("uri" to "אורי")).child)
     }
 
+    @Test fun categories() {
+        val list = listOf(
+            Item("1", Kind.RECEIPT, child = "uri", amount = 1150.0, date = "2026-10-01", category = "daycare"),
+            Item("2", Kind.RECEIPT, child = "uri", amount = 300.0, date = "2026-09-01", category = "health"),
+            Item("3", Kind.RECEIPT, child = "noam", amount = 2480.0, date = "2026-10-01", category = "daycare"),
+            Item("4", Kind.RECEIPT, amount = 99.0, date = "2026-10-05"),
+        )
+        val all = FamilyItems.totalsByCategory(list, 2026)
+        assertEquals(FamilyItems.Category.DAYCARE to 3630.0, all[0])
+        assertEquals(null to 99.0, all.last())
+        assertEquals(listOf(FamilyItems.Category.DAYCARE to 1150.0, FamilyItems.Category.HEALTH to 300.0), FamilyItems.totalsByCategory(list, 2026, "uri"))
+        assertEquals("health", FamilyItems.fromSuggestion(Item("9", Kind.RECEIPT), JSONObject("""{"category":"health"}"""), emptyMap()).category)
+        assertEquals("", FamilyItems.fromSuggestion(Item("9", Kind.RECEIPT), JSONObject("""{"category":"pets"}"""), emptyMap()).category)
+        assertNull(FamilyItems.Category.of(""))
+    }
+
     @Test fun jsonRoundTrip() {
-        val i = Item("1", Kind.VOUCHER, child = "uri", title = "BuyMe", amount = null, expires = "2027-01-01", code = "X1", balance = 120.0, balanceAt = "2026-10-28", created = 5L)
+        val i = Item("1", Kind.VOUCHER, child = "uri", title = "BuyMe", amount = null, expires = "2027-01-01", code = "X1", balance = 120.0, balanceAt = "2026-10-28", created = 5L, category = "gifts")
         assertEquals(listOf(i), FamilyItems.listFromJson(FamilyItems.listToJson(listOf(i))))
         assertEquals(emptyList<Item>(), FamilyItems.listFromJson("not json"))
     }

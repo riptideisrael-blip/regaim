@@ -23,6 +23,27 @@ object FamilyItems {
         }
     }
 
+    /** What a receipt or document is for: the parent picks it; totals and the list are grouped by it. */
+    enum class Category(val id: String, val he: String, val en: String) {
+        DAYCARE("daycare", "מעון / גן", "Daycare / kindergarten"),
+        CLASSES("classes", "חוגים", "Classes"),
+        HEALTH("health", "בריאות ובדיקות", "Health and checkups"),
+        VACATION("vacation", "חופשה", "Vacation"),
+        PHONE("phone", "סלולר ותקשורת", "Phone and internet"),
+        CLOTHES("clothes", "ביגוד והנעלה", "Clothes and shoes"),
+        EQUIPMENT("equipment", "ציוד", "Equipment"),
+        GIFTS("gifts", "מתנות ואירועים", "Gifts and events"),
+        HOME("home", "בית וחשבונות", "Home and bills"),
+        OTHER("other", "אחר", "Other");
+
+        val label: String get() = L.t(he, en)
+
+        companion object {
+            /** The category, or null when none was chosen. */
+            fun of(id: String?): Category? = values().firstOrNull { it.id == id?.trim()?.lowercase() }
+        }
+    }
+
     /**
      * One item. [child] = the family member id of the child it belongs to, or "" for the whole family. Dates are
      * yyyy-MM-dd or "". [amount] in shekels (null = unknown). [file] = the encrypted file's name in the family file
@@ -47,13 +68,15 @@ object FamilyItems {
         /** Known balance of a voucher (null = unknown), and when it was last updated by the parent. */
         val balance: Double? = null,
         val balanceAt: String = "",
+        /** [Category] id, or "" when none was chosen. */
+        val category: String = "",
     )
 
     fun toJson(i: Item): JSONObject = JSONObject()
         .put("id", i.id).put("kind", i.kind.id).put("child", i.child).put("title", i.title).put("vendor", i.vendor)
         .put("amount", i.amount ?: JSONObject.NULL).put("date", i.date).put("expires", i.expires).put("code", i.code)
         .put("note", i.note).put("file", i.file).put("mime", i.mime).put("source", i.source).put("hash", i.hash)
-        .put("created", i.created).put("balance", i.balance ?: JSONObject.NULL).put("balanceAt", i.balanceAt)
+        .put("created", i.created).put("balance", i.balance ?: JSONObject.NULL).put("balanceAt", i.balanceAt).put("category", i.category)
 
     private fun num(o: JSONObject, k: String): Double? = if (o.isNull(k) || !o.has(k)) null else o.optDouble(k).takeIf { !it.isNaN() }
 
@@ -63,6 +86,7 @@ object FamilyItems {
         date = cleanDate(o.optString("date")), expires = cleanDate(o.optString("expires")), code = o.optString("code"),
         note = o.optString("note"), file = o.optString("file"), mime = o.optString("mime"), source = o.optString("source"),
         hash = o.optString("hash"), created = o.optLong("created"), balance = num(o, "balance"), balanceAt = o.optString("balanceAt"),
+        category = Category.of(o.optString("category"))?.id.orEmpty(),
     )
 
     fun listToJson(items: List<Item>): String = JSONArray().apply { items.forEach { put(toJson(it)) } }.toString()
@@ -127,6 +151,13 @@ object FamilyItems {
     fun receiptTotal(items: List<Item>, year: Int, child: String? = null): Double =
         items.filter { it.kind == Kind.RECEIPT && it.date.startsWith("$year-") && (child == null || it.child == child) }.sumOf { it.amount ?: 0.0 }
 
+    /** The year's receipts by category (most money first), for one child or (child = null) everyone. "" = no category. */
+    fun totalsByCategory(items: List<Item>, year: Int, child: String? = null): List<Pair<Category?, Double>> =
+        items.filter { it.kind == Kind.RECEIPT && it.date.startsWith("$year-") && (child == null || it.child == child) }
+            .groupBy { Category.of(it.category) }
+            .map { (c, l) -> c to l.sumOf { it.amount ?: 0.0 } }
+            .sortedByDescending { it.second }
+
     /** "1,150 ₪" or "1,150.50 ₪". */
     fun money(v: Double): String {
         val whole = v == Math.floor(v)
@@ -160,6 +191,7 @@ object FamilyItems {
             date = str("date")?.let { cleanDate(it) }?.ifEmpty { null } ?: base.date,
             expires = str("expires")?.let { cleanDate(it) }?.ifEmpty { null } ?: base.expires,
             code = str("code")?.take(60) ?: base.code,
+            category = str("category")?.let { Category.of(it)?.id } ?: base.category,
             child = childId ?: base.child,
         )
     }
