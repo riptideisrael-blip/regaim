@@ -17,6 +17,7 @@ class RegaimApp : Application() {
         Reminders.schedule(this)
         FaceScan.schedule(this)
         FamilyNews.schedule(this) // "a new moment from the family" notifications
+        FamilyFileReminders.schedule(this) // before a warranty, voucher or exchange slip runs out
         registerActivityLifecycleCallbacks(SystemBars)
         A11y.install(this)
     }

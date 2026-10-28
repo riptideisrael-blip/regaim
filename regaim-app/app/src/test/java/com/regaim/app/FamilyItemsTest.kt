@@ -127,4 +127,24 @@ class FamilyItemsTest {
         assertEquals("https://buyme.co.il/x1", FamilyItems.link("שובר\nhttps://buyme.co.il/x1\nCVV 848"))
         assertEquals("848", FamilyItems.cvv("שובר\nCVV 848"))
     }
+
+    @Test fun warrantiesAndReminders() {
+        assertEquals("2027-10-28", FamilyItems.plusMonths("2026-10-28", 12))
+        assertEquals("2026-11-11", FamilyItems.plusDays("2026-10-28", 14))
+        assertEquals(Kind.WARRANTY, Kind.of("warranty"))
+        val w = Item("w", Kind.WARRANTY, title = "מקרר", expires = "2026-11-20")      // 23 days: the 30-day window
+        val x = Item("x", Kind.EXCHANGE, title = "חולצה", expires = "2026-10-29")    // tomorrow
+        val r = Item("r", Kind.RECEIPT, expires = "2026-10-29")                      // receipts aren't reminded
+        val v = Item("v", Kind.VOUCHER, vendor = "אצה", amount = 100.0, expires = "2028-12-31") // far away
+        val due = FamilyItems.due(listOf(w, x, r, v), today, emptySet())
+        assertEquals(listOf("w" to 23L, "x" to 1L), due.map { it.item.id to it.days })
+        // Tomorrow is within both the 3-day and 1-day windows: one reminder, marking both.
+        assertEquals(listOf("x:2026-10-29:3", "x:2026-10-29:1"), due[1].keys)
+        val sent = due.flatMap { it.keys }.toSet()
+        assertEquals(emptyList<String>(), FamilyItems.due(listOf(w, x), today, sent).map { it.item.id })
+        // A week later the warranty reaches its 7-day window: a new reminder.
+        assertEquals(listOf("w"), FamilyItems.due(listOf(w), "2026-11-14", sent).map { it.item.id })
+        assertEquals("האחריות נגמרת בעוד 23 ימים" to "מקרר", FamilyItems.reminderText(w, 23))
+        assertEquals(true, FamilyItems.isWallet(Item("c", Kind.CREDIT)))
+    }
 }

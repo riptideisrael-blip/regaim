@@ -498,14 +498,14 @@ object ClaudeClient {
      */
     fun readFamilyItem(ctx: Context, jpegBase64: String?, text: String?, children: List<String>, today: String, pdfBase64: String? = null): JSONObject {
         val system = """
-            You read one item a parent shared into their family file: a receipt, a document, a coupon, a voucher/gift card, or a gift.
+            You read one item a parent shared into their family file: a receipt, a warranty certificate, a store credit, an exchange slip, a document, a coupon, a voucher/gift card, or a gift.
             Answer with ONE JSON object only, no other text:
-            {"kind": "receipt|document|coupon|voucher|gift",
+            {"kind": "receipt|warranty|credit|exchange|document|coupon|voucher|gift" (warranty = תעודת אחריות; credit = זיכוי/תעודת זיכוי from a store; exchange = פתק החלפה),
              "title": "short title in the item's language, e.g. 'שכר לימוד אוקטובר'",
              "vendor": "who issued it (store, kindergarten, company) or null",
              "amount": number in shekels or null (the total paid; for a coupon/voucher its value),
              "date": "yyyy-MM-dd the document's date, or null",
-             "expires": "yyyy-MM-dd expiry date, or null",
+             "expires": "yyyy-MM-dd expiry date (for a warranty: when it ends; for an exchange slip: the last day to exchange), or null",
              "code": "coupon/voucher code or card number exactly as written, or null",
              "category": "for a receipt or document, one of: daycare (מעון/גן/צהרון), classes (חוגים), health (רופא, בדיקות, תרופות, קופת חולים), vacation (חופשה, מלון, טיסה), phone (סלולר, אינטרנט), clothes (ביגוד, הנעלה), equipment (ציוד, צעצועים), gifts (מתנות, אירועים), home (חשמל, מים, ארנונה, בית), other; or null",
              "child": "one of these names only if it is clearly written in the item: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}

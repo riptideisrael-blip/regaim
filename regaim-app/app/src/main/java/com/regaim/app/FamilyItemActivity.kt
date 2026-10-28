@@ -30,7 +30,8 @@ class FamilyItemActivity : AppCompatActivity() {
         private const val MAX_BYTES = 20 * 1024 * 1024
         private const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-        fun open(ctx: Context, id: String) = ctx.startActivity(Intent(ctx, FamilyItemActivity::class.java).putExtra(EXTRA_ID, id))
+        fun intent(ctx: Context, id: String) = Intent(ctx, FamilyItemActivity::class.java).putExtra(EXTRA_ID, id)
+        fun open(ctx: Context, id: String) = ctx.startActivity(intent(ctx, id))
         fun pick(ctx: Context, child: String = "") = ctx.startActivity(Intent(ctx, FamilyItemActivity::class.java).putExtra(EXTRA_PICK, true).putExtra(EXTRA_CHILD, child))
     }
 
@@ -237,23 +238,43 @@ class FamilyItemActivity : AppCompatActivity() {
             content.addView(ui.chips(names, sel, top = 6) { i -> fromFields(); item = item.copy(child = if (i == 0) "" else kids[i - 1].id); render() })
         }
 
-        // For what: the parent picks where it's filed (receipts and documents).
-        if (item.kind == FamilyItems.Kind.RECEIPT || item.kind == FamilyItems.Kind.DOCUMENT) {
+        // For what: the parent picks where it's filed (receipts, documents, warranties).
+        if (item.kind == FamilyItems.Kind.RECEIPT || item.kind == FamilyItems.Kind.DOCUMENT || item.kind == FamilyItems.Kind.WARRANTY) {
             content.addView(ui.text(L.t("קטגוריה", "Category"), 15f, bold = true, top = 14))
             content.addView(categoryPicker())
         }
 
-        val voucher = item.kind == FamilyItems.Kind.COUPON || item.kind == FamilyItems.Kind.VOUCHER || item.kind == FamilyItems.Kind.GIFT
-        fTitle = ui.field(L.t("כותרת (למשל: שכר לימוד אוקטובר)", "Title (e.g. October tuition)"), item.title, top = 14)
-        fVendor = ui.field(L.t("ממי (גן, חנות, חברה)", "From (kindergarten, store, company)"), item.vendor)
-        fAmount = ui.field(if (voucher) L.t("שווי ב-₪", "Value in ₪") else L.t("סכום ב-₪", "Amount in ₪"), item.amount?.let { FamilyItems.money(it).removeSuffix(" ₪") }.orEmpty()).apply {
+        val voucher = FamilyItems.isWallet(item)
+        val protection = FamilyItems.isProtection(item)
+        val warranty = item.kind == FamilyItems.Kind.WARRANTY
+        fTitle = ui.field(if (protection) L.t("מה המוצר (למשל: מקרר, עגלה)", "The product (e.g. fridge, stroller)") else L.t("כותרת (למשל: שכר לימוד אוקטובר)", "Title (e.g. October tuition)"), item.title, top = 14)
+        fVendor = ui.field(if (protection) L.t("איפה נקנה (חנות, אתר)", "Bought at (store, site)") else L.t("ממי (גן, חנות, חברה)", "From (kindergarten, store, company)"), item.vendor)
+        fAmount = ui.field(if (voucher) L.t("שווי ב-₪", "Value in ₪") else if (protection) L.t("מחיר ב-₪", "Price in ₪") else L.t("סכום ב-₪", "Amount in ₪"), item.amount?.let { FamilyItems.money(it).removeSuffix(" ₪") }.orEmpty()).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
-        fDate = ui.field(L.t("תאריך (יום.חודש.שנה)", "Date (day.month.year)"), FamilyItems.short(item.date))
+        fDate = ui.field(if (protection) L.t("תאריך קנייה (יום.חודש.שנה)", "Bought on (day.month.year)") else L.t("תאריך (יום.חודש.שנה)", "Date (day.month.year)"), FamilyItems.short(item.date))
         listOf(fTitle, fVendor, fAmount, fDate).forEach { content.addView(it) }
-        if (voucher || item.kind == FamilyItems.Kind.DOCUMENT) {
-            fExpires = ui.field(L.t("בתוקף עד (יום.חודש.שנה)", "Valid until (day.month.year)"), FamilyItems.short(item.expires))
+        if (voucher || protection || item.kind == FamilyItems.Kind.DOCUMENT) {
+            fExpires = ui.field(if (warranty) L.t("האחריות עד (יום.חודש.שנה)", "Warranty until (day.month.year)") else if (item.kind == FamilyItems.Kind.EXCHANGE) L.t("אפשר להחליף עד (יום.חודש.שנה)", "Exchange until (day.month.year)") else L.t("בתוקף עד (יום.חודש.שנה)", "Valid until (day.month.year)"), FamilyItems.short(item.expires))
             content.addView(fExpires)
+            // The usual lengths, counted from the purchase date (or today).
+            if (protection) {
+                val opts: List<Pair<String, (String) -> String>> = if (warranty) listOf(
+                    L.t("שנה", "1 year") to { d: String -> FamilyItems.plusMonths(d, 12) },
+                    L.t("שנתיים", "2 years") to { d: String -> FamilyItems.plusMonths(d, 24) },
+                    L.t("3 שנים", "3 years") to { d: String -> FamilyItems.plusMonths(d, 36) },
+                    L.t("5 שנים", "5 years") to { d: String -> FamilyItems.plusMonths(d, 60) },
+                ) else listOf(
+                    L.t("14 יום", "14 days") to { d: String -> FamilyItems.plusDays(d, 14) },
+                    L.t("30 יום", "30 days") to { d: String -> FamilyItems.plusDays(d, 30) },
+                    L.t("60 יום", "60 days") to { d: String -> FamilyItems.plusDays(d, 60) },
+                )
+                content.addView(ui.chips(opts.map { it.first }, -1, top = 6) { n ->
+                    fromFields()
+                    val from = item.date.ifEmpty { java.time.LocalDate.now().toString() }
+                    item = item.copy(date = from, expires = opts[n].second(from)); render()
+                })
+            }
         } else fExpires = null
         if (voucher) {
             fCode = ui.field(L.t("קוד / מספר כרטיס", "Code / card number"), item.code)

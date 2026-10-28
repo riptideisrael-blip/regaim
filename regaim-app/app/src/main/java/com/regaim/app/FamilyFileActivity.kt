@@ -40,6 +40,9 @@ class FamilyFileActivity : AppCompatActivity() {
             FamilyItems.Kind.COUPON to (0xFFF4E9D6.toInt() to 0xFF8A6420.toInt()),
             FamilyItems.Kind.VOUCHER to (0xFFF5E1E8.toInt() to 0xFF8E3B5C.toInt()),
             FamilyItems.Kind.GIFT to (0xFFF5E1E8.toInt() to 0xFF8E3B5C.toInt()),
+            FamilyItems.Kind.CREDIT to (0xFFE1ECE9.toInt() to 0xFF35645A.toInt()),
+            FamilyItems.Kind.WARRANTY to (0xFFDDEBF0.toInt() to 0xFF2F5F73.toInt()),
+            FamilyItems.Kind.EXCHANGE to (0xFFE8E4F1.toInt() to 0xFF5A4B80.toInt()),
             FamilyItems.Kind.DOCUMENT to (0xFFE9E5DF.toInt() to 0xFF5C534B.toInt()),
             FamilyItems.Kind.RECEIPT to (0xFFEDE5DC.toInt() to 0xFF675C54.toInt()),
         )
@@ -50,6 +53,8 @@ class FamilyFileActivity : AppCompatActivity() {
     private var child = ""
     /** A category filter ("" = all). */
     private var category = ""
+    /** A type filter (receipts, warranties, credits…; null = all). */
+    private var group: FamilyItems.Group? = null
     /** Chains opened in the wallet (and "" for the expired ones). */
     private val open = mutableSetOf<String>()
 
@@ -79,7 +84,8 @@ class FamilyFileActivity : AppCompatActivity() {
         // Coupons from a spreadsheet with nothing to redeem (no code, no link) aren't shown.
         val all = FamilyFile.all(this).filterNot { CouponImport.noCode(it) }
         val byChild = if (child.isEmpty()) all else all.filter { it.child == child }
-        val shown = if (category.isEmpty()) byChild else byChild.filter { it.category == category }
+        val byGroup = group?.let { g -> byChild.filter { it.kind in g.kinds } } ?: byChild
+        val shown = if (category.isEmpty()) byGroup else byGroup.filter { it.category == category }
 
         // Filters: whose, and (only categories that have something) what for.
         if (kids.isNotEmpty()) {
@@ -87,7 +93,14 @@ class FamilyFileActivity : AppCompatActivity() {
             val sel = kids.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
             content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
         }
-        val cats = FamilyItems.Category.values().filter { c -> byChild.any { it.category == c.id } }
+        // What kind of thing (only the kinds that are in the file).
+        val groups = FamilyItems.Group.values().filter { g -> byChild.any { it.kind in g.kinds } }
+        if (groups.size > 1) {
+            val labels = listOf(L.t("הכול", "All")) + groups.map { it.label }
+            val sel = groups.indexOf(group).let { if (it < 0) 0 else it + 1 }
+            content.addView(ui.chips(labels, sel, top = 6) { i -> group = if (i == 0) null else groups[i - 1]; category = ""; render() })
+        }
+        val cats = FamilyItems.Category.values().filter { c -> byGroup.any { it.category == c.id } }
         if (cats.size > 1) {
             val labels = listOf(L.t("כל הקטגוריות", "All categories")) + cats.map { it.label }
             val sel = cats.indexOfFirst { it.id == category }.let { if (it < 0) 0 else it + 1 }
@@ -97,7 +110,7 @@ class FamilyFileActivity : AppCompatActivity() {
         if (shown.isEmpty()) {
             content.addView(ui.card(top = 16).apply {
                 addView(ui.text(L.t("התיק עוד ריק", "The file is empty"), 17f, bold = true))
-                addView(ui.hint(L.t("שתפו לכאן קבלה מהגן, אישור, קופון או שובר. הכול נשמר רק בטלפון הזה, מוצפן.", "Share a kindergarten receipt, a form, a coupon or a voucher here. Everything stays on this phone, encrypted."), top = 4))
+                addView(ui.hint(L.t("שתפו לכאן קבלה, תעודת אחריות, זיכוי, פתק החלפה, קופון או שובר. נזכיר לכם לפני שהתוקף נגמר. הכול נשמר רק בטלפון הזה, מוצפן.", "Share a receipt, a warranty, a store credit, an exchange slip, a coupon or a voucher here. We'll remind you before it runs out. Everything stays on this phone, encrypted."), top = 4))
             })
             addButtons()
             return
@@ -124,6 +137,19 @@ class FamilyFileActivity : AppCompatActivity() {
         val walletAll = shown.filter { FamilyItems.isWallet(it) }
         if (walletAll.isNotEmpty()) walletSection(walletAll, names, today)
 
+        // Warranties and exchange slips: the ones still running, soonest first; the ended ones after.
+        val prot = shown.filter { FamilyItems.isProtection(it) }
+        if (prot.isNotEmpty()) {
+            val (running, ended) = prot.partition { !FamilyItems.expired(it, today) }
+            content.addView(header(L.t("אחריות והחלפות", "Warranties and exchanges"), ""))
+            if (running.isNotEmpty()) content.addView(list(running.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
+            if (ended.isNotEmpty()) {
+                val isOpen = "#ended" in open
+                content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("הסתיימו · ${ended.size}", "Ended · ${ended.size}"), R.color.ink_soft) { toggle("#ended") })
+                if (isOpen) content.addView(list(ended.sortedByDescending { it.expires }, names, today))
+            }
+        }
+
         val docs = shown.filter { it.kind == FamilyItems.Kind.DOCUMENT }
         if (docs.isNotEmpty()) {
             content.addView(header(L.t("מסמכים", "Documents"), ""))
@@ -137,6 +163,7 @@ class FamilyFileActivity : AppCompatActivity() {
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
         content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
+        if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         val hidden = FamilyFile.all(this).filter { CouponImport.noCode(it) }
         if (hidden.isNotEmpty()) content.addView(ui.action(L.t("ניקוי ${hidden.size} שורות בלי קוד שיובאו מ-Excel", "Clear ${hidden.size} imported rows without a code"), R.color.ink_soft) {
             AlertDialog.Builder(this)
