@@ -62,6 +62,7 @@ class ImportService : Service() {
             State.skipped = 0
             State.lastId = null
             val app = ctx.applicationContext
+            nm(app)
             try { ContextCompat.startForegroundService(app, Intent(app, ImportService::class.java)) } catch (_: Exception) { }
             queue.execute { work(app, j) }
             return true
@@ -143,6 +144,9 @@ class ImportService : Service() {
         // Always go to the foreground first (Android requires it after a start request), then stop if already done.
         if (!started) {
             started = true
+            // The channel must exist before the first notification: without it Android kills the app ("Bad
+            // notification for startForeground") the very first time photos are added, before anything is copied.
+            nm(this)
             val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
             try { ServiceCompat.startForeground(this, ONGOING, progress(this), type) } catch (_: Exception) { stopSelf(); return START_NOT_STICKY }
         }
