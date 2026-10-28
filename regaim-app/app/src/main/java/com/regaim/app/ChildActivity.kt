@@ -123,6 +123,19 @@ class ChildActivity : AppCompatActivity() {
         }
         content.addView(ms)
 
+        // The child's part of the family file (receipts, documents, vouchers).
+        val file = if (FamilyFile.consented(this)) FamilyFile.all(this).filter { it.child == kid.id } else emptyList()
+        content.addView(ui.section(L.t("התיק של ${kid.name}", "${kid.name}'s file")))
+        val fc = ui.card(top = 8)
+        val total = FamilyItems.receiptTotal(file, java.time.LocalDate.now().year, kid.id)
+        val line = when {
+            file.isEmpty() -> L.t("קבלות, מסמכים ושוברים של ${kid.name}. שתפו לכאן מכל אפליקציה.", "${kid.name}'s receipts, documents and vouchers. Share them here from any app.")
+            total > 0 -> L.t("${file.size} פריטים · קבלות השנה: ${FamilyItems.money(total)}", "${file.size} items · receipts this year: ${FamilyItems.money(total)}")
+            else -> L.t("${file.size} פריטים", "${file.size} items")
+        }
+        fc.addView(ui.row(line, "", top = 0) { FamilyFileActivity.open(this, kid.id) })
+        content.addView(fc)
+
         // More about the child.
         content.addView(ui.section(L.t("עוד", "More")))
         val more = ui.card(top = 8)
