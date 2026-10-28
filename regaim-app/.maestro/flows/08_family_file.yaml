@@ -21,3 +21,14 @@ name: The family file opens from the family tab, and asks for consent before the
 - takeScreenshot: 08_family_file_consent
 - tapOn: "Not now"
 - assertVisible: "The file is empty"
+- scrollUntilVisible:
+    element:
+      text: "Import coupons from an Excel file"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Import coupons from an Excel file"
+- extendedWaitUntil:
+    visible: ".*what's kept, and where.*"
+    timeout: 10000
+- tapOn: "Not now"
+- assertVisible: "The file is empty"

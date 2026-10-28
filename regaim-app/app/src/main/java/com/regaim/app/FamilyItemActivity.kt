@@ -43,11 +43,14 @@ class FamilyItemActivity : AppCompatActivity() {
     private var sharedText: String? = null
     private var picture: Bitmap? = null
     private var busy = false
+    /** A new photo or file was picked for an item that's already in the file (replaces its old one on Save). */
+    private var attached = false
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) { if (bytes == null && sharedText == null) finish(); return@registerForActivityResult }
         load(uri)
     }
+    private val photoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) load(uri) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,7 +82,7 @@ class FamilyItemActivity : AppCompatActivity() {
             if (existing.file.isNotEmpty()) worker.execute {
                 val b = FamilyFile.bytes(applicationContext, existing)
                 val pic = b?.let { FamilyFile.picture(applicationContext, it, existing.mime) }
-                runOnUiThread { if (!isDestroyed) { picture = pic; render() } }
+                runOnUiThread { if (!isDestroyed && !attached) { picture = pic; render() } }
             }
             return
         }
@@ -124,10 +127,13 @@ class FamilyItemActivity : AppCompatActivity() {
                 if (isDestroyed) return@runOnUiThread
                 if (b == null || (m != "application/pdf" && pic == null)) {
                     Toast.makeText(this, if (b == null) L.t("לא הצלחנו לקרוא את הקובץ (עד 20MB, תמונה או PDF)", "Couldn't read the file (up to 20 MB, a picture or a PDF)") else L.t("זה לא נראה כמו תמונה או PDF", "That doesn't look like a picture or a PDF"), Toast.LENGTH_LONG).show()
-                    finish(); return@runOnUiThread
+                    // Adding a photo to something already here (or to shared text): keep the screen, only the photo failed.
+                    if (isNew && sharedText == null) finish() else render()
+                    return@runOnUiThread
                 }
                 bytes = b; mime = m; picture = pic
-                item = item.copy(mime = m, hash = FamilyFile.hash(b), source = if (intent.action == null) "pick" else "share",
+                if (!isNew) { attached = true; item = item.copy(mime = m) }
+                else item = item.copy(mime = m, hash = FamilyFile.hash(b), source = if (sharedText != null) item.source else if (intent.action == null) "pick" else "share",
                     kind = if (item.kind == FamilyItems.Kind.DOCUMENT) FamilyItems.Kind.RECEIPT else item.kind)
                 render()
             }
@@ -181,6 +187,15 @@ class FamilyItemActivity : AppCompatActivity() {
             if (!isNew && item.file.isNotEmpty()) setOnClickListener { openFile() }
         })
         if (sharedText != null && picture == null) content.addView(ui.card(top = 12).apply { addView(ui.text(sharedText!!.take(600), 14f)) })
+
+        // A photo for something without one (a coupon from a list, shared text), or a better one.
+        if (!isNew || bytes == null) {
+            val has = picture != null || item.file.isNotEmpty() || bytes != null
+            content.addView(ui.button(if (has) L.t("📷 החלפת תמונה", "📷 Replace the photo") else L.t("📷 הוספת תמונה", "📷 Add a photo"), top = 12) {
+                fromFields(); photoPicker.launch(arrayOf("image/*", "application/pdf"))
+            })
+            if (attached) content.addView(ui.hint(L.t("התמונה החדשה תישמר כשתלחצו שמירה", "The new photo is kept when you tap Save"), top = 4))
+        }
 
         // Auto-fill (on request only).
         if (isNew && (bytes != null || sharedText != null)) {
@@ -315,7 +330,7 @@ class FamilyItemActivity : AppCompatActivity() {
         val b = bytes
         val ext = if (mime == "application/pdf") "pdf" else if (b != null) "jpg" else ""
         worker.execute {
-            val r = try { Result.success(FamilyFile.save(applicationContext, item, if (isNew) b else null, ext)) } catch (e: Exception) { Result.failure(e) }
+            val r = try { Result.success(FamilyFile.save(applicationContext, item, if (isNew || attached) b else null, ext, replace = attached)) } catch (e: Exception) { Result.failure(e) }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 r.onSuccess {

@@ -55,17 +55,31 @@ object FamilyFile {
 
     private fun write(ctx: Context, items: List<FamilyItems.Item>) = SecureFiles.writeText(index(ctx), FamilyItems.listToJson(items))
 
-    /** Saves a new or changed item; [bytes] (the document) only for a new one. Returns the saved item. */
-    fun save(ctx: Context, item: FamilyItems.Item, bytes: ByteArray? = null, ext: String = ""): FamilyItems.Item = synchronized(lock) {
+    /**
+     * Saves a new or changed item. [bytes] (the document or photo) is written when the item has no file yet, or with
+     * [replace] for a new photo of an existing item (the old file is deleted once the new one is written). Returns the saved item.
+     */
+    fun save(ctx: Context, item: FamilyItems.Item, bytes: ByteArray? = null, ext: String = "", replace: Boolean = false): FamilyItems.Item = synchronized(lock) {
         var i = item.copy(id = item.id.ifBlank { UUID.randomUUID().toString() }, created = if (item.created > 0) item.created else System.currentTimeMillis())
-        if (bytes != null && i.file.isEmpty()) {
-            val name = i.id + (if (ext.isNotEmpty()) ".$ext" else "") + ".enc"
+        val list = FamilyItems.listFromJson(try { SecureFiles.readText(index(ctx)) } catch (_: Exception) { null })
+        val old = list.firstOrNull { it.id == i.id }?.file.orEmpty()
+        if (bytes != null && (i.file.isEmpty() || replace)) {
+            val name = i.id + (if (replace) "-" + System.currentTimeMillis().toString(36) else "") + (if (ext.isNotEmpty()) ".$ext" else "") + ".enc"
             SecureFiles.writeBytes(File(dir(ctx), name), bytes)
             i = i.copy(file = name)
         }
-        val list = FamilyItems.listFromJson(try { SecureFiles.readText(index(ctx)) } catch (_: Exception) { null })
         write(ctx, list.filterNot { it.id == i.id } + i)
+        if (old.isNotEmpty() && old != i.file) File(dir(ctx), old).delete()
         i
+    }
+
+    /** Adds many items at once (an imported list), in one write. Returns how many were added. */
+    fun addAll(ctx: Context, items: List<FamilyItems.Item>): Int = synchronized(lock) {
+        val list = FamilyItems.listFromJson(try { SecureFiles.readText(index(ctx)) } catch (_: Exception) { null })
+        val now = System.currentTimeMillis()
+        val added = items.mapIndexed { n, it -> it.copy(id = it.id.ifBlank { UUID.randomUUID().toString() }, created = now + n) }
+        write(ctx, list + added)
+        added.size
     }
 
     fun delete(ctx: Context, id: String) = synchronized(lock) {
