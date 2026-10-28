@@ -158,6 +158,26 @@ object FamilyItems {
             .map { (c, l) -> c to l.sumOf { it.amount ?: 0.0 } }
             .sortedByDescending { it.second }
 
+    /** Receipts by month ("2026-10"), newest month first and newest receipt first in each; undated ones last ("" key). */
+    fun byMonth(items: List<Item>): List<Pair<String, List<Item>>> =
+        items.groupBy { if (it.date.length >= 7) it.date.substring(0, 7) else "" }
+            .map { (k, l) -> k to l.sortedWith(compareByDescending<Item> { it.date }.thenByDescending { it.created }) }
+            .sortedWith(compareBy<Pair<String, List<Item>>> { it.first.isEmpty() }.thenByDescending { it.first })
+
+    private val HE_MONTHS = listOf("ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר")
+    private val EN_MONTHS = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+    /** "2026-10" → "אוקטובר 2026"; "" → "בלי תאריך". */
+    fun monthLabel(ym: String): String {
+        val p = ym.split("-"); val m = p.getOrNull(1)?.toIntOrNull()
+        if (p.size != 2 || m == null || m !in 1..12) return L.t("בלי תאריך", "No date")
+        return L.t(HE_MONTHS[m - 1], EN_MONTHS[m - 1]) + " " + p[0]
+    }
+
+    /** Receipts paid in one month ("2026-10"). */
+    fun monthTotal(items: List<Item>, ym: String): Double =
+        items.filter { it.kind == Kind.RECEIPT && it.date.startsWith("$ym-") }.sumOf { it.amount ?: 0.0 }
+
     /** "1,150 ₪" or "1,150.50 ₪". */
     fun money(v: Double): String {
         val whole = v == Math.floor(v)

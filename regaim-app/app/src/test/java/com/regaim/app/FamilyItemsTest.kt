@@ -88,6 +88,21 @@ class FamilyItemsTest {
         assertNull(FamilyItems.Category.of(""))
     }
 
+    @Test fun months() {
+        val list = listOf(
+            Item("1", Kind.RECEIPT, amount = 100.0, date = "2026-09-03"),
+            Item("2", Kind.RECEIPT, amount = 200.0, date = "2026-10-01"),
+            Item("3", Kind.RECEIPT, amount = 300.0, date = "2026-10-20"),
+            Item("4", Kind.RECEIPT, amount = 5.0),
+        )
+        val g = FamilyItems.byMonth(list)
+        assertEquals(listOf("2026-10", "2026-09", ""), g.map { it.first })
+        assertEquals(listOf("3", "2"), g[0].second.map { it.id })
+        assertEquals("אוקטובר 2026", FamilyItems.monthLabel("2026-10"))
+        assertEquals("בלי תאריך", FamilyItems.monthLabel(""))
+        assertEquals(500.0, FamilyItems.monthTotal(list, "2026-10"), 0.001)
+    }
+
     @Test fun jsonRoundTrip() {
         val i = Item("1", Kind.VOUCHER, child = "uri", title = "BuyMe", amount = null, expires = "2027-01-01", code = "X1", balance = 120.0, balanceAt = "2026-10-28", created = 5L, category = "gifts")
         assertEquals(listOf(i), FamilyItems.listFromJson(FamilyItems.listToJson(listOf(i))))
