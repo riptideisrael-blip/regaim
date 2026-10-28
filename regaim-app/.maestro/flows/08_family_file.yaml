@@ -1,0 +1,23 @@
+appId: com.regaim.app.qa
+name: The family file opens from the family tab, and asks for consent before the first item
+---
+- runFlow: ../common/home.yaml
+- tapOn:
+    id: "tabFamily"
+- scrollUntilVisible:
+    element:
+      text: "Family file"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Family file"
+- extendedWaitUntil:
+    visible: "The file is empty"
+    timeout: 10000
+- takeScreenshot: 08_family_file
+- tapOn: ".*Add to the file.*"
+- extendedWaitUntil:
+    visible: ".*what's kept, and where.*"
+    timeout: 10000
+- takeScreenshot: 08_family_file_consent
+- tapOn: "Not now"
+- assertVisible: "The file is empty"

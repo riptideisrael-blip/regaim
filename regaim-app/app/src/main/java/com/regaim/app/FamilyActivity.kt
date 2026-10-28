@@ -135,6 +135,12 @@ class FamilyActivity : AppCompatActivity() {
         circle.addView(ui.hint(L.t("הזמינו את המשפחה, שתפו זיכרון והתחילו שיחה.", "Invite your family, share a memory and start a conversation."), top = 0))
         if (Circle.joined(this)) circle.addView(ui.action(L.t("שיחה במשפחה", "Family chat")) { FamilyChatActivity.open(this) })
         content.addView(circle)
+        // The family file: receipts, documents, coupons and vouchers (on this phone).
+        val file = ui.card(top = 12)
+        val n = if (FamilyFile.consented(this)) FamilyFile.all(this).size else 0
+        file.addView(ui.row(L.t("תיק המשפחה", "Family file"), if (n > 0) L.t("$n פריטים", "$n items") else "", top = 0) { FamilyFileActivity.open(this) })
+        file.addView(ui.hint(L.t("קבלות, מסמכים, קופונים ושוברים. שתפו לכאן מכל אפליקציה.", "Receipts, documents, coupons and vouchers. Share them here from any app."), top = 0))
+        content.addView(file)
         if (loading) content.addView(ui.hint(L.t("רגע, פותחים את הזיכרונות של המשפחה...", "Loading your family's memories..."), top = 10))
         if (familyError.isNotBlank()) {
             content.addView(ui.hint(familyError, top = 10))

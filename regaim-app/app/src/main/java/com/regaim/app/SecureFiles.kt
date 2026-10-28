@@ -66,6 +66,34 @@ object SecureFiles {
             e is android.security.keystore.KeyPermanentlyInvalidatedException ||
             e is java.security.UnrecoverableKeyException
 
+    /**
+     * Encrypts [data] into [f] atomically. Unlike [writeText] there's no plain fallback: a document that can't be
+     * encrypted isn't saved (throws). For the family file's receipts and documents.
+     */
+    fun writeBytes(f: File, data: ByteArray) {
+        val c = Cipher.getInstance("AES/GCM/NoPadding")
+        c.init(Cipher.ENCRYPT_MODE, key())
+        val iv = c.iv
+        check(iv.size == IV_LEN)
+        val out = MAGIC + iv + c.doFinal(data)
+        val tmp = File(f.parentFile, f.name + ".tmp")
+        FileOutputStream(tmp).use { it.write(out); it.fd.sync() }
+        if (!tmp.renameTo(f)) {
+            f.delete()
+            if (!tmp.renameTo(f)) throw java.io.IOException("couldn't save ${f.name}")
+        }
+    }
+
+    /** The decrypted bytes of a file written by [writeBytes], or null if it doesn't exist. Throws if it can't be opened. */
+    fun readBytes(f: File): ByteArray? {
+        if (!f.exists()) return null
+        val b = f.readBytes()
+        if (!isSealed(b)) return b
+        val c = Cipher.getInstance("AES/GCM/NoPadding")
+        c.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, MAGIC.size, IV_LEN))
+        return c.doFinal(b, MAGIC.size + IV_LEN, b.size - MAGIC.size - IV_LEN)
+    }
+
     /** Encrypts and writes atomically (temp file, then rename). Falls back to plain only if the Keystore is broken. */
     fun writeText(f: File, text: String) {
         val data = text.toByteArray(Charsets.UTF_8)

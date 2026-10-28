@@ -173,6 +173,31 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".FamilyFileActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <!-- "Share → Moments · family file" from any app: a picture, a PDF or a message. -->
+        <activity
+            android:name=".FamilyItemActivity"
+            android:exported="true"
+            android:label="Moments · תיק המשפחה"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".ChildActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

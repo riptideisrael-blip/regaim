@@ -491,6 +491,37 @@ object ClaudeClient {
         call(ctx, CHAT_MODEL, system, JSONArray().put(JSONObject().put("type", "text").put("text", user)), 160, purpose = "pitzki_chat").trim()
     } catch (_: Exception) { "" }
 
+    /**
+     * Auto-fill in the family file: reads a receipt, document, coupon or voucher (a picture, or shared text) and
+     * suggests its details as JSON. The parent agreed to this on the family file's privacy screen and taps
+     * "Auto-fill" each time, so it doesn't depend on "moment understanding" being on. Background thread only.
+     */
+    fun readFamilyItem(ctx: Context, jpegBase64: String?, text: String?, children: List<String>, today: String): JSONObject {
+        val system = """
+            You read one item a parent shared into their family file: a receipt, a document, a coupon, a voucher/gift card, or a gift.
+            Answer with ONE JSON object only, no other text:
+            {"kind": "receipt|document|coupon|voucher|gift",
+             "title": "short title in the item's language, e.g. 'שכר לימוד אוקטובר'",
+             "vendor": "who issued it (store, kindergarten, company) or null",
+             "amount": number in shekels or null (the total paid; for a coupon/voucher its value),
+             "date": "yyyy-MM-dd the document's date, or null",
+             "expires": "yyyy-MM-dd expiry date, or null",
+             "code": "coupon/voucher code or card number exactly as written, or null",
+             "child": "one of these names only if it is clearly written in the item: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
+            Rules: copy numbers, codes and dates exactly; never guess. If something isn't written, use null.
+            Dates in the item are usually day/month/year (Israel). Today is $today.
+        """.trimIndent()
+        val content = JSONArray()
+        if (!jpegBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "image")
+            .put("source", JSONObject().put("type", "base64").put("media_type", "image/jpeg").put("data", jpegBase64)))
+        content.put(JSONObject().put("type", "text").put("text", if (text.isNullOrBlank()) "Read this item." else "The shared text:\n" + text.take(4000)))
+        val body = JSONObject().put("model", CHAT_MODEL).put("max_tokens", 400).put("system", system)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+        TestMode.guard()
+        val answer = AiGate.claude(ctx, body, "family_file", if (jpegBase64.isNullOrEmpty()) 0 else 1, consentedNow = true)
+        return extractJson(answer)
+    }
+
     fun describeTime(t: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = t }
         if (L.isEn) return EN_DAYS[c.get(Calendar.DAY_OF_WEEK)] + " " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))
