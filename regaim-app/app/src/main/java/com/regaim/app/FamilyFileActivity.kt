@@ -252,7 +252,7 @@ class FamilyFileActivity : AppCompatActivity() {
                 addView(TextView(this@FamilyFileActivity).apply {
                     text = title; textSize = 15f; setTextColor(DS.ink(this@FamilyFileActivity)); typeface = DS.emphasis
                     maxLines = 2; ellipsize = TextUtils.TruncateAt.END
-                    textDirection = View.TEXT_DIRECTION_FIRST_STRONG_LOCALE
+                    textDirection = View.TEXT_DIRECTION_FIRST_STRONG
                 })
                 addView(TextView(this@FamilyFileActivity).apply {
                     text = meta.joinToString(" · "); textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity))
