@@ -34,7 +34,8 @@ object FamilyFile {
             "• בשלב זה רק בטלפון הזה, מוצפן. לא בשרת ולא אצל אף אחד אחר.\n" +
             "• כשנוסיף שיתוף עם ההורה השני, נבקש את אישורכם שוב לפני שמשהו עובר.\n\n" +
             "מילוי אוטומטי:\n" +
-            "• רק כשתלחצו \"מילוי אוטומטי\", התמונה (או העמוד הראשון של ה-PDF) נשלחת לבינה המלאכותית כדי לקרוא סכום, תאריך וקוד, ולא נשמרת שם.\n\n" +
+            "• רק כשתלחצו \"מילוי אוטומטי\", התמונה (או העמוד הראשון של ה-PDF) נשלחת לבינה המלאכותית כדי לקרוא סכום, תאריך וקוד, ולא נשמרת שם.\n" +
+            "• חיפוש חכם: רק כשתלחצו עליו, נשלחת רשימה של הכותרות, הסכומים והתאריכים (בלי קודים, הערות או קבצים) כדי למצוא את מה שביקשתם.\n\n" +
             "אפשר למחוק כל פריט, או את כל התיק, בכל רגע.",
         "What the family file keeps:\n" +
             "• The receipts, documents, coupons and vouchers you share, and their details (amount, date, code, which child).\n\n" +
@@ -42,7 +43,8 @@ object FamilyFile {
             "• For now only on this phone, encrypted. Not on a server and not with anyone else.\n" +
             "• When sharing with the other parent is added, we'll ask you again before anything moves.\n\n" +
             "Auto-fill:\n" +
-            "• Only when you tap \"Auto-fill\", the picture (or the PDF's first page) is sent to the AI to read the amount, date and code; it isn't kept there.\n\n" +
+            "• Only when you tap \"Auto-fill\", the picture (or the PDF's first page) is sent to the AI to read the amount, date and code; it isn't kept there.\n" +
+            "• Smart search: only when you tap it, a list of titles, amounts and dates (no codes, notes or files) is sent to find what you asked for.\n\n" +
             "You can delete any item, or the whole file, at any time.",
     )
 

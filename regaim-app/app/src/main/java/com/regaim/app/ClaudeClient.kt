@@ -526,6 +526,29 @@ object ClaudeClient {
         return extractJson(answer)
     }
 
+    /**
+     * Smart search in the family file: the parent's question in their words ("כמה הוצאנו על הגן בספטמבר",
+     * "שובר לסופר שעוד בתוקף") over a list of the items without codes or notes ([FamilyItems.searchIndex]).
+     * Answers {"ids": [...], "answer": "one short sentence"}. Only when the parent taps the search. Background thread only.
+     */
+    fun searchFamilyFile(ctx: Context, query: String, index: String, today: String): JSONObject {
+        val system = """
+            You help a parent find things in their family file. Each line is one item:
+            id|kind|title|from (store/chain/kindergarten)|category|child|amount in shekels|date yyyy-MM-dd|expires yyyy-MM-dd
+            Kinds: receipt, warranty, credit (store credit), exchange (exchange slip), voucher (gift card), coupon, document, gift.
+            Today is $today. An item whose expiry is before today has expired.
+            Answer with ONE JSON object only: {"ids": ["the ids of the matching items, best first"], "answer": "one short sentence in the question's language, e.g. a total, a count, or what was found; empty if nothing to add"}.
+            Understand Hebrew and English, chain names in either script (BuyMe = ביימי), and loose wording. If nothing matches, ids is [].
+            Never invent items or numbers; totals only from the amounts listed.
+        """.trimIndent()
+        val content = JSONArray().put(JSONObject().put("type", "text").put("text", "Items:\n" + index.take(30000) + "\n\nQuestion: " + query.take(300)))
+        val body = JSONObject().put("model", CHAT_MODEL).put("max_tokens", 500).put("system", system)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+        TestMode.guard()
+        val answer = AiGate.claude(ctx, body, "family_file", 0, consentedNow = true)
+        return extractJson(answer)
+    }
+
     fun describeTime(t: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = t }
         if (L.isEn) return EN_DAYS[c.get(Calendar.DAY_OF_WEEK)] + " " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))
