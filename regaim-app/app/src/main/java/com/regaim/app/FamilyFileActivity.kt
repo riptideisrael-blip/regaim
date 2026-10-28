@@ -22,6 +22,8 @@ class FamilyFileActivity : AppCompatActivity() {
     private lateinit var ui: Ui
     private lateinit var content: LinearLayout
     private var child = ""
+    /** A category filter ("" = all). */
+    private var category = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +44,8 @@ class FamilyFileActivity : AppCompatActivity() {
         val today = java.time.LocalDate.now().toString()
         val year = java.time.LocalDate.now().year
         val all = FamilyFile.all(this)
-        val shown = if (child.isEmpty()) all else all.filter { it.child == child }
+        val byChild = if (child.isEmpty()) all else all.filter { it.child == child }
+        val shown = if (category.isEmpty()) byChild else byChild.filter { it.category == category }
 
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 12) { FamilyItemActivity.pick(this, child) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
@@ -51,6 +54,14 @@ class FamilyFileActivity : AppCompatActivity() {
             val labels = listOf(L.t("כולם", "Everyone")) + kids.map { it.name }
             val sel = kids.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
             content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
+        }
+
+        // Categories that have something (for this child): show only those.
+        val cats = FamilyItems.Category.values().filter { c -> byChild.any { it.category == c.id } }
+        if (cats.isNotEmpty()) {
+            val labels = listOf(L.t("כל הקטגוריות", "All categories")) + cats.map { it.label }
+            val sel = cats.indexOfFirst { it.id == category }.let { if (it < 0) 0 else it + 1 }
+            content.addView(ui.chips(labels, sel, top = 8) { i -> category = if (i == 0) "" else cats[i - 1].id; render() })
         }
 
         if (shown.isEmpty()) {
@@ -74,9 +85,20 @@ class FamilyFileActivity : AppCompatActivity() {
             content.addView(ui.section(L.t("קבלות", "Receipts")))
             val total = FamilyItems.receiptTotal(shown, year, child.ifEmpty { null })
             if (total > 0) content.addView(ui.text(L.t("סך הכול $year: ${FamilyItems.money(total)}", "Total $year: ${FamilyItems.money(total)}"), 16f, bold = true, top = 4))
-            val card = ui.card(top = 8)
-            receipts.forEach { card.addView(row(it, names, today)) }
-            content.addView(card)
+            // One card per category: its name and this year's total, then its receipts (newest first).
+            val groups = receipts.groupBy { FamilyItems.Category.of(it.category) }
+            val order = FamilyItems.Category.values().toList<FamilyItems.Category?>() + listOf(null)
+            for (c in order) {
+                val list = groups[c] ?: continue
+                val card = ui.card(top = 8)
+                val sum = list.filter { it.date.startsWith("$year-") }.sumOf { it.amount ?: 0.0 }
+                card.addView(ui.horizontal(top = 0).apply {
+                    addView(ui.text(c?.label ?: L.t("בלי קטגוריה", "No category"), 16f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+                    if (sum > 0) addView(ui.text(L.t("$year: ${FamilyItems.money(sum)}", "$year: ${FamilyItems.money(sum)}"), 14f, R.color.ink_soft).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT) })
+                })
+                list.forEach { card.addView(row(it, names, today)) }
+                content.addView(card)
+            }
         }
 
         val wallet = shown.filter { it.kind == FamilyItems.Kind.COUPON || it.kind == FamilyItems.Kind.VOUCHER || it.kind == FamilyItems.Kind.GIFT }
@@ -108,7 +130,7 @@ class FamilyFileActivity : AppCompatActivity() {
     private fun row(i: FamilyItems.Item, names: Map<String, String>, today: String): View {
         val title = i.title.ifBlank { i.vendor }.ifBlank { i.kind.label }
         val parts = listOfNotNull(
-            i.kind.label,
+            FamilyItems.Category.of(i.category)?.label ?: i.kind.label,
             names[i.child],
             i.vendor.takeIf { it.isNotBlank() && it != title },
             FamilyItems.expiryLine(i, today).takeIf { it.isNotEmpty() } ?: i.date.takeIf { it.isNotEmpty() }?.let { FamilyItems.short(it) },
