@@ -76,7 +76,8 @@ class FamilyFileActivity : AppCompatActivity() {
         val today = now.toString()
         val year = now.year
         val thisMonth = today.substring(0, 7)
-        val all = FamilyFile.all(this)
+        // Coupons from a spreadsheet with nothing to redeem (no code, no link) aren't shown.
+        val all = FamilyFile.all(this).filterNot { CouponImport.noCode(it) }
         val byChild = if (child.isEmpty()) all else all.filter { it.child == child }
         val shown = if (category.isEmpty()) byChild else byChild.filter { it.category == category }
 
@@ -136,6 +137,14 @@ class FamilyFileActivity : AppCompatActivity() {
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
         content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
+        val hidden = FamilyFile.all(this).filter { CouponImport.noCode(it) }
+        if (hidden.isNotEmpty()) content.addView(ui.action(L.t("ניקוי ${hidden.size} שורות בלי קוד שיובאו מ-Excel", "Clear ${hidden.size} imported rows without a code"), R.color.ink_soft) {
+            AlertDialog.Builder(this)
+                .setTitle(L.t("לנקות ${hidden.size} שורות בלי קוד?", "Clear ${hidden.size} rows without a code?"))
+                .setMessage(L.t("אלה שורות מהקובץ שאין בהן קוד או קישור למימוש. הן לא מוצגות בתיק, וכך יימחקו גם מהטלפון.", "These are rows from the file with no code or link to redeem. They aren't shown, and this deletes them from the phone too."))
+                .setPositiveButton(L.t("ניקוי", "Clear")) { _, _ -> hidden.forEach { FamilyFile.delete(this, it.id) }; render() }
+                .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
+        })
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.action(L.t("מחיקת כל התיק", "Delete the whole file"), R.color.ds_error) {
             AlertDialog.Builder(this)
                 .setTitle(L.t("למחוק את כל התיק?", "Delete the whole file?"))

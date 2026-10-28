@@ -20,12 +20,11 @@ class CouponImportTest {
             listOf("1234567890123456", "12/26", 848.0),
         ))
         val d = CouponImport.parse(listOf(s))
-        assertEquals(3, d.size)
-        assertEquals(49.0, d[0].value!!, 0.0); assertTrue(d[0].expired(today))
-        assertEquals("2028-10-30", d[1].expires)
+        // Rows without a code to redeem are left out.
+        assertEquals(1, d.size)
         // A card with MM/YY and a 3-digit number: that number is the CVV, not an amount.
-        assertEquals("2026-12-31", d[2].expires); assertEquals("848", d[2].cvv); assertEquals(null, d[2].value)
-        assertEquals("1234567890123456", d[2].code)
+        assertEquals("2026-12-31", d[0].expires); assertEquals("848", d[0].cvv); assertEquals(null, d[0].value)
+        assertEquals("1234567890123456", d[0].code)
     }
 
     @Test fun yearsTextDatesAndCvvText() {
@@ -36,9 +35,9 @@ class CouponImportTest {
             listOf("9376-7605-4335-0199", "04/30", "Cvr-510"),
         ))
         val d = CouponImport.parse(listOf(s))
-        assertEquals("2029-12-31", d[0].expires)
-        assertEquals("106720505-8999", d[1].code)
-        assertEquals("510", d[2].cvv); assertEquals("2030-04-30", d[2].expires)
+        assertEquals(2, d.size)
+        assertEquals("106720505-8999", d[0].code); assertEquals("2029-12-31", d[0].expires)
+        assertEquals("510", d[1].cvv); assertEquals("2030-04-30", d[1].expires)
     }
 
     @Test fun buyMeLinkThenAmount() {
@@ -57,13 +56,13 @@ class CouponImportTest {
     @Test fun noHeadingsValueAndCvvColumns() {
         val s = Sheet("Dream card", listOf(
             listOf(null, 50.0, LocalDate.of(2029, 7, 25)),
-            listOf(null, 50.0, 505.0, "03/30"),
+            listOf("9376-7403-8696-1690", 50.0, 505.0, "03/30"),
             listOf("8765639174578983", 35.0, "עובדים בריא"),
         ))
         val d = CouponImport.parse(listOf(s))
-        assertEquals(50.0, d[0].value!!, 0.0)
-        assertEquals(50.0, d[1].value!!, 0.0); assertEquals("505", d[1].cvv)
-        assertEquals("עובדים בריא", d[2].note)
+        assertEquals(2, d.size)
+        assertEquals(50.0, d[0].value!!, 0.0); assertEquals("505", d[0].cvv)
+        assertEquals("עובדים בריא", d[1].note)
     }
 
     @Test fun itemsAndStableFingerprint() {
@@ -83,6 +82,14 @@ class CouponImportTest {
         assertEquals(listOf("82718228-7653", LocalDate.of(2028, 12, 31), 100.0), sheets[0].rows[1])
         val d = CouponImport.parse(sheets)
         assertEquals("82718228-7653", d[0].code); assertEquals("2028-12-31", d[0].expires)
+    }
+
+    @Test fun usedOnesWithoutACodeAreLeftOut() {
+        val excel = FamilyItems.Item("1", FamilyItems.Kind.VOUCHER, vendor = "רמי לוי", amount = 200.0, source = "excel")
+        assertTrue(CouponImport.noCode(excel))
+        assertTrue(!CouponImport.noCode(excel.copy(code = "117672485-3666")))
+        assertTrue(!CouponImport.noCode(excel.copy(note = "https://buyme.co.il/x")))
+        assertTrue(!CouponImport.noCode(excel.copy(source = "pick")))
     }
 
     private fun xlsx(): ByteArray {
