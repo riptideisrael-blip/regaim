@@ -103,7 +103,16 @@ class FamilyFileActivity : AppCompatActivity() {
         child = intent.getStringExtra(EXTRA_CHILD).orEmpty()
     }
 
-    override fun onResume() { super.onResume(); render() }
+    override fun onResume() {
+        super.onResume()
+        render()
+        // The other parent's items (when both share the file): shown as soon as they arrive.
+        FamilyFileSync.kick(this) { runOnUiThread { if (!isDestroyed) render() } }
+    }
+
+    /** The other parent's name (from what they shared), for "from Michal". */
+    private fun partnerName(): String =
+        Circle.cachedPartnerMoments(this).firstOrNull()?.author?.takeIf { it.isNotBlank() } ?: L.t("ההורה השני", "the other parent")
 
     private fun tint(i: FamilyItems.Item): Pair<Int, Int> =
         FamilyItems.Category.of(i.category)?.let { TINTS[it.id] } ?: KIND_TINTS[i.kind] ?: (0xFFEDE5DC.toInt() to 0xFF675C54.toInt())
@@ -197,6 +206,29 @@ class FamilyFileActivity : AppCompatActivity() {
         content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
+        // Sharing with the other parent: each of them turns it on, after reading what it means.
+        if (PartnerShare.partner(this).isNotEmpty() && FamilyFile.consented(this)) {
+            val who = partnerName()
+            content.addView(ui.switch(L.t("שיתוף התיק עם $who", "Share the file with $who"), FamilyFileSync.on(this), top = 8) { want ->
+                if (want == FamilyFileSync.on(this)) return@switch
+                if (want) AlertDialog.Builder(this)
+                    .setTitle(L.t("לשתף את התיק עם $who?", "Share the file with $who?"))
+                    .setMessage(FamilyFileSync.shareConsentText(who))
+                    .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFileSync.turnOn(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
+                    .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
+                    .setOnCancelListener { render() }
+                    .show()
+                else AlertDialog.Builder(this)
+                    .setTitle(L.t("להפסיק לשתף?", "Stop sharing?"))
+                    .setMessage(L.t("מה שנשלח מהטלפון הזה יימחק מהשרת, והפריטים של $who יוסרו מכאן.", "What this phone sent is deleted from the server, and $who's items are removed from here."))
+                    .setPositiveButton(L.t("להפסיק", "Stop")) { _, _ -> FamilyFileSync.turnOff(this) { runOnUiThread { if (!isDestroyed) render() } } }
+                    .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
+                    .setOnCancelListener { render() }
+                    .show()
+            })
+            content.addView(ui.hint(if (FamilyFileSync.on(this)) L.t("הפריטים שלך נשלחים ל$who. הפריטים של $who יופיעו כאן כשגם $who יפעיל/תפעיל שיתוף.", "Your items go to $who. $who's items appear here once $who turns sharing on too.")
+                else L.t("כרגע התיק נשמר רק בטלפון הזה.", "For now the file stays on this phone only."), top = 2))
+        }
         val hidden = FamilyFile.all(this).filter { CouponImport.noCode(it) }
         if (hidden.isNotEmpty()) content.addView(ui.action(L.t("ניקוי ${hidden.size} שורות בלי קוד שיובאו מ-Excel", "Clear ${hidden.size} imported rows without a code"), R.color.ink_soft) {
             AlertDialog.Builder(this)
@@ -299,6 +331,7 @@ class FamilyFileActivity : AppCompatActivity() {
             if (i.kind == FamilyItems.Kind.RECEIPT || i.kind == FamilyItems.Kind.DOCUMENT) cat?.label else i.kind.label,
             i.vendor.takeIf { it.isNotBlank() && it != title },
             names[i.child]?.takeIf { it.isNotBlank() },
+            if (i.source == FamilyShare.FROM_PARTNER) L.t("מ", "from ") + partnerName() else null,
             FamilyItems.expiryLine(i, today).takeIf { it.isNotEmpty() } ?: i.date.takeIf { it.isNotEmpty() }?.let { FamilyItems.short(it) },
         )
         val value = (i.balance ?: i.amount)?.let { FamilyItems.money(it) }.orEmpty()

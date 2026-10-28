@@ -247,11 +247,11 @@ object Circle {
         return text
     }
 
-    private fun rest(ctx: Context, method: String, path: String, body: String? = null): JSONArray {
+    private fun rest(ctx: Context, method: String, path: String, body: String? = null, prefer: String = "return=representation"): JSONArray {
         val conn = open(ctx, method, "/rest/v1/$path")
         try {
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Prefer", "return=representation")
+            conn.setRequestProperty("Prefer", prefer)
             if (body != null) {
                 conn.doOutput = true
                 conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -705,6 +705,37 @@ object Circle {
             try { read(conn) } finally { conn.disconnect() }
         } catch (_: Exception) {
         }
+    }
+
+    // ---------- the family file, shared with the other parent (server/family-file-share.sql) ----------
+
+    /** Sends (or updates) one item of this parent's family file for the other parent. Background thread only. */
+    fun fileItemPut(ctx: Context, partner: String, itemId: String, data: JSONObject, filePath: String?) {
+        val row = JSONObject().put("circle_id", circleId(ctx)).put("owner_id", Account.id(ctx)).put("item_id", itemId)
+            .put("partner_id", partner).put("data", data).put("file_path", filePath ?: JSONObject.NULL)
+            .put("updated_at", isoOf(System.currentTimeMillis())).put("deleted_at", JSONObject.NULL)
+        rest(ctx, "POST", "family_file_items?on_conflict=circle_id,owner_id,item_id", row.toString(), "resolution=merge-duplicates,return=minimal")
+    }
+
+    /** Marks one of this parent's items removed (the other phone removes it too), and removes its file. */
+    fun fileItemRemove(ctx: Context, itemId: String) {
+        val rows = rest(ctx, "PATCH", "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(Account.id(ctx))}&item_id=eq.${enc(itemId)}",
+            JSONObject().put("deleted_at", isoOf(System.currentTimeMillis())).put("data", JSONObject()).put("file_path", JSONObject.NULL).toString())
+        (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("file_path")?.nullless() }.forEach { removeFile(ctx, it) }
+    }
+
+    /** The other parent's shared items (with removed ones marked). Background thread only. */
+    fun fileItemsFrom(ctx: Context, partner: String): List<JSONObject> {
+        val rows = rest(ctx, "GET", "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(partner)}&partner_id=eq.${enc(Account.id(ctx))}&select=item_id,data,file_path,updated_at,deleted_at&limit=5000")
+        return (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+    }
+
+    /** Stops sharing: everything this parent sent (rows and files) is deleted from the server. */
+    fun fileItemsClear(ctx: Context) {
+        val mine = "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(Account.id(ctx))}"
+        val rows = rest(ctx, "GET", "$mine&select=file_path&limit=5000")
+        (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("file_path")?.nullless() }.forEach { removeFile(ctx, it) }
+        rest(ctx, "DELETE", mine, prefer = "return=minimal")
     }
 
     /** True when the server still needs the small update (caption/style columns). */

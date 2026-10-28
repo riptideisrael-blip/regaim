@@ -226,8 +226,10 @@ class FamilyItemActivity : AppCompatActivity() {
         val viewing = !isNew && FamilyItems.isWallet(item) && !editing
         checkoutLight(viewing)
         if (viewing) {
-            content.addView(ui.button(L.t("✓ מומש · הסרה מהארנק", "✓ Used · remove from the wallet"), primary = true, top = 16) { confirmUsed() })
-            content.addView(ui.button(L.t("עריכת פרטים", "Edit the details"), top = 8) { editing = true; render() })
+            if (item.source != FamilyShare.FROM_PARTNER) {
+                content.addView(ui.button(L.t("✓ מומש · הסרה מהארנק", "✓ Used · remove from the wallet"), primary = true, top = 16) { confirmUsed() })
+                content.addView(ui.button(L.t("עריכת פרטים", "Edit the details"), top = 8) { editing = true; render() })
+            } else content.addView(ui.hint(L.t("מהתיק של ההורה השני. סימון כמומש או עריכה נעשים בטלפון שלו/ה.", "From the other parent's file. Marking it used or editing it is done on their phone."), top = 14))
             content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
             return
         }
@@ -298,6 +300,13 @@ class FamilyItemActivity : AppCompatActivity() {
         fNote = ui.field(L.t("הערה", "Note"), item.note, multiline = true)
         addField(fNote)
 
+        if (item.source == FamilyShare.FROM_PARTNER) {
+            // The other parent's item: changed only on their phone (a change here would be undone by the next sync).
+            content.addView(ui.hint(L.t("הפריט הזה הגיע מהתיק של ההורה השני. אפשר לשנות או למחוק אותו רק בטלפון שלו/ה.", "This item came from the other parent's file. It can be changed or deleted only on their phone."), top = 16))
+            if (item.file.isNotEmpty()) content.addView(ui.button(L.t("פתיחת הקובץ", "Open the file"), top = 8) { openFile() })
+            content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
+            return
+        }
         content.addView(ui.button(L.t("שמירה", "Save"), primary = true, top = 18) { save() })
         if (!isNew) {
             if (item.file.isNotEmpty()) content.addView(ui.button(L.t("פתיחת הקובץ", "Open the file"), top = 8) { openFile() })
