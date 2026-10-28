@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,6 +28,7 @@ class FamilyItemActivity : AppCompatActivity() {
         private const val EXTRA_PICK = "pick"
         private const val EXTRA_CHILD = "child"
         private const val MAX_BYTES = 20 * 1024 * 1024
+        private const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
         fun open(ctx: Context, id: String) = ctx.startActivity(Intent(ctx, FamilyItemActivity::class.java).putExtra(EXTRA_ID, id))
         fun pick(ctx: Context, child: String = "") = ctx.startActivity(Intent(ctx, FamilyItemActivity::class.java).putExtra(EXTRA_PICK, true).putExtra(EXTRA_CHILD, child))
@@ -92,6 +94,14 @@ class FamilyItemActivity : AppCompatActivity() {
                 @Suppress("DEPRECATION")
                 val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
                 val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (uri == null && text != null && text.contains("docs.google.com/spreadsheets")) {
+                    AlertDialog.Builder(this)
+                        .setTitle(L.t("זה קישור לגיליון, לא הקובץ עצמו", "That's a link to a sheet, not the file"))
+                        .setMessage(L.t("כדי לייבא את כל הקופונים: בגיליון לוחצים ⋮ ← שיתוף וייצוא ← שליחת עותק ← Microsoft Excel ‏(xlsx), ומשתפים ל-Moments · תיק המשפחה.", "To import all the coupons: in the sheet tap ⋮ → Share & export → Send a copy → Microsoft Excel (xlsx), and share it to Moments · family file."))
+                        .setPositiveButton(L.t("הבנתי", "Got it")) { _, _ -> finish() }
+                        .setOnCancelListener { finish() }.show()
+                    return
+                }
                 if (uri != null) load(uri) else if (!text.isNullOrBlank()) { sharedText = text; item = item.copy(note = text.take(500), source = "share", kind = FamilyItems.Kind.COUPON); render() } else finish()
             }
             Intent.ACTION_SEND_MULTIPLE -> {
@@ -100,7 +110,7 @@ class FamilyItemActivity : AppCompatActivity() {
                 if (uris.size > 1) Toast.makeText(this, L.t("נוסף הקובץ הראשון. את השאר אפשר לשתף אחד-אחד.", "Adding the first file. Share the others one at a time."), Toast.LENGTH_LONG).show()
                 uris.firstOrNull()?.let { load(it) } ?: finish()
             }
-            else -> if (intent.getBooleanExtra(EXTRA_PICK, false)) picker.launch(arrayOf("image/*", "application/pdf")) else finish()
+            else -> if (intent.getBooleanExtra(EXTRA_PICK, false)) picker.launch(arrayOf("image/*", "application/pdf", XLSX)) else finish()
         }
     }
 
@@ -121,6 +131,17 @@ class FamilyItemActivity : AppCompatActivity() {
                     buf.toByteArray()
                 }
             } catch (_: Exception) { null }
+            // A spreadsheet (a list of coupons): goes to the import, which reads every row.
+            if (b != null && isNew && b.size > 4 && b[0] == 'P'.code.toByte() && b[1] == 'K'.code.toByte()) {
+                val f = java.io.File(java.io.File(cacheDir, "import").apply { mkdirs() }, "coupons.xlsx")
+                val ok = try { f.writeBytes(b); true } catch (_: Exception) { false }
+                runOnUiThread { if (!isDestroyed) { if (ok) FamilyImportActivity.openFile(this, f); finish() } }
+                return@execute
+            }
+            if (b != null && b.size > 4 && (b[0].toInt() and 0xFF) == 0xD0 && (b[1].toInt() and 0xFF) == 0xCF) {
+                runOnUiThread { if (!isDestroyed) { Toast.makeText(this, L.t("זה קובץ Excel ישן (xls). שמרו אותו כ-xlsx ונסו שוב.", "That's an old Excel file (xls). Save it as xlsx and try again."), Toast.LENGTH_LONG).show(); if (isNew) finish() else render() } }
+                return@execute
+            }
             val m = if (type == "application/pdf" || (b != null && b.size > 4 && String(b, 0, 4) == "%PDF")) "application/pdf" else "image/jpeg"
             val pic = b?.let { FamilyFile.picture(applicationContext, it, m) }
             runOnUiThread {
@@ -169,6 +190,7 @@ class FamilyItemActivity : AppCompatActivity() {
         content.removeAllViews()
         findViewById<TextView>(R.id.screenTitle).text = if (isNew) L.t("הוספה לתיק המשפחה", "Add to the family file") else item.title.ifBlank { item.kind.label }
         if (loading) { content.addView(ui.hint(L.t("פותחים את הקובץ…", "Opening the file…"), top = 16)); return }
+        if (!isNew && FamilyItems.isWallet(item)) content.addView(voucherCard())
 
         picture?.let { bmp ->
             content.addView(ImageView(this).apply {
@@ -203,7 +225,7 @@ class FamilyItemActivity : AppCompatActivity() {
             content.addView(ui.hint(L.t("שולח את התמונה לקריאה בלבד, ממלא את השדות ואתם בודקים לפני שמירה.", "Sends the picture to be read only; fills the fields, and you check them before saving."), top = 4))
         }
 
-        content.addView(ui.section(L.t("מה זה?", "What is it?")))
+        content.addView(ui.section(if (!isNew && FamilyItems.isWallet(item)) L.t("עריכת פרטים", "Edit the details") else L.t("מה זה?", "What is it?")))
         val kinds = FamilyItems.Kind.values().toList()
         content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(item.kind), top = 6) { i -> fromFields(); item = item.copy(kind = kinds[i]); render() })
 
@@ -365,6 +387,63 @@ class FamilyItemActivity : AppCompatActivity() {
                     Toast.makeText(this, L.t("אין בטלפון אפליקציה שפותחת את הקובץ", "No app on this phone opens this file"), Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private var showCvv = false
+
+    /** A saved coupon or voucher at a glance: the chain, its value, the code to copy, the link, when it expires. */
+    private fun voucherCard(): View {
+        val today = java.time.LocalDate.now().toString()
+        val chain = item.vendor.ifBlank { item.title.substringBefore(" · ") }.ifBlank { item.kind.label }
+        val link = FamilyItems.link(item.note)
+        val cvv = FamilyItems.cvv(item.note)
+        val white = 0xFFFFFFFF.toInt()
+        return ui.card(top = 12).apply {
+            setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
+            background = DS.rounded(0xFF6F4E37.toInt(), ui.dp(22).toFloat())
+            addView(TextView(this@FamilyItemActivity).apply { text = chain; textSize = 15f; setTextColor(0xE6FFFFFF.toInt()); typeface = DS.emphasis; textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
+            FamilyItems.worth(item).takeIf { it > 0 }?.let { w ->
+                addView(TextView(this@FamilyItemActivity).apply {
+                    text = FamilyItems.money(w); textSize = 32f; setTextColor(white); typeface = DS.emphasis; textDirection = View.TEXT_DIRECTION_LTR
+                    setPadding(0, ui.dp(4), 0, 0)
+                })
+            }
+            FamilyItems.expiryLine(item, today).takeIf { it.isNotEmpty() }?.let { e ->
+                addView(TextView(this@FamilyItemActivity).apply { text = e; textSize = 13f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(2), 0, 0) })
+            }
+            if (item.code.isNotEmpty()) {
+                addView(TextView(this@FamilyItemActivity).apply {
+                    text = item.code; textSize = 20f; setTextColor(white); typeface = android.graphics.Typeface.MONOSPACE
+                    textDirection = View.TEXT_DIRECTION_LTR; textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    letterSpacing = 0.06f; setTextIsSelectable(true)
+                    background = DS.rounded(0x26FFFFFF, ui.dp(12).toFloat())
+                    setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) }
+                })
+            }
+            val actions = LinearLayout(this@FamilyItemActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            fun pill(label: String, onClick: () -> Unit) = TextView(this@FamilyItemActivity).apply {
+                text = label; textSize = 14f; setTextColor(white); typeface = DS.emphasis; gravity = android.view.Gravity.CENTER
+                background = DS.rounded(0x33FFFFFF, ui.dp(20).toFloat())
+                setPadding(ui.dp(14), ui.dp(9), ui.dp(14), ui.dp(9)); minHeight = ui.dp(44)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }
+                setOnClickListener { onClick() }
+            }
+            if (item.code.isNotEmpty()) actions.addView(pill(L.t("העתקת הקוד", "Copy the code")) {
+                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("code", item.code))
+                Toast.makeText(this@FamilyItemActivity, L.t("הקוד הועתק", "Code copied"), Toast.LENGTH_SHORT).show()
+            })
+            if (link.isNotEmpty()) actions.addView(pill(L.t("פתיחת השובר ↗", "Open the voucher ↗")) {
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) } catch (_: Exception) { }
+            })
+            if (cvv.isNotEmpty()) actions.addView(pill(if (showCvv) "CVV $cvv" else L.t("הצגת CVV", "Show CVV")) { fromFields(); showCvv = !showCvv; render() })
+            if (actions.childCount > 0) addView(HorizontalScrollView(this@FamilyItemActivity).apply {
+                isHorizontalScrollBarEnabled = false; addView(actions)
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
+            })
         }
     }
 }

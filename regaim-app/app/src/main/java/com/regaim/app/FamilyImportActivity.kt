@@ -27,7 +27,10 @@ import java.util.concurrent.Executors
 class FamilyImportActivity : AppCompatActivity() {
     companion object {
         private const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        private const val EXTRA_FILE = "file"
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, FamilyImportActivity::class.java))
+        /** Opens the import with a spreadsheet already copied to the app's cache (shared or picked elsewhere). */
+        fun openFile(ctx: Context, file: java.io.File) = ctx.startActivity(Intent(ctx, FamilyImportActivity::class.java).putExtra(EXTRA_FILE, file.path))
     }
 
     private lateinit var ui: Ui
@@ -40,13 +43,19 @@ class FamilyImportActivity : AppCompatActivity() {
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) { finish(); return@registerForActivityResult }
+        read { contentResolver.openInputStream(uri) }
+    }
+
+    /** Reads the spreadsheet (off the main thread) and shows the rows to check. */
+    private fun read(open: () -> java.io.InputStream?) {
         content.removeAllViews()
         content.addView(ui.hint(L.t("קוראים את הקובץ…", "Reading the file…"), top = 16))
         worker.execute {
             val r = try {
-                val sheets = contentResolver.openInputStream(uri)?.use { XlsxReader.read(it) }
+                val sheets = open()?.use { XlsxReader.read(it) }
                 Result.success(sheets?.let { CouponImport.parse(it) } ?: emptyList())
             } catch (e: Exception) { Result.failure(e) }
+            intent.getStringExtra(EXTRA_FILE)?.let { java.io.File(it).delete() }
             val have = FamilyFile.all(applicationContext).map { it.hash }.filter { it.isNotEmpty() }.toSet()
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
@@ -83,7 +92,10 @@ class FamilyImportActivity : AppCompatActivity() {
 
     override fun onDestroy() { worker.shutdownNow(); super.onDestroy() }
 
-    private fun pick() = picker.launch(arrayOf(XLSX, "application/octet-stream"))
+    private fun pick() {
+        val f = intent.getStringExtra(EXTRA_FILE)
+        if (f != null) read { java.io.File(f).takeIf { it.exists() }?.inputStream() } else picker.launch(arrayOf(XLSX, "application/octet-stream"))
+    }
 
     /** A long code or card number shows only its last 4 digits. */
     private fun masked(code: String) = if (code.length >= 8) "•••• " + code.takeLast(4) else code

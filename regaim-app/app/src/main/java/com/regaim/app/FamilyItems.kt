@@ -215,4 +215,29 @@ object FamilyItems {
             child = childId ?: base.child,
         )
     }
+
+    /** One chain in the family wallet: its valid coupons and vouchers, what they're worth, and the nearest expiry. */
+    data class Chain(val name: String, val items: List<Item>, val total: Double, val nearest: String)
+
+    fun isWallet(i: Item) = i.kind == Kind.COUPON || i.kind == Kind.VOUCHER || i.kind == Kind.GIFT
+    fun expired(i: Item, today: String) = i.expires.isNotEmpty() && i.expires < today
+    fun worth(i: Item) = i.balance ?: i.amount ?: 0.0
+
+    /** The valid wallet items grouped by chain (vendor, or the title when there's none), the most valuable chain first. */
+    fun wallet(items: List<Item>, today: String): List<Chain> =
+        items.filter { isWallet(it) && !expired(it, today) }
+            .groupBy { it.vendor.trim().ifEmpty { it.title.trim().substringBefore(" · ") }.ifEmpty { "—" } }
+            .map { (name, list) ->
+                Chain(name, list.sortedBy { it.expires.ifEmpty { "9999" } }, list.sumOf { worth(it) }, list.map { it.expires }.filter { it.isNotEmpty() }.minOrNull().orEmpty())
+            }
+            .sortedWith(compareByDescending<Chain> { it.total }.thenBy { it.name })
+
+    /** A long code or card number shows only its last 4 digits ("•••• 9507"). */
+    fun masked(code: String) = if (code.count { it.isDigit() } >= 12) "•••• " + code.filter { it.isLetterOrDigit() }.takeLast(4) else code
+
+    /** The first web link in a note (a BuyMe voucher, say). */
+    fun link(note: String) = Regex("""https?://\S+""").find(note)?.value.orEmpty()
+
+    /** The card security number kept in the note ("CVV 848"), or "". */
+    fun cvv(note: String) = Regex("""CVV (\d{3,4})""").find(note)?.groupValues?.get(1).orEmpty()
 }

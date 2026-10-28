@@ -50,6 +50,8 @@ class FamilyFileActivity : AppCompatActivity() {
     private var child = ""
     /** A category filter ("" = all). */
     private var category = ""
+    /** Chains opened in the wallet (and "" for the expired ones). */
+    private val open = mutableSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,24 +119,9 @@ class FamilyFileActivity : AppCompatActivity() {
             content.addView(list(items, names, today))
         }
 
-        // Coupons and vouchers by chain (each with what's still valid), the expired ones together at the end.
-        val wallet = shown.filter { it.kind == FamilyItems.Kind.COUPON || it.kind == FamilyItems.Kind.VOUCHER || it.kind == FamilyItems.Kind.GIFT }
-        val (valid, expired) = wallet.partition { it.expires.isEmpty() || it.expires >= today }
-        if (valid.isNotEmpty()) {
-            val validTotal = valid.sumOf { it.balance ?: it.amount ?: 0.0 }
-            content.addView(header(L.t("קופונים, שוברים ומתנות", "Coupons, vouchers and gifts"), if (validTotal > 0) FamilyItems.money(validTotal) else ""))
-            val byChain = valid.groupBy { it.vendor.trim().ifEmpty { it.title.trim() } }.toSortedMap()
-            if (byChain.size <= 1) content.addView(list(valid.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
-            else for ((chain, items) in byChain) {
-                val sum = items.sumOf { it.balance ?: it.amount ?: 0.0 }
-                content.addView(ui.text("$chain · ${items.size}" + (if (sum > 0) "  ·  " + FamilyItems.money(sum) else ""), 14f, R.color.ink_soft, bold = true, top = 14).apply { textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
-                content.addView(list(items.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
-            }
-        }
-        if (expired.isNotEmpty()) {
-            content.addView(header(L.t("פג תוקף", "Expired") + " · ${expired.size}", ""))
-            content.addView(list(expired.sortedByDescending { it.expires }, names, today))
-        }
+        // The family wallet: what's still valid, chain by chain; the expired ones folded away at the end.
+        val walletAll = shown.filter { FamilyItems.isWallet(it) }
+        if (walletAll.isNotEmpty()) walletSection(walletAll, names, today)
 
         val docs = shown.filter { it.kind == FamilyItems.Kind.DOCUMENT }
         if (docs.isNotEmpty()) {
@@ -276,6 +263,134 @@ class FamilyFileActivity : AppCompatActivity() {
             })
             if (value.isNotEmpty()) addView(amount(value, 15f, DS.ink(this@FamilyFileActivity)))
             contentDescription = (listOf(title) + meta + value).filter { it.isNotBlank() }.joinToString(", ")
+            setOnClickListener { FamilyItemActivity.open(this@FamilyFileActivity, i.id) }
+        }
+    }
+
+    /** A soft colour per chain name (stable), from the app's warm palette. */
+    private fun chainTint(name: String): Pair<Int, Int> {
+        val all = TINTS.values.toList()
+        return all[Math.floorMod(name.hashCode(), all.size)]
+    }
+
+    private fun walletSection(items: List<FamilyItems.Item>, names: Map<String, String>, today: String) {
+        val chains = FamilyItems.wallet(items, today)
+        val expired = items.filter { FamilyItems.expired(it, today) }
+        val total = chains.sumOf { it.total }
+        val count = chains.sumOf { it.items.size }
+        val soon = chains.flatMap { it.items }.count { FamilyItems.daysUntil(it.expires, today)?.let { d -> d in 0..60 } == true }
+
+        content.addView(header(L.t("הארנק המשפחתי", "The family wallet"), ""))
+        // The headline: what the family can still use.
+        content.addView(ui.card(top = 8).apply {
+            setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
+            background = DS.rounded(0xFF6F4E37.toInt(), ui.dp(22).toFloat())
+            addView(TextView(this@FamilyFileActivity).apply {
+                text = L.t("שווי שאפשר לממש", "Value you can still use"); textSize = 13f; setTextColor(0xCCFFFFFF.toInt())
+            })
+            addView(amount(FamilyItems.money(total), 30f, 0xFFFFFFFF.toInt()).apply { setPadding(0, ui.dp(2), 0, 0) })
+            addView(TextView(this@FamilyFileActivity).apply {
+                text = listOfNotNull(
+                    L.t("$count שוברים וקופונים · ${chains.size} רשתות", "$count vouchers and coupons · ${chains.size} chains"),
+                    if (soon > 0) L.t("⏳ $soon פגים בחודשיים הקרובים", "⏳ $soon expire in the next two months") else null,
+                ).joinToString("\n")
+                textSize = 13f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(6), 0, 0)
+            })
+        })
+
+        for (c in chains) {
+            val isOpen = c.name in open
+            val (bg, ink) = chainTint(c.name)
+            val card = ui.card(top = 10)
+            card.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(4))
+            card.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, ui.dp(12), 0, ui.dp(12)); minimumHeight = ui.dp(64)
+                background = android.util.TypedValue().let { tv -> theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true); getDrawable(tv.resourceId) }
+                addView(TextView(this@FamilyFileActivity).apply {
+                    text = c.name.trim().take(1).uppercase(); textSize = 18f; gravity = Gravity.CENTER; setTextColor(ink); typeface = DS.emphasis
+                    background = DS.rounded(bg, ui.dp(14).toFloat())
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    layoutParams = LinearLayout.LayoutParams(ui.dp(46), ui.dp(46)).apply { marginEnd = ui.dp(12) }
+                })
+                val sub = listOfNotNull(
+                    if (c.items.size == 1) L.t("שובר אחד", "1 voucher") else L.t("${c.items.size} שוברים", "${c.items.size} vouchers"),
+                    c.nearest.takeIf { it.isNotEmpty() }?.let { L.t("הקרוב פג ", "next expires ") + FamilyItems.short(it) },
+                )
+                addView(LinearLayout(this@FamilyFileActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(10) }
+                    addView(TextView(this@FamilyFileActivity).apply {
+                        text = c.name; textSize = 16f; setTextColor(DS.ink(this@FamilyFileActivity)); typeface = DS.emphasis
+                        maxLines = 1; ellipsize = TextUtils.TruncateAt.END; textDirection = View.TEXT_DIRECTION_FIRST_STRONG
+                    })
+                    addView(TextView(this@FamilyFileActivity).apply {
+                        text = sub.joinToString(" · "); textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity)); setPadding(0, ui.dp(2), 0, 0)
+                    })
+                })
+                if (c.total > 0) addView(amount(FamilyItems.money(c.total), 16f, DS.ink(this@FamilyFileActivity)))
+                addView(TextView(this@FamilyFileActivity).apply {
+                    text = if (isOpen) "⌃" else "⌄"; textSize = 16f; setTextColor(DS.inkSoft(this@FamilyFileActivity))
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ui.dp(8) }
+                })
+                contentDescription = (listOf(c.name) + sub + listOfNotNull(c.total.takeIf { it > 0 }?.let { FamilyItems.money(it) }) +
+                    (if (isOpen) L.t("פתוח", "Open") else L.t("סגור", "Closed"))).joinToString(", ")
+                setOnClickListener { toggle(c.name) }
+            })
+            if (isOpen) c.items.forEach { i -> card.addView(divider(52)); card.addView(voucherRow(i, today)) }
+            content.addView(card)
+        }
+
+        if (expired.isNotEmpty()) {
+            val isOpen = "" in open
+            content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("פג תוקף · ${expired.size}", "Expired · ${expired.size}"), R.color.ink_soft) { toggle("") })
+            if (isOpen) content.addView(list(expired.sortedByDescending { it.expires }, names, today))
+        }
+    }
+
+    private fun toggle(key: String) {
+        if (key in open) open -= key else open += key
+        val sv = content.parent as? View
+        val y = sv?.scrollY ?: 0
+        render()
+        sv?.post { sv.scrollTo(0, y) }
+    }
+
+    private fun divider(start: Int) = View(this).apply {
+        setBackgroundColor(0xFFE8DED3.toInt())
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply { marginStart = ui.dp(start) }
+    }
+
+    /** One voucher inside its chain: its code (last digits only), when it expires, what it's worth. */
+    private fun voucherRow(i: FamilyItems.Item, today: String): View {
+        val title = i.code.takeIf { it.isNotEmpty() }?.let { FamilyItems.masked(it) }
+            ?: if (FamilyItems.link(i.note).isNotEmpty()) L.t("שובר דיגיטלי (קישור)", "Digital voucher (link)") else i.kind.label
+        val days = FamilyItems.daysUntil(i.expires, today)
+        val meta = listOfNotNull(
+            FamilyItems.expiryLine(i, today).takeIf { it.isNotEmpty() } ?: L.t("בלי תאריך תפוגה", "No expiry date"),
+            if (i.file.isNotEmpty()) L.t("📷 יש תמונה", "📷 Has a photo") else null,
+        )
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(ui.dp(58), ui.dp(10), 0, ui.dp(10)); minimumHeight = ui.dp(52)
+            background = android.util.TypedValue().let { tv -> theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true); getDrawable(tv.resourceId) }
+            addView(LinearLayout(this@FamilyFileActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(10) }
+                addView(TextView(this@FamilyFileActivity).apply {
+                    text = title; textSize = 15f; setTextColor(DS.ink(this@FamilyFileActivity))
+                    textDirection = View.TEXT_DIRECTION_FIRST_STRONG; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                })
+                addView(TextView(this@FamilyFileActivity).apply {
+                    text = meta.joinToString(" · "); textSize = 12.5f
+                    setTextColor(if (days != null && days in 0..60) 0xFFA4442F.toInt() else DS.inkSoft(this@FamilyFileActivity))
+                    setPadding(0, ui.dp(2), 0, 0)
+                })
+            })
+            val w = FamilyItems.worth(i)
+            if (w > 0) addView(amount(FamilyItems.money(w), 15f, DS.ink(this@FamilyFileActivity)))
+            contentDescription = (listOf(title) + meta + listOfNotNull(w.takeIf { it > 0 }?.let { FamilyItems.money(it) })).joinToString(", ")
             setOnClickListener { FamilyItemActivity.open(this@FamilyFileActivity, i.id) }
         }
     }
