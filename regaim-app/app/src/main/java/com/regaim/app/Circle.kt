@@ -372,6 +372,51 @@ object Circle {
         } }
     }
 
+    // ---------- shared children (stage 1 of the family file) ----------
+
+    /**
+     * The family's children on the server, or null when the server doesn't have them yet (shared-children.sql not run):
+     * then nothing is shared and the phone keeps its own list, as before. Background thread only.
+     */
+    fun children(ctx: Context): List<ChildSyncPlan.Server>? {
+        val id = circleId(ctx).ifEmpty { return emptyList() }
+        val conn = open(ctx, "GET", "/rest/v1/family_children?circle_id=eq.${enc(id)}&select=id,name,birth,deleted_at&order=created_at")
+        try {
+            if (conn.responseCode == 404) return null
+            val rows = JSONArray(read(conn).ifBlank { "[]" })
+            return (0 until rows.length()).map { i -> rows.getJSONObject(i).let {
+                ChildSyncPlan.Server(it.optString("id"), it.optString("name"), it.optString("birth").nullless(), !it.isNull("deleted_at"))
+            } }
+        } finally { conn.disconnect() }
+    }
+
+    /** Whether I'm a parent in this family (its owner, or one of the two partners): only parents change the children. */
+    fun isParent(ctx: Context): Boolean {
+        val conn = open(ctx, "POST", "/rest/v1/rpc/family_is_parent")
+        try {
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            conn.outputStream.use { it.write(JSONObject().put("p_circle", circleId(ctx)).toString().toByteArray(Charsets.UTF_8)) }
+            return read(conn).trim() == "true"
+        } finally { conn.disconnect() }
+    }
+
+    private fun childBody(name: String, birth: String) = JSONObject().put("name", name.trim().take(60))
+        .put("birth", ChildSyncPlan.cleanBirth(birth).ifEmpty { null } ?: JSONObject.NULL)
+
+    /** Adds a child to the family; returns its server id. Background thread only. */
+    fun childAdd(ctx: Context, name: String, birth: String): String =
+        rest(ctx, "POST", "family_children", childBody(name, birth).put("circle_id", circleId(ctx)).toString()).getJSONObject(0).getString("id")
+
+    fun childUpdate(ctx: Context, id: String, name: String, birth: String) {
+        rest(ctx, "PATCH", "family_children?id=eq.${enc(id)}", childBody(name, birth).put("updated_at", isoOf(System.currentTimeMillis())).toString())
+    }
+
+    /** Removes a child for the whole family (a mark, so the other parent's phone removes them too). */
+    fun childDelete(ctx: Context, id: String) {
+        rest(ctx, "PATCH", "family_children?id=eq.${enc(id)}", JSONObject().put("deleted_at", isoOf(System.currentTimeMillis())).toString())
+    }
+
     private fun save(ctx: Context, o: JSONObject) {
         p(ctx).edit().putString("circle_id", o.optString("id")).putString("circle_code", o.optString("code"))
             .putString("circle_name", o.optString("name")).apply()

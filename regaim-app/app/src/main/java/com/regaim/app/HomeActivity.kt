@@ -95,6 +95,8 @@ class HomeActivity : AppCompatActivity() {
         // Queue items nobody answered for 36 hours go to the trash (silence isn't a 👎).
         // The shared gallery of the two parents: new moments go to the other parent (in the background).
         Thread { try { PartnerShare.sync(applicationContext) } catch (_: Exception) { } }.start()
+        // The children, the same on both parents' phones (in the background, at most once a minute).
+        ChildSync.kick(this)
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {

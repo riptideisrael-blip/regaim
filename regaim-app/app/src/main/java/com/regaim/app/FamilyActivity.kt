@@ -47,6 +47,7 @@ class FamilyActivity : AppCompatActivity() {
         if (!Circle.joined(this) || !Account.signedIn(this) || loadedUser != Account.id(this) || loadedCircle != Circle.circleId(this)) { familyFeed = null; circleMembers = emptyList(); familyError = "" }
         render()
         loadFamily()
+        ChildSync.kick(this)
     }
 
     override fun onDestroy() { worker.shutdownNow(); sharedViews.close(); super.onDestroy() }

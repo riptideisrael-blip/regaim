@@ -584,6 +584,7 @@ open class SettingsActivity : AppCompatActivity() {
             val updated = FamilyMember(memberId, n, relation, birth, photo)
             val current = Profile.members(this).filterNot { it.id == memberId }
             Profile.saveMembers(this, current + updated)
+            ChildSync.kick(this, force = true)
             if (updated.isPet || old?.isPet == true) Pets.invalidate(this)
             dialog.dismiss()
             render()
@@ -592,9 +593,11 @@ open class SettingsActivity : AppCompatActivity() {
             // Asked first: a mistaken tap would take a child out of Pitzki and the books.
             AlertDialog.Builder(this)
                 .setTitle(L.t("להסיר את ${old.name}?", "Remove ${old.name}?"))
-                .setMessage(L.t("${old.name} יוסר מפרופיל המשפחה. הרגעים עצמם לא נמחקים.", "${old.name} will be removed from the family profile. The moments themselves aren't deleted."))
+                .setMessage(L.t("${old.name} יוסר מפרופיל המשפחה. הרגעים עצמם לא נמחקים.", "${old.name} will be removed from the family profile. The moments themselves aren't deleted.") +
+                    if (old.isChild && Circle.joined(this)) L.t("\nאם הילדים משותפים במעגל המשפחה, ${old.name} יוסר גם אצל ההורה השני.", "\nIf your children are shared in the family circle, ${old.name} is removed on the other parent's phone too.") else "")
                 .setPositiveButton(L.t("להסיר", "Remove")) { _, _ ->
                     Profile.saveMembers(this, Profile.members(this).filterNot { it.id == memberId })
+                    ChildSync.kick(this, force = true)
                     if (old.isPet) Pets.invalidate(this)
                     dialog.dismiss()
                     render()
