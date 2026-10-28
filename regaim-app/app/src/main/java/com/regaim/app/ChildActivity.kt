@@ -128,7 +128,7 @@ class ChildActivity : AppCompatActivity() {
         val more = ui.card(top = 8)
         more.addView(ui.row(L.t("ציר הזמן", "Timeline"), L.t("חודש אחרי חודש", "Month by month"), top = 0) { TimelineActivity.open(this, kid.name) })
         more.addView(ui.row(L.t("ספר ילדים אישי", "A personal children's book"), "") { BookActivity.open(this) })
-        more.addView(ui.row(L.t("היער של פיצקי", "Pitzki's forest"), "") { PitzkiActivity.open(this) })
+        more.addView(ui.row(L.t("פיצקי · תוכנית הלמידה", "Pitzki · learning program"), "") { PitzkiActivity.open(this) })
         PeopleStore.people(this).firstOrNull { it.name == kid.name }?.let { person ->
             more.addView(ui.row(L.t("תיקון הפנים שזוהו", "Fix recognized faces"), "") { PersonFacesActivity.open(this, person.id) })
         }

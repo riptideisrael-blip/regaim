@@ -64,7 +64,7 @@ object Account {
         return when {
             "invalid login" in m || "invalid_credentials" in m -> L.t("האימייל או הסיסמה לא נכונים", "Wrong email or password")
             "already registered" in m || "already exists" in m -> L.t("כבר יש חשבון עם האימייל הזה. נסו להתחבר.", "There's already an account with this email. Try signing in.")
-            "password" in m && "6" in m -> L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters")
+            "password" in m && ("6" in m || "8" in m || "short" in m) -> L.t("הסיסמה צריכה להיות לפחות 8 תווים", "Password must be at least 8 characters")
             "email not confirmed" in m -> L.t("צריך לאשר את האימייל (בדקו את תיבת הדואר) ואז להתחבר", "Please confirm your email (check your inbox), then sign in")
             "provider is not enabled" in m || "unsupported provider" in m -> L.t("ההתחברות עם Google עוד לא הופעלה בשרת", "Google sign-in isn't enabled on the server yet")
             "valid email" in m || "invalid format" in m -> L.t("כתובת האימייל לא תקינה", "That email address doesn't look right")

@@ -7,10 +7,10 @@ name: Pitzki's screen opens, with the parent gate before the settings
     id: "tabStudio"
 - scrollUntilVisible:
     element:
-      text: ".*Pitzki's forest.*"
+      text: ".*Pitzki · a learning program.*"
     direction: DOWN
     timeout: 10000
-- tapOn: ".*Pitzki's forest.*"
+- tapOn: ".*Pitzki · a learning program.*"
 - extendedWaitUntil:
     visible: "Hi, I'm Pitzki"
     timeout: 20000

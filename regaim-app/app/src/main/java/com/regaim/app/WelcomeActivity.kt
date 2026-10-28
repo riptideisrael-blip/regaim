@@ -366,7 +366,7 @@ class WelcomeActivity : AppCompatActivity() {
         val name = if (signUp) input(L.t("השם שלך", "Your name"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME).also { root.addView(it) } else null
         val email = input(L.t("אימייל", "Email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).also { root.addView(it) }
         if (!signUp && sentTo.isNotEmpty()) email.setText(sentTo)
-        val password = input(L.t("סיסמה (לפחות 6 תווים)", "Password (at least 6 characters)"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD).also { root.addView(it) }
+        val password = input(if (signUp) L.t("סיסמה (לפחות 8 תווים)", "Password (at least 8 characters)") else L.t("סיסמה", "Password"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD).also { root.addView(it) }
         root.addView(bigButton(if (signUp) L.t("יצירת חשבון", "Create account") else L.t("התחברות", "Sign in"), filled = true) {
             val e = email.text.toString().trim()
             val pw = password.text.toString()
@@ -374,6 +374,8 @@ class WelcomeActivity : AppCompatActivity() {
             when {
                 signUp && n.isEmpty() -> Toast.makeText(this, L.t("איך לקרוא לך?", "What should we call you?"), Toast.LENGTH_SHORT).show()
                 !e.contains("@") -> Toast.makeText(this, L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"), Toast.LENGTH_SHORT).show()
+                // New passwords: 8 at least (the server asks the same). Signing in still takes older, shorter ones.
+                signUp && pw.length < 8 -> Toast.makeText(this, L.t("הסיסמה צריכה להיות לפחות 8 תווים", "Password must be at least 8 characters"), Toast.LENGTH_SHORT).show()
                 pw.length < 6 -> Toast.makeText(this, L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters"), Toast.LENGTH_SHORT).show()
                 signUp -> run(L.t("יוצרים את החשבון...", "Creating your account...")) {
                     // Not an error: the account is made and waits for the email link (its own screen, not a red toast).

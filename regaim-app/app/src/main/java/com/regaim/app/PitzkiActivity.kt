@@ -254,7 +254,8 @@ class PitzkiActivity : AppCompatActivity() {
         heroView?.visibility = if (photo != null) View.GONE else View.VISIBLE
         bigPhoto(box)
         setupTitle?.text = if (PitzkiScript.isNumbers) L.t("סופרים עם פיצקי", "Counting with Pitzki") else if (PitzkiScript.isPlay) L.t("משחקים עם פיצקי", "Games with Pitzki") else if (PitzkiScript.isNight) L.t("לילה טוב עם פיצקי", "Good night with Pitzki") else if (PitzkiScript.isFarm) L.t("החווה של פיצקי", "Pitzki's farm") else if (PitzkiScript.isTrain) L.t("תחנת הרכבת של פיצקי", "Pitzki's train station") else L.t("היער של פיצקי", "Pitzki's forest")
-        box.addView(ui.heading(L.t("שלום, אני פיצקי", "Hi, I'm Pitzki"), 28f, top = 14))
+        box.addView(ui.eyebrow(L.t("תוכנית למידה לילדים", "A learning program for kids"), top = 14))
+        box.addView(ui.heading(L.t("שלום, אני פיצקי", "Hi, I'm Pitzki"), 28f, top = 4))
         box.addView(ui.text(L.t("טיולים קצרים עם פיצקי, והילד/ה שלכם בתוך הסיפור. לגילאי 3–5, בלי פרסומות, בלי צ׳אט עם זרים ובלי AI בשיחה עם הילד.",
             "Short trips with Pitzki, with your child in the story. Ages 3–5, no ads, no chat with strangers, no AI talking to your child."), 15f, R.color.ink_soft, top = 6))
         box.addView(worldPicker())
