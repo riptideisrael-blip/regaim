@@ -108,4 +108,23 @@ class FamilyItemsTest {
         assertEquals(listOf(i), FamilyItems.listFromJson(FamilyItems.listToJson(listOf(i))))
         assertEquals(emptyList<Item>(), FamilyItems.listFromJson("not json"))
     }
+
+    @Test fun walletByChain() {
+        val list = listOf(
+            Item("1", Kind.VOUCHER, vendor = "שופרסל", amount = 100.0, expires = "2028-12-31"),
+            Item("2", Kind.VOUCHER, vendor = "שופרסל", amount = 200.0, expires = "2027-01-31"),
+            Item("3", Kind.VOUCHER, vendor = "מקדונלדס", amount = 50.0, expires = "2024-12-30"),
+            Item("4", Kind.COUPON, title = "BuyMe · 500 ₪", amount = 500.0),
+            Item("5", Kind.RECEIPT, vendor = "שופרסל", amount = 999.0),
+        )
+        val w = FamilyItems.wallet(list, today)
+        assertEquals(listOf("BuyMe", "שופרסל"), w.map { it.name })
+        assertEquals(300.0, w[1].total, 0.001)
+        assertEquals("2027-01-31", w[1].nearest)
+        assertEquals(listOf("2", "1"), w[1].items.map { it.id })
+        assertEquals("•••• 9507", FamilyItems.masked("9376-7600-7182-9507"))
+        assertEquals("DBE6039437", FamilyItems.masked("DBE6039437"))
+        assertEquals("https://buyme.co.il/x1", FamilyItems.link("שובר\nhttps://buyme.co.il/x1\nCVV 848"))
+        assertEquals("848", FamilyItems.cvv("שובר\nCVV 848"))
+    }
 }
