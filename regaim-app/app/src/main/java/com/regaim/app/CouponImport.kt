@@ -139,8 +139,12 @@ object CouponImport {
                 } else out += draft
             }
         }
-        return out
+        // Only what can still be redeemed: a row without a code or a link (the code was deleted once used) isn't shown.
+        return out.filter { it.code.isNotEmpty() || it.link.isNotEmpty() }
     }
+
+    /** An item from a spreadsheet that has nothing to redeem (no code, no link): kept out of the wallet. */
+    fun noCode(i: FamilyItems.Item) = i.source == "excel" && i.code.isEmpty() && FamilyItems.link(i.note).isEmpty()
 
     /** The draft as a family-file item (a voucher when it has a value or a card, a coupon otherwise). */
     fun toItem(d: Draft): FamilyItems.Item {
