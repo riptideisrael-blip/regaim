@@ -265,7 +265,7 @@ class FamilyFileActivity : AppCompatActivity() {
         val meta = listOfNotNull(
             if (i.kind == FamilyItems.Kind.RECEIPT || i.kind == FamilyItems.Kind.DOCUMENT) cat?.label else i.kind.label,
             i.vendor.takeIf { it.isNotBlank() && it != title },
-            names[i.child],
+            names[i.child]?.takeIf { it.isNotBlank() },
             FamilyItems.expiryLine(i, today).takeIf { it.isNotEmpty() } ?: i.date.takeIf { it.isNotEmpty() }?.let { FamilyItems.short(it) },
         )
         val value = (i.balance ?: i.amount)?.let { FamilyItems.money(it) }.orEmpty()
@@ -292,7 +292,8 @@ class FamilyFileActivity : AppCompatActivity() {
                     textDirection = View.TEXT_DIRECTION_FIRST_STRONG
                 })
                 addView(TextView(this@FamilyFileActivity).apply {
-                    text = meta.joinToString(" · "); textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity))
+                    // Each part isolated, so an English name next to Hebrew doesn't move the dots around.
+                    text = meta.joinToString(" · ") { "\u2068$it\u2069" }; textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity))
                     maxLines = 2; ellipsize = TextUtils.TruncateAt.END
                     setPadding(0, ui.dp(2), 0, 0)
                 })
@@ -373,8 +374,13 @@ class FamilyFileActivity : AppCompatActivity() {
                 contentDescription = (listOf(c.name) + sub + listOfNotNull(c.total.takeIf { it > 0 }?.let { FamilyItems.money(it) }) +
                     (if (isOpen) L.t("פתוח", "Open") else L.t("סגור", "Closed"))).joinToString(", ")
                 setOnClickListener { toggle(c.name) }
+                setOnLongClickListener { deleteChain(c); true }
             })
-            if (isOpen) c.items.forEach { i -> card.addView(divider(52)); card.addView(voucherRow(i, today)) }
+            if (isOpen) {
+                c.items.forEach { i -> card.addView(divider(52)); card.addView(voucherRow(i, today)) }
+                card.addView(divider(0))
+                card.addView(ui.action(L.t("🗑 מחיקת כל ${c.name}", "🗑 Delete all of ${c.name}"), R.color.ds_error) { deleteChain(c) })
+            }
             content.addView(card)
         }
 
@@ -426,8 +432,25 @@ class FamilyFileActivity : AppCompatActivity() {
             })
             val w = FamilyItems.worth(i)
             if (w > 0) addView(amount(FamilyItems.money(w), 15f, DS.ink(this@FamilyFileActivity)))
+            addView(View(this@FamilyFileActivity).apply { layoutParams = LinearLayout.LayoutParams(ui.dp(22), 1) })
             contentDescription = (listOf(title) + meta + listOfNotNull(w.takeIf { it > 0 }?.let { FamilyItems.money(it) })).joinToString(", ")
             setOnClickListener { FamilyItemActivity.open(this@FamilyFileActivity, i.id) }
         }
+    }
+
+    /** Deletes every voucher of one chain (after asking), e.g. all the BuyMe ones once they're used. */
+    private fun deleteChain(c: FamilyItems.Chain) {
+        val n = c.items.size
+        AlertDialog.Builder(this)
+            .setTitle(L.t("למחוק את כל ${c.name}?", "Delete all of ${c.name}?"))
+            .setMessage(L.t(
+                (if (n == 1) "שובר אחד" else "$n שוברים") + (if (c.total > 0) " בשווי ${FamilyItems.money(c.total)}" else "") + " יימחקו מהתיק ומהטלפון. אי אפשר לשחזר.",
+                (if (n == 1) "1 voucher" else "$n vouchers") + (if (c.total > 0) " worth ${FamilyItems.money(c.total)}" else "") + " will be deleted from the file and the phone. This can't be undone."))
+            .setPositiveButton(L.t("מחיקה", "Delete")) { _, _ ->
+                c.items.forEach { FamilyFile.delete(this, it.id) }
+                open -= c.name
+                render()
+            }
+            .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
     }
 }
