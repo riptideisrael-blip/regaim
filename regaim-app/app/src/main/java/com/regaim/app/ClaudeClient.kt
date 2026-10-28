@@ -496,7 +496,7 @@ object ClaudeClient {
      * suggests its details as JSON. The parent agreed to this on the family file's privacy screen and taps
      * "Auto-fill" each time, so it doesn't depend on "moment understanding" being on. Background thread only.
      */
-    fun readFamilyItem(ctx: Context, jpegBase64: String?, text: String?, children: List<String>, today: String): JSONObject {
+    fun readFamilyItem(ctx: Context, jpegBase64: String?, text: String?, children: List<String>, today: String, pdfBase64: String? = null): JSONObject {
         val system = """
             You read one item a parent shared into their family file: a receipt, a document, a coupon, a voucher/gift card, or a gift.
             Answer with ONE JSON object only, no other text:
@@ -515,6 +515,9 @@ object ClaudeClient {
         val content = JSONArray()
         if (!jpegBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "image")
             .put("source", JSONObject().put("type", "base64").put("media_type", "image/jpeg").put("data", jpegBase64)))
+        // A PDF the phone couldn't turn into a picture (e.g. a protected one): the document itself.
+        if (jpegBase64.isNullOrEmpty() && !pdfBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "document")
+            .put("source", JSONObject().put("type", "base64").put("media_type", "application/pdf").put("data", pdfBase64)))
         content.put(JSONObject().put("type", "text").put("text", if (text.isNullOrBlank()) "Read this item." else "The shared text:\n" + text.take(4000)))
         val body = JSONObject().put("model", CHAT_MODEL).put("max_tokens", 400).put("system", system)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))

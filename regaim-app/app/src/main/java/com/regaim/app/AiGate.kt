@@ -146,7 +146,10 @@ object AiGate {
     fun gemini(ctx: Context, model: String, version: String, body: JSONObject, purpose: String = "draw"): Pair<Int, String> =
         try { post(ctx, JSONObject().put("action", "gemini").put("purpose", purpose).put("model", model).put("version", version).put("body", body)) } catch (_: Exception) { 0 to "" }
 
-    private fun error(code: Int, o: JSONObject): String = when (code) {
+    // The AI provider's prepaid credit ran out (the server passes its error on): not something a retry fixes.
+    private fun error(code: Int, o: JSONObject): String = if (code == 400 && o.toString().contains("credit balance", ignoreCase = true))
+        L.t("שירות הבינה המלאכותית מושהה כרגע (המנוי של השרת). שאר האפליקציה עובדת כרגיל.", "The AI service is paused right now (the server's plan). Everything else works as usual.")
+    else when (code) {
         401 -> L.t("צריך להתחבר לחשבון מחדש", "Please sign in again")
         403 -> L.t("הבנת רגעים זמינה רק בחשבון עם מייל או Google", "Moment understanding needs an email or Google account")
         429 -> L.t("המכסה החודשית של המשפחה נגמרה. היא מתחדשת בתחילת החודש.", "Your family's monthly allowance is used up. It renews at the start of the month.")

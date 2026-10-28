@@ -174,6 +174,12 @@ class FamilyItemActivity : AppCompatActivity() {
                 if (!isNew && item.file.isNotEmpty()) setOnClickListener { openFile() }
             })
         }
+        // A PDF that couldn't be drawn here (e.g. protected): say what it is; it can still be opened and read.
+        if (picture == null && (mime == "application/pdf" || item.mime == "application/pdf")) content.addView(ui.card(top = 12).apply {
+            addView(ui.text(L.t("📄 קובץ PDF", "📄 A PDF file"), 15f, bold = true))
+            addView(ui.hint(if (isNew) L.t("אין תצוגה מקדימה לקובץ הזה, אבל הוא יישמר ואפשר לפתוח אותו בכל רגע.", "No preview for this file, but it's saved and can be opened any time.") else L.t("נגיעה פותחת את הקובץ", "Tap to open the file"), top = 2))
+            if (!isNew && item.file.isNotEmpty()) setOnClickListener { openFile() }
+        })
         if (sharedText != null && picture == null) content.addView(ui.card(top = 12).apply { addView(ui.text(sharedText!!.take(600), 14f)) })
 
         // Auto-fill (on request only).
@@ -270,7 +276,9 @@ class FamilyItemActivity : AppCompatActivity() {
         val text = sharedText
         worker.execute {
             val result = try {
-                Result.success(ClaudeClient.readFamilyItem(applicationContext, pic?.let { FamilyFile.jpegBase64(it) }, text, kids.map { it.name }, today))
+                val pdf = bytes?.takeIf { pic == null && mime == "application/pdf" && it.size < 4 * 1024 * 1024 }
+                    ?.let { android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP) }
+                Result.success(ClaudeClient.readFamilyItem(applicationContext, pic?.let { FamilyFile.jpegBase64(it) }, text, kids.map { it.name }, today, pdf))
             } catch (e: Exception) { Result.failure(e) }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
