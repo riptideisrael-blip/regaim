@@ -176,6 +176,10 @@
             android:name=".FamilyFileActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".FamilyImportActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <!-- "Share → Moments · family file" from any app: a picture, a PDF or a message. -->
         <activity
             android:name=".FamilyItemActivity"

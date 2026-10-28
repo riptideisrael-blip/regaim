@@ -117,10 +117,23 @@ class FamilyFileActivity : AppCompatActivity() {
             content.addView(list(items, names, today))
         }
 
+        // Coupons and vouchers by chain (each with what's still valid), the expired ones together at the end.
         val wallet = shown.filter { it.kind == FamilyItems.Kind.COUPON || it.kind == FamilyItems.Kind.VOUCHER || it.kind == FamilyItems.Kind.GIFT }
-        if (wallet.isNotEmpty()) {
-            content.addView(header(L.t("קופונים, שוברים ומתנות", "Coupons, vouchers and gifts"), ""))
-            content.addView(list(wallet.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
+        val (valid, expired) = wallet.partition { it.expires.isEmpty() || it.expires >= today }
+        if (valid.isNotEmpty()) {
+            val validTotal = valid.sumOf { it.balance ?: it.amount ?: 0.0 }
+            content.addView(header(L.t("קופונים, שוברים ומתנות", "Coupons, vouchers and gifts"), if (validTotal > 0) FamilyItems.money(validTotal) else ""))
+            val byChain = valid.groupBy { it.vendor.trim().ifEmpty { it.title.trim() } }.toSortedMap()
+            if (byChain.size <= 1) content.addView(list(valid.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
+            else for ((chain, items) in byChain) {
+                val sum = items.sumOf { it.balance ?: it.amount ?: 0.0 }
+                content.addView(ui.text("$chain · ${items.size}" + (if (sum > 0) "  ·  " + FamilyItems.money(sum) else ""), 14f, R.color.ink_soft, bold = true, top = 14).apply { textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
+                content.addView(list(items.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
+            }
+        }
+        if (expired.isNotEmpty()) {
+            content.addView(header(L.t("פג תוקף", "Expired") + " · ${expired.size}", ""))
+            content.addView(list(expired.sortedByDescending { it.expires }, names, today))
         }
 
         val docs = shown.filter { it.kind == FamilyItems.Kind.DOCUMENT }
@@ -134,6 +147,7 @@ class FamilyFileActivity : AppCompatActivity() {
 
     private fun addButtons() {
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
+        content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.action(L.t("מחיקת כל התיק", "Delete the whole file"), R.color.ds_error) {
             AlertDialog.Builder(this)
