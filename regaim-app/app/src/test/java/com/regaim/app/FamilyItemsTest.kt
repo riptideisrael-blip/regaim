@@ -147,4 +147,21 @@ class FamilyItemsTest {
         assertEquals("האחריות נגמרת בעוד 23 ימים" to "מקרר", FamilyItems.reminderText(w, 23))
         assertEquals(true, FamilyItems.isWallet(Item("c", Kind.CREDIT)))
     }
+
+    @Test fun search() {
+        val kids = mapOf("uri" to "אורי")
+        val gan = Item("1234567890", Kind.RECEIPT, child = "uri", title = "שכר לימוד אוקטובר", vendor = "גן השקד", amount = 1150.0, date = "2026-10-01", category = "daycare")
+        val buy = Item("abcdefghij", Kind.VOUCHER, vendor = "Buyme", amount = 500.0, code = "9376-7600-7182-9507", note = "CVV 848")
+        assertEquals(true, FamilyItems.matches(gan, "גן אורי", kids))
+        assertEquals(true, FamilyItems.matches(gan, "1.10.2026", kids))
+        assertEquals(true, FamilyItems.matches(gan, "1150", kids))
+        assertEquals(true, FamilyItems.matches(gan, "מעון", kids))
+        assertEquals(true, FamilyItems.matches(buy, "buyme 9507", kids))
+        assertEquals(false, FamilyItems.matches(buy, "גן", kids))
+        val index = FamilyItems.searchIndex(listOf(gan, buy), kids)
+        assertEquals("12345678|receipt|שכר לימוד אוקטובר|גן השקד|daycare|אורי|1150.00|2026-10-01|", index.lines()[0])
+        // Codes, card numbers and notes never go out.
+        assertEquals(false, index.contains("9507") || index.contains("848"))
+        assertEquals(listOf("abcdefghij"), FamilyItems.pick(listOf(gan, buy), listOf("abcdefgh", "zzz")).map { it.id })
+    }
 }

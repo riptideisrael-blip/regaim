@@ -304,4 +304,43 @@ object FamilyItems {
         val worth = (i.balance ?: i.amount)?.let { " · " + money(it) }.orEmpty()
         return title to (name + worth)
     }
+
+    /** The overview tiles at the top of the family file; each one shows only its kinds. */
+    enum class Tile(val he: String, val en: String, val kinds: Set<Kind>) {
+        WALLET("ארנק", "Wallet", setOf(Kind.VOUCHER, Kind.COUPON, Kind.GIFT, Kind.CREDIT)),
+        RECEIPTS("קבלות", "Receipts", setOf(Kind.RECEIPT)),
+        PROTECTION("אחריות והחלפות", "Warranties & exchanges", setOf(Kind.WARRANTY, Kind.EXCHANGE)),
+        DOCUMENTS("מסמכים", "Documents", setOf(Kind.DOCUMENT));
+        val label: String get() = L.t(he, en)
+    }
+
+    private fun norm(s: String) = s.lowercase().replace(Regex("""[\u0591-\u05C7"'׳״.,\-/]"""), "").replace(Regex("""\s+"""), " ").trim()
+
+    /**
+     * Quick search on the phone: every word must appear somewhere in the item (title, chain, code, note, its kind
+     * and category, the child's name, the amount, the dates as written "1.10.2026").
+     */
+    fun matches(i: Item, query: String, childNames: Map<String, String> = emptyMap()): Boolean {
+        val words = norm(query).split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return true
+        val hay = norm(listOf(
+            i.title, i.vendor, i.code, i.note, i.kind.he, i.kind.en, Category.of(i.category)?.let { it.he + " " + it.en }.orEmpty(),
+            childNames[i.child].orEmpty(), i.amount?.let { money(it) + " " + it.toLong() }.orEmpty(),
+            short(i.date), short(i.expires), i.date, i.expires,
+        ).joinToString(" "))
+        return words.all { hay.contains(it) }
+    }
+
+    /**
+     * What the smart search sends: one line per item, with no codes, notes, files or card numbers -
+     * just what it is, from whom, for which child, how much and when.
+     */
+    fun searchIndex(items: List<Item>, childNames: Map<String, String>): String = items.joinToString("\n") { i ->
+        listOf(i.id.take(8), i.kind.id, i.title.take(60), i.vendor.take(40), i.category, childNames[i.child].orEmpty(),
+            (i.balance ?: i.amount)?.let { "%.2f".format(java.util.Locale.US, it) }.orEmpty(), i.date, i.expires).joinToString("|")
+    }
+
+    /** The items the smart search pointed at (by the short ids it was given), in its order. */
+    fun pick(items: List<Item>, shortIds: List<String>): List<Item> =
+        shortIds.mapNotNull { sid -> items.firstOrNull { it.id.take(8) == sid } }.distinctBy { it.id }
 }
