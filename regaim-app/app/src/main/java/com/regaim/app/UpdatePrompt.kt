@@ -42,7 +42,7 @@ object UpdatePrompt {
         }.start()
     }
 
-    /** The sheet: Pitzki, "a new version", the numbers, install / not now. On install, he runs along the download bar. */
+    /** The sheet: the app's mark, "a new version", the numbers, install / not now; then a plain progress bar. */
     private fun ask(a: Activity, info: AppUpdate.Info) {
         val ui = Ui(a)
         val dialog = android.app.Dialog(a)
@@ -50,54 +50,42 @@ object UpdatePrompt {
         val card = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             background = DS.rounded(DS.bg(a), ui.dp(28).toFloat())
-            setPadding(ui.dp(24), ui.dp(22), ui.dp(24), ui.dp(18))
+            setPadding(ui.dp(24), ui.dp(24), ui.dp(24), ui.dp(18))
         }
-        val pitzki = ImageView(a).apply {
-            layoutParams = LinearLayout.LayoutParams(ui.dp(110), ui.dp(130))
+        val mark = ImageView(a).apply {
+            layoutParams = LinearLayout.LayoutParams(ui.dp(56), ui.dp(56))
             scaleType = ImageView.ScaleType.FIT_CENTER
-            pitzkiPicture(a)?.let { setImageBitmap(it) }
+            setImageResource(R.drawable.ic_logo_mark)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        card.addView(pitzki)
-        // He sways gently while asking.
-        val sway = android.animation.ObjectAnimator.ofFloat(pitzki, View.ROTATION, -4f, 4f).apply {
-            duration = 900; repeatMode = android.animation.ValueAnimator.REVERSE; repeatCount = android.animation.ValueAnimator.INFINITE; start()
-        }
-        val title = ui.heading(L.t("יש גרסה חדשה! ✨", "A new version! ✨"), 26f, top = 6).apply { gravity = Gravity.CENTER }
+        card.addView(mark)
+        val title = ui.heading(L.t("גרסה חדשה זמינה", "A new version is available"), 24f, top = 12).apply { gravity = Gravity.CENTER }
         card.addView(title)
         val badge = TextView(a).apply {
-            text = shown(info.name); textSize = 18f; typeface = DS.emphasis; setTextColor(DS.onButton(a)); gravity = Gravity.CENTER
-            background = DS.rounded(DS.button(a), ui.dp(18).toFloat()); setPadding(ui.dp(18), ui.dp(6), ui.dp(18), ui.dp(6))
+            text = shown(info.name); textSize = 16f; typeface = DS.emphasis; setTextColor(DS.onButton(a)); gravity = Gravity.CENTER
+            background = DS.rounded(DS.button(a), ui.dp(16).toFloat()); setPadding(ui.dp(16), ui.dp(5), ui.dp(16), ui.dp(5))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
         }
         card.addView(badge)
-        val sub = ui.text(L.t("אצלך עכשיו: ${shown(installedName(a))}", "You have: ${shown(installedName(a))}"), 14f, R.color.ink_soft, top = 8).apply { gravity = Gravity.CENTER }
+        val sub = ui.text(L.t("הגרסה שלך: ${shown(installedName(a))}", "Your version: ${shown(installedName(a))}"), 14f, R.color.ink_soft, top = 8).apply { gravity = Gravity.CENTER }
         card.addView(sub)
-        val note = ui.text(L.t("כל הזיכרונות, הילדים והסרטים נשארים במקום 💛\nההורדה: ${AppUpdate.mb(info.size)}", "All your memories, children and films stay 💛\nDownload: ${AppUpdate.mb(info.size)}"), 15f, top = 12).apply { gravity = Gravity.CENTER }
+        val note = ui.text(L.t("כל הרגעים, הילדים והסרטים נשמרים.\nגודל ההורדה: ${AppUpdate.mb(info.size)}", "All your moments, children and films are kept.\nDownload size: ${AppUpdate.mb(info.size)}"), 15f, top = 12).apply { gravity = Gravity.CENTER }
         card.addView(note)
 
-        // The download: a track, its fill, Pitzki running along it to the flag.
+        // The download: a plain bar and the percentage.
         val track = FrameLayout(a).apply {
-            layoutDirection = View.LAYOUT_DIRECTION_LTR
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(84)).apply { topMargin = ui.dp(14) }
+            layoutDirection = View.LAYOUT_DIRECTION_LOCALE
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(10)).apply { topMargin = ui.dp(18) }
+            background = DS.rounded(DS.cardAlt(a), ui.dp(5).toFloat())
             visibility = View.GONE
         }
-        val bar = View(a).apply {
-            background = DS.rounded(DS.cardAlt(a), ui.dp(8).toFloat())
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(14), Gravity.BOTTOM).apply { bottomMargin = ui.dp(6) }
-        }
         val fill = View(a).apply {
-            background = DS.rounded(DS.button(a), ui.dp(8).toFloat())
-            layoutParams = FrameLayout.LayoutParams(0, ui.dp(14), Gravity.BOTTOM or Gravity.START).apply { bottomMargin = ui.dp(6) }
+            background = DS.rounded(DS.button(a), ui.dp(5).toFloat())
+            layoutParams = FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START)
         }
-        val flag = TextView(a).apply { text = "🏁"; textSize = 24f; layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END).apply { bottomMargin = ui.dp(16) } }
-        val runner = ImageView(a).apply {
-            layoutParams = FrameLayout.LayoutParams(ui.dp(46), ui.dp(58), Gravity.BOTTOM or Gravity.START).apply { bottomMargin = ui.dp(14) }
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            pitzkiPicture(a)?.let { setImageBitmap(it) }
-        }
-        track.addView(bar); track.addView(fill); track.addView(flag); track.addView(runner)
+        track.addView(fill)
         card.addView(track)
-        val pct = ui.heading("0%", 30f, top = 2).apply { gravity = Gravity.CENTER; visibility = View.GONE }
+        val pct = ui.text("0%", 15f, R.color.ink_soft, top = 8).apply { gravity = Gravity.CENTER; visibility = View.GONE }
         card.addView(pct)
 
         val install = ui.button(L.t("להתקין עכשיו", "Install now"), primary = true, top = 18) {}
@@ -108,8 +96,6 @@ object UpdatePrompt {
         dialog.setContentView(outer)
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        var hop: android.animation.ValueAnimator? = null
-        dialog.setOnDismissListener { sway.cancel(); hop?.cancel() }
 
         later.setOnClickListener {
             prefs(a).edit().putLong("declined_code", info.code).putLong("declined_at", System.currentTimeMillis()).apply()
@@ -118,28 +104,17 @@ object UpdatePrompt {
         install.setOnClickListener {
             busy = true
             dialog.setCancelable(false)
-            sway.cancel(); pitzki.visibility = View.GONE
-            title.text = L.t("מורידים את הגרסה החדשה…", "Downloading the new version…")
+            title.text = L.t("מורידים את הגרסה החדשה", "Downloading the new version")
             sub.visibility = View.GONE; install.visibility = View.GONE; later.visibility = View.GONE
-            note.text = L.t("פיצקי רץ להביא אותה 🏃", "Pitzki is running to get it 🏃")
+            note.text = L.t("זה לוקח בדרך כלל פחות מדקה.", "This usually takes less than a minute.")
             track.visibility = View.VISIBLE; pct.visibility = View.VISIBLE
-            // Running: little hops and a lean forward.
-            hop = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 380; repeatCount = android.animation.ValueAnimator.INFINITE
-                addUpdateListener { v ->
-                    val t = v.animatedValue as Float
-                    runner.translationY = -kotlin.math.abs(kotlin.math.sin(t * Math.PI)).toFloat() * ui.dp(10)
-                    runner.rotation = 6f + kotlin.math.sin(t * 2 * Math.PI).toFloat() * 4f
-                }
-                start()
-            }
             fun show(p: Int) {
                 pct.text = "$p%"
+                pct.contentDescription = L.t("הורדה: $p אחוז", "Download: $p percent")
                 val w = track.width
                 if (w > 0) {
                     fill.layoutParams = (fill.layoutParams as FrameLayout.LayoutParams).apply { width = (w * p / 100f).toInt() }
                     fill.requestLayout()
-                    runner.translationX = (w - ui.dp(46) - ui.dp(30)) * p / 100f
                 }
             }
             val app = a.applicationContext
@@ -150,11 +125,10 @@ object UpdatePrompt {
                 } catch (e: Exception) { Result.failure(e) }
                 main.post {
                     busy = false
-                    hop?.cancel()
                     if (a.isFinishing || a.isDestroyed) { try { dialog.dismiss() } catch (_: Exception) {}; return@post }
                     result.onSuccess { f ->
                         show(100)
-                        title.text = L.t("הגענו! 🎉", "Got it! 🎉")
+                        title.text = L.t("ההורדה הושלמה", "Download complete")
                         note.text = L.t("עכשיו אנדרואיד ישאל אם להתקין. לוחצים \"התקנה\".", "Android will now ask to install. Tap \"Install\".")
                         main.postDelayed({
                             try { dialog.dismiss() } catch (_: Exception) {}
@@ -177,9 +151,4 @@ object UpdatePrompt {
         }
         dialog.show()
     }
-
-    /** Pitzki's cut-out picture (see-through background), or null. */
-    private fun pitzkiPicture(ctx: Context): android.graphics.Bitmap? = try {
-        ctx.assets.open("pitzki/pitzki_cut.png").use { android.graphics.BitmapFactory.decodeStream(it) }
-    } catch (_: Exception) { null }
 }
