@@ -74,5 +74,6 @@
     <string name="comic_from_day">קומיקס מהיום הזה</string>
     <string name="tile_label">שמור רגע</string>
     <string name="nav_studio">סטודיו</string>
+    <string name="nav_file">תיק</string>
     <string name="nav_community">קהילה</string>
 </resources>

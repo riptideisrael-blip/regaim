@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.view.Gravity
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +35,8 @@ class MemoriesActivity : AppCompatActivity() {
     private sealed class Row {
         class Header(val day: String, val title: String, val story: String, val count: Int) : Row()
         class Bubble(val m: Memory) : Row()
+        /** A moment the other parent shared (the shared gallery): its picture from the server, opened in its post. */
+        class Shared(val p: Circle.Post) : Row()
         class Custom(val view: View) : Row()
     }
 
@@ -52,6 +55,10 @@ class MemoriesActivity : AppCompatActivity() {
     private lateinit var selectCount: TextView
     private var shownIds: List<String> = emptyList()
     private var shownIdsByDay: Map<String, List<String>> = emptyMap()
+    /** The other parent's moments (the shared gallery), kept from last time and refreshed in the background. */
+    private var partner: List<Circle.Post> = emptyList()
+    private var partnerBusy = false
+    private val covers = Executors.newFixedThreadPool(2)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +69,7 @@ class MemoriesActivity : AppCompatActivity() {
 
         val grid = GridLayoutManager(this, 6)
         grid.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-            override fun getSpanSize(position: Int) = if (adapter.rows[position] is Row.Bubble) 2 else 6 // 3 squares a row
+            override fun getSpanSize(position: Int) = if (adapter.rows[position] is Row.Bubble || adapter.rows[position] is Row.Shared) 2 else 6 // 3 squares a row
         }
         list.layoutManager = grid
         list.adapter = adapter
@@ -321,7 +328,9 @@ class MemoriesActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (partner.isEmpty()) partner = if (PartnerShare.partner(this).isEmpty()) emptyList() else Circle.cachedPartnerMoments(this)
         reload()
+        refreshPartner()
         if (ClaudeClient.hasKey(this)) {
             worker.execute {
                 // (Caught: an exception here would take the whole app down from the background.)
@@ -332,14 +341,33 @@ class MemoriesActivity : AppCompatActivity() {
         }
     }
 
+    /** The other parent's moments from the server, every few minutes at most (shown as soon as they arrive). */
+    private fun refreshPartner() {
+        if (partnerBusy || PartnerShare.partner(this).isEmpty() || !Account.signedIn(this) || !Circle.joined(this)) return
+        if (System.currentTimeMillis() - Circle.partnerMomentsAt(this) < 5 * 60_000 && partner.isNotEmpty()) return
+        partnerBusy = true
+        worker.execute {
+            val got = try { Circle.partnerMoments(applicationContext) } catch (_: Exception) { null }
+            runOnUiThread {
+                partnerBusy = false
+                if (isFinishing || got == null) return@runOnUiThread
+                val changed = got.map { it.id } != partner.map { it.id }
+                partner = got
+                if (changed) reload()
+            }
+        }
+    }
+
     override fun onDestroy() {
+        covers.shutdownNow()
         worker.shutdownNow()
         super.onDestroy()
     }
 
     private fun reload() {
         val all = MemoryStore.kept(this)
-        findViewById<TextView>(R.id.archiveCount)?.text = if (all.size == 1) L.t("זיכרון אחד בטלפון", "1 memory on this phone") else L.t("${all.size} זיכרונות בטלפון", "${all.size} memories on this phone")
+        findViewById<TextView>(R.id.archiveCount)?.text = (if (all.size == 1) L.t("זיכרון אחד בטלפון", "1 memory on this phone") else L.t("${all.size} זיכרונות בטלפון", "${all.size} memories on this phone")) +
+            (partner.firstOrNull()?.let { p -> L.t(" · ${partner.size} מ${p.author}", " · ${partner.size} from ${p.author}") }.orEmpty())
         buildChips(all)
         // An album or a person is its own page: a header with the way back, then only their moments.
         val inAlbum = isFocused()
@@ -421,7 +449,16 @@ class MemoriesActivity : AppCompatActivity() {
         }
 
     private fun buildRows(rows: MutableList<Row>, shown: List<Memory>, all: List<Memory>) {
-        for ((day, items) in shown.groupBy { it.dayKey }) {
+        // "All": the shared gallery, this phone's moments and the other parent's together, day by day.
+        val withPartner = filter == "הכל" && !isFocused() && partner.isNotEmpty()
+        if (withPartner) {
+            for (d in SharedDays.merge(shown, partner, { it.time }, { it.takenAt.takeIf { t -> t > 0 } ?: it.createdAt }, { it.id }, { it.memoryId })) {
+                rows.add(Row.Header(d.key, dayTitle(d.time({ it.time }, { it.takenAt.takeIf { t -> t > 0 } ?: it.createdAt })), MemoryStore.story(this, d.key), d.count))
+                // Merged by time, so the day reads in order whoever took the moment.
+                val items: List<Pair<Long, Row>> = d.local.map { it.time to Row.Bubble(it) } + d.shared.map { (it.takenAt.takeIf { t -> t > 0 } ?: it.createdAt) to Row.Shared(it) }
+                items.sortedByDescending { it.first }.forEach { rows.add(it.second) }
+            }
+        } else for ((day, items) in shown.groupBy { it.dayKey }) {
             rows.add(Row.Header(day, dayTitle(items.first().time), MemoryStore.story(this, day), items.size))
             items.forEach { rows.add(Row.Bubble(it)) }
         }
@@ -431,7 +468,7 @@ class MemoriesActivity : AppCompatActivity() {
         selected.retainAll(shownIds.toSet())
         maybeTip(all.size)
         adapter.notifyDataSetChanged()
-        empty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
+        empty.visibility = if (shown.isEmpty() && !withPartner) View.VISIBLE else View.GONE
         empty.text = if (all.isEmpty()) getString(R.string.bubbles_empty) else L.t("אין רגעים בקטגוריה הזאת עדיין", "No moments in this category yet")
     }
 
@@ -711,7 +748,7 @@ class MemoriesActivity : AppCompatActivity() {
 
         override fun getItemViewType(position: Int) = when (rows[position]) {
             is Row.Header -> 0
-            is Row.Bubble -> 1
+            is Row.Bubble, is Row.Shared -> 1
             is Row.Custom -> 2
         }
 
@@ -772,6 +809,41 @@ class MemoriesActivity : AppCompatActivity() {
                     }
                     h.check.setOnClickListener { toggleDay(r.day) }
                     h.title.setOnClickListener { if (selecting) toggleDay(r.day) }
+                }
+                is Row.Shared -> {
+                    h as BubbleVH
+                    val p = r.p
+                    val frame = h.itemView as android.widget.FrameLayout
+                    Motion.stop(h.image)
+                    RoundVideo.detach(frame)
+                    (frame.getTag(R.id.bubbleKind) as? View)?.let { frame.removeView(it) }
+                    h.image.clipToOutline = true
+                    h.image.scaleType = ImageView.ScaleType.CENTER_CROP
+                    h.image.scaleX = 1f; h.image.scaleY = 1f
+                    h.title.visibility = View.GONE; h.sub.visibility = View.GONE; h.kind.visibility = View.GONE
+                    h.check.visibility = View.GONE
+                    val cover = p.cover.ifBlank { if (p.kind == "photo") p.video else "" }
+                    h.image.tag = "shared:" + p.id
+                    h.image.setImageDrawable(android.graphics.drawable.ColorDrawable(DS.buttonSecondary(this@MemoriesActivity)))
+                    if (cover.isNotEmpty() && !covers.isShutdown) covers.execute {
+                        val bmp = try { Circle.image(applicationContext, cover) } catch (_: Exception) { null }
+                        runOnUiThread { if (!isDestroyed && bmp != null && h.image.tag == "shared:" + p.id) h.image.setImageBitmap(bmp) }
+                    }
+                    // Whose moment it is: their initial on a small mocha circle (and ▶ for a clip).
+                    val inset = mv.dp(ROUND_GAP_DP) + DS.ringWidth(frame.context)
+                    val tagView = TextView(this@MemoriesActivity).apply {
+                        text = (if (p.kind != "photo") "▶ " else "") + p.author.trim().take(1)
+                        textSize = 12f; setTextColor(0xFFFFFFFF.toInt()); typeface = DS.emphasis; gravity = Gravity.CENTER
+                        background = DS.rounded(DS.primary(this@MemoriesActivity), mv.dp(12).toFloat())
+                        setPadding(mv.dp(8), mv.dp(2), mv.dp(8), mv.dp(2))
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        layoutParams = android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = inset + mv.dp(8) }
+                    }
+                    frame.setTag(R.id.bubbleKind, tagView)
+                    frame.addView(tagView)
+                    h.image.contentDescription = listOf(p.title.ifBlank { L.t("רגע", "A moment") }, L.t("מ${p.author}", "from ${p.author}")).joinToString(", ")
+                    h.itemView.setOnClickListener { if (!selecting) CircleActivity.open(this@MemoriesActivity, p.id) }
+                    h.itemView.setOnLongClickListener { true }
                 }
                 is Row.Bubble -> {
                     h as BubbleVH

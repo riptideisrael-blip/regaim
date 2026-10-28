@@ -74,5 +74,6 @@
     <string name="comic_from_day">Make a comic from this day</string>
     <string name="tile_label">Save moment</string>
     <string name="nav_studio">Studio</string>
+    <string name="nav_file">File</string>
     <string name="nav_community">Community</string>
 </resources>

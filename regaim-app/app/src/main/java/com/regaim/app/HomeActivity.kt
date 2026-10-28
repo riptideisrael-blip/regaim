@@ -69,12 +69,12 @@ class HomeActivity : AppCompatActivity() {
         mv = MemoryViews(this)
         ui = Ui(this)
         sharedViews = SharedMemoryViews(this)
-        // Quick capture: one tap opens the camera, ready to record. Holding it opens all the ways to add.
-        fab.text = L.t("צלמו", "Record")
-        fab.setIconResource(R.drawable.ic_videocam)
-        fab.contentDescription = L.t("צילום רגע מהיר", "Quick record")
-        fab.setOnClickListener { CaptureNowActivity.open(this, video = true) }
-        fab.setOnLongClickListener { newMemory(); true }
+        // One way to add a moment: this button opens every way (record, photo, gallery, auto-capture…).
+        fab.text = L.t("תפסו רגע", "Capture")
+        fab.setIconResource(R.drawable.ic_camera)
+        fab.contentDescription = L.t("הוספת רגע: צילום, גלריה ועוד", "Add a moment: record, gallery and more")
+        fab.setOnClickListener { newMemory() }
+        fab.setOnLongClickListener { CaptureNowActivity.open(this, video = true); true }
         fab.layoutParams = (fab.layoutParams as android.widget.FrameLayout.LayoutParams).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             marginStart = ui.dp(20); marginEnd = ui.dp(20); leftMargin = ui.dp(20); rightMargin = ui.dp(20)
@@ -97,6 +97,7 @@ class HomeActivity : AppCompatActivity() {
         Thread { try { PartnerShare.sync(applicationContext) } catch (_: Exception) { } }.start()
         // The children, the same on both parents' phones (in the background, at most once a minute).
         ChildSync.kick(this)
+        FamilyFileSync.kick(this)
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {
@@ -216,10 +217,10 @@ class HomeActivity : AppCompatActivity() {
 
     private fun updateFab() {
         fab.visibility = View.VISIBLE
-        captureBtn?.text = if (Status.running) {
+        fab.text = if (Status.running) {
             if (Status.pending) L.t("שומרים רגע…", "Saving a moment…") else L.t("צילום פעיל", "Capturing")
         } else {
-            L.t("+  תפסו רגע", "+  Capture")
+            L.t("תפסו רגע", "Capture")
         }
     }
 
@@ -367,20 +368,8 @@ class HomeActivity : AppCompatActivity() {
             16f, R.color.ink_soft, top = 4,
         ))
         row.addView(titles)
-        val btn = TextView(this).apply {
-            textSize = 15f
-            gravity = Gravity.CENTER
-            maxLines = 1
-            setTextColor(DS.onButton(this@HomeActivity))
-            typeface = DS.emphasis
-            background = DS.pressable(this@HomeActivity, DS.rounded(DS.button(this@HomeActivity), DS.radiusButton(this@HomeActivity)), onDark = true)
-            minHeight = mv.dp(44)
-            setPadding(mv.dp(16), mv.dp(10), mv.dp(16), mv.dp(10))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = mv.dp(10) }
-            setOnClickListener { newMemory() }
-        }
-        captureBtn = btn
-        row.addView(btn)
+        // The one capture button is the floating one (two buttons that did different things confused).
+        captureBtn = null
         content.addView(row)
     }
 

@@ -247,11 +247,11 @@ object Circle {
         return text
     }
 
-    private fun rest(ctx: Context, method: String, path: String, body: String? = null): JSONArray {
+    private fun rest(ctx: Context, method: String, path: String, body: String? = null, prefer: String = "return=representation"): JSONArray {
         val conn = open(ctx, method, "/rest/v1/$path")
         try {
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Prefer", "return=representation")
+            conn.setRequestProperty("Prefer", prefer)
             if (body != null) {
                 conn.doOutput = true
                 conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -514,6 +514,47 @@ object Circle {
         }
     } catch (_: Exception) { null }
 
+    // ---------- the other parent's moments, for the shared gallery in Memories ----------
+
+    private fun partnerFile(ctx: Context) = File(ctx.filesDir, "partner_moments_" + (Account.id(ctx) + "_" + circleId(ctx)).filter { it.isLetterOrDigit() || it == '_' || it == '-' } + ".json")
+
+    /** The other parent's moments kept from last time (shown at once; refreshed in the background). */
+    fun cachedPartnerMoments(ctx: Context): List<Post> = try {
+        val f = partnerFile(ctx)
+        if (!f.exists() || circleId(ctx).isEmpty()) emptyList() else {
+            val o = JSONObject(f.readText())
+            val l = o.optJSONObject("links") ?: JSONObject()
+            val links = l.keys().asSequence().associateWith { l.optString(it) }
+            val rows = o.optJSONArray("posts") ?: JSONArray()
+            (0 until rows.length()).map { post(ctx, rows.getJSONObject(it), links) }
+        }
+    } catch (_: Exception) { emptyList() }
+
+    /** When the kept list was fetched (0 = never). */
+    fun partnerMomentsAt(ctx: Context): Long = try { JSONObject(partnerFile(ctx).readText()).optLong("at") } catch (_: Exception) { 0L }
+
+    /**
+     * The moments the other parent shared with this parent only (the shared gallery), newest first, with their
+     * pictures' links (covers only: a moment is played from its post). Background thread only.
+     */
+    fun partnerMoments(ctx: Context): List<Post> {
+        secureReady(ctx)
+        val me = Account.id(ctx)
+        val partner = PartnerShare.partner(ctx)
+        if (me.isEmpty() || partner.isEmpty() || circleId(ctx).isEmpty()) return emptyList()
+        val rows = rest(ctx, "GET", "posts?circle_id=eq.${circleId(ctx)}&author_id=eq.${enc(partner)}&only_for=eq.${enc(me)}" +
+            "&or=(kind.is.null,kind.in.(photo,video))&order=created_at.desc&limit=1000" +
+            "&select=id,author,author_id,title,story,people,place,kind,taken_at,video,cover,created_at,style,memory_id,only_for")
+        val list = (0 until rows.length()).map { rows.getJSONObject(it) }
+        val covers = list.map { o -> mediaPath(ctx, o.optString("cover").nullless().ifEmpty { o.optString("video").nullless() }) }
+        val links = HashMap<String, String>()
+        covers.filter { it.isNotEmpty() }.distinct().chunked(100).forEach { links.putAll(signMany(ctx, it)) }
+        try {
+            SafeFiles.write(partnerFile(ctx), JSONObject().put("at", System.currentTimeMillis()).put("posts", rows).put("links", JSONObject(links as Map<*, *>)).toString())
+        } catch (_: Exception) { }
+        return list.map { post(ctx, it, links) }
+    }
+
     /** Signed links for many files in one request (falls back to one by one if the server won't). */
     private fun signMany(ctx: Context, paths: List<String>): Map<String, String> {
         val wanted = paths.filter { it.isNotEmpty() }.distinct()
@@ -664,6 +705,37 @@ object Circle {
             try { read(conn) } finally { conn.disconnect() }
         } catch (_: Exception) {
         }
+    }
+
+    // ---------- the family file, shared with the other parent (server/family-file-share.sql) ----------
+
+    /** Sends (or updates) one item of this parent's family file for the other parent. Background thread only. */
+    fun fileItemPut(ctx: Context, partner: String, itemId: String, data: JSONObject, filePath: String?) {
+        val row = JSONObject().put("circle_id", circleId(ctx)).put("owner_id", Account.id(ctx)).put("item_id", itemId)
+            .put("partner_id", partner).put("data", data).put("file_path", filePath ?: JSONObject.NULL)
+            .put("updated_at", isoOf(System.currentTimeMillis())).put("deleted_at", JSONObject.NULL)
+        rest(ctx, "POST", "family_file_items?on_conflict=circle_id,owner_id,item_id", row.toString(), "resolution=merge-duplicates,return=minimal")
+    }
+
+    /** Marks one of this parent's items removed (the other phone removes it too), and removes its file. */
+    fun fileItemRemove(ctx: Context, itemId: String) {
+        val rows = rest(ctx, "PATCH", "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(Account.id(ctx))}&item_id=eq.${enc(itemId)}",
+            JSONObject().put("deleted_at", isoOf(System.currentTimeMillis())).put("data", JSONObject()).put("file_path", JSONObject.NULL).toString())
+        (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("file_path")?.nullless() }.forEach { removeFile(ctx, it) }
+    }
+
+    /** The other parent's shared items (with removed ones marked). Background thread only. */
+    fun fileItemsFrom(ctx: Context, partner: String): List<JSONObject> {
+        val rows = rest(ctx, "GET", "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(partner)}&partner_id=eq.${enc(Account.id(ctx))}&select=item_id,data,file_path,updated_at,deleted_at&limit=5000")
+        return (0 until rows.length()).mapNotNull { rows.optJSONObject(it) }
+    }
+
+    /** Stops sharing: everything this parent sent (rows and files) is deleted from the server. */
+    fun fileItemsClear(ctx: Context) {
+        val mine = "family_file_items?circle_id=eq.${circleId(ctx)}&owner_id=eq.${enc(Account.id(ctx))}"
+        val rows = rest(ctx, "GET", "$mine&select=file_path&limit=5000")
+        (0 until rows.length()).mapNotNull { rows.optJSONObject(it)?.optString("file_path")?.nullless() }.forEach { removeFile(ctx, it) }
+        rest(ctx, "DELETE", mine, prefer = "return=minimal")
     }
 
     /** True when the server still needs the small update (caption/style columns). */
@@ -1016,8 +1088,25 @@ object Circle {
         BitmapFactory.decodeFile(f.absolutePath, opts)
         var sample = 1
         while (opts.outWidth / (sample * 2) >= 720) sample *= 2
-        val bmp = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val raw = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val bmp = upright(f, raw)
         imgCache.put(key, bmp)
         return bmp
+    }
+
+    /** A phone photo is often stored sideways with a note (EXIF) saying how to turn it: turn it, so it isn't shown on its side. */
+    private fun upright(f: File, bmp: Bitmap): Bitmap {
+        val deg = try {
+            when (android.media.ExifInterface(f.absolutePath).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90, android.media.ExifInterface.ORIENTATION_TRANSPOSE -> 90f
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                android.media.ExifInterface.ORIENTATION_ROTATE_270, android.media.ExifInterface.ORIENTATION_TRANSVERSE -> 270f
+                else -> 0f
+            }
+        } catch (_: Exception) { 0f } // not a JPEG/HEIC with a note (a cover we made, a video frame): as it is
+        if (deg == 0f) return bmp
+        return try {
+            Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, android.graphics.Matrix().apply { postRotate(deg) }, true)
+        } catch (_: OutOfMemoryError) { bmp }
     }
 }

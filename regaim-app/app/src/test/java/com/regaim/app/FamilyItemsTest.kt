@@ -164,4 +164,12 @@ class FamilyItemsTest {
         assertEquals(false, index.contains("9507") || index.contains("848"))
         assertEquals(listOf("abcdefghij"), FamilyItems.pick(listOf(gan, buy), listOf("abcdefgh", "zzz")).map { it.id })
     }
+
+    @Test fun codesInGroups() {
+        assertEquals("9376 7600 7182 9507", FamilyItems.grouped("9376-7600-7182-9507"))
+        assertEquals("106720505 8999", FamilyItems.grouped("106720505-8999"))
+        assertEquals("7777 7098 5155 5475", FamilyItems.grouped("7777709851555475"))
+        assertEquals("nuf150EJTS00V3I4N9", FamilyItems.grouped("nuf150EJTS00V3I4N9"))
+        assertEquals("123", FamilyItems.grouped("123"))
+    }
 }
