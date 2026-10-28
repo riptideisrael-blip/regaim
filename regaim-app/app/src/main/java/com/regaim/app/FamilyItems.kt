@@ -11,9 +11,12 @@ import org.json.JSONObject
 object FamilyItems {
     enum class Kind(val id: String, val he: String, val en: String) {
         RECEIPT("receipt", "קבלה", "Receipt"),
-        DOCUMENT("document", "מסמך", "Document"),
-        COUPON("coupon", "קופון", "Coupon"),
+        WARRANTY("warranty", "אחריות", "Warranty"),
+        CREDIT("credit", "זיכוי", "Store credit"),
+        EXCHANGE("exchange", "פתק החלפה", "Exchange slip"),
         VOUCHER("voucher", "שובר / כרטיס מתנה", "Voucher / gift card"),
+        COUPON("coupon", "קופון", "Coupon"),
+        DOCUMENT("document", "מסמך", "Document"),
         GIFT("gift", "מתנה", "Gift");
 
         val label: String get() = L.t(he, en)
@@ -219,7 +222,10 @@ object FamilyItems {
     /** One chain in the family wallet: its valid coupons and vouchers, what they're worth, and the nearest expiry. */
     data class Chain(val name: String, val items: List<Item>, val total: Double, val nearest: String)
 
-    fun isWallet(i: Item) = i.kind == Kind.COUPON || i.kind == Kind.VOUCHER || i.kind == Kind.GIFT
+    fun isWallet(i: Item) = i.kind == Kind.COUPON || i.kind == Kind.VOUCHER || i.kind == Kind.GIFT || i.kind == Kind.CREDIT
+
+    /** Things that run out on a date: a product's warranty, an exchange slip. */
+    fun isProtection(i: Item) = i.kind == Kind.WARRANTY || i.kind == Kind.EXCHANGE
     fun expired(i: Item, today: String) = i.expires.isNotEmpty() && i.expires < today
     fun worth(i: Item) = i.balance ?: i.amount ?: 0.0
 
@@ -240,4 +246,62 @@ object FamilyItems {
 
     /** The card security number kept in the note ("CVV 848"), or "". */
     fun cvv(note: String) = Regex("""CVV (\d{3,4})""").find(note)?.groupValues?.get(1).orEmpty()
+
+    /** The type filters of the family file, each with the kinds it shows. */
+    enum class Group(val he: String, val en: String, val kinds: Set<Kind>) {
+        RECEIPTS("קבלות", "Receipts", setOf(Kind.RECEIPT)),
+        WARRANTIES("אחריות", "Warranties", setOf(Kind.WARRANTY)),
+        CREDITS("זיכויים", "Credits", setOf(Kind.CREDIT)),
+        CARDS("שוברים וקופונים", "Vouchers & coupons", setOf(Kind.VOUCHER, Kind.COUPON, Kind.GIFT)),
+        EXCHANGES("החלפות", "Exchanges", setOf(Kind.EXCHANGE)),
+        DOCUMENTS("מסמכים", "Documents", setOf(Kind.DOCUMENT));
+        val label: String get() = L.t(he, en)
+    }
+
+    /** A date [months] after [from] (yyyy-MM-dd), for "a year's warranty from the purchase". */
+    fun plusMonths(from: String, months: Long): String = try { java.time.LocalDate.parse(from).plusMonths(months).toString() } catch (_: Exception) { "" }
+    fun plusDays(from: String, days: Long): String = try { java.time.LocalDate.parse(from).plusDays(days).toString() } catch (_: Exception) { "" }
+
+    /** How many days ahead each kind is reminded about (the biggest first). Receipts aren't. */
+    fun reminderDays(k: Kind): List<Int> = when (k) {
+        Kind.WARRANTY -> listOf(30, 7)
+        Kind.EXCHANGE -> listOf(3, 1)
+        Kind.CREDIT, Kind.VOUCHER, Kind.COUPON, Kind.GIFT -> listOf(30, 7, 1)
+        Kind.DOCUMENT -> listOf(30)
+        Kind.RECEIPT -> emptyList()
+    }
+
+    data class Due(val item: Item, val days: Long, val keys: List<String>)
+
+    /**
+     * What to remind about today: each item whose expiry has come within one of its reminder windows and that
+     * wasn't reminded about for that window (in [sent]). One reminder per item; its keys mark every window it covers,
+     * so a late check doesn't send the 30-day and the 7-day reminders together.
+     */
+    fun due(items: List<Item>, today: String, sent: Set<String>): List<Due> = items.mapNotNull { i ->
+        val d = daysUntil(i.expires, today) ?: return@mapNotNull null
+        if (d < 0) return@mapNotNull null
+        val windows = reminderDays(i.kind).filter { d <= it }
+        if (windows.isEmpty()) return@mapNotNull null
+        val keys = windows.map { "${i.id}:${i.expires}:$it" }
+        // The smallest window reached is the one this reminder is for.
+        if ("${i.id}:${i.expires}:${windows.min()}" in sent) return@mapNotNull null
+        Due(i, d, keys)
+    }
+
+    /** The reminder's words: "האחריות על המקרר מסתיימת בעוד 7 ימים". */
+    fun reminderText(i: Item, days: Long): Pair<String, String> {
+        val name = i.title.ifBlank { i.vendor }.ifBlank { i.kind.label }
+        val whenHe = when (days) { 0L -> "היום"; 1L -> "מחר"; else -> "בעוד $days ימים" }
+        val whenEn = when (days) { 0L -> "today"; 1L -> "tomorrow"; else -> "in $days days" }
+        val title = when (i.kind) {
+            Kind.WARRANTY -> L.t("האחריות נגמרת $whenHe", "Warranty ends $whenEn")
+            Kind.EXCHANGE -> L.t("אפשר להחליף עד $whenHe", "Exchange possible until $whenEn")
+            Kind.CREDIT -> L.t("זיכוי שפג $whenHe", "A store credit expires $whenEn")
+            Kind.DOCUMENT -> L.t("מסמך שפג $whenHe", "A document expires $whenEn")
+            else -> L.t("שובר שפג $whenHe", "A voucher expires $whenEn")
+        }
+        val worth = (i.balance ?: i.amount)?.let { " · " + money(it) }.orEmpty()
+        return title to (name + worth)
+    }
 }
