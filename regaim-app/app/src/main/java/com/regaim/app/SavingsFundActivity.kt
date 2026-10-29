@@ -278,6 +278,7 @@ class SavingsFundActivity : AppCompatActivity() {
                 val units = pr.coins.ifEmpty { fund.coins.associate { it.symbol to it.units } }
                 Savings.valueOn(units, pr.date, CryptoPrices.cached(this))?.let { pending = pr.copy(balance = it, coins = units) }
             }
+            Unit
         }
         val p = pending
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {
