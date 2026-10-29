@@ -59,6 +59,8 @@ class CommunityActivity : AppCompatActivity() {
         ui = Ui(this)
         mv = MemoryViews(this)
         content = findViewById(R.id.screenContent)
+        // Pull down for the newest posts.
+        PullRefresh.attach(this, findViewById(R.id.screenScroll), work = { }) { reload() }
         // Posts reach the screen edges (negative side margins): don't cut them at the page padding.
         content.clipToPadding = false
         content.clipChildren = false

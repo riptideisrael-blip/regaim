@@ -77,6 +77,8 @@ class FamilyFileActivity : AppCompatActivity() {
         Nav.addProfileButton(this, findViewById<View>(R.id.screenTitle).parent as ViewGroup)
         val screen = findViewById<LinearLayout>(R.id.screenContent)
         scroller = screen.parent as View
+        // Pull down: what the other parent added to the shared file, now.
+        PullRefresh.attach(this, scroller, work = { FamilyFileSync.syncNow(applicationContext) }) { render() }
         ui = Ui(this)
         child = intent.getStringExtra(EXTRA_CHILD).orEmpty()
         // The search box stays put; everything under it is redrawn.

@@ -60,6 +60,12 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
+        // Pull down: the other parent's new moments, the family feed and the shared file, now.
+        PullRefresh.attach(this, findViewById(R.id.homeScroll), work = {
+            try { Circle.partnerMoments(applicationContext) } catch (_: Exception) { }
+            try { PartnerShare.sync(applicationContext) } catch (_: Exception) { }
+            try { FamilyFileSync.syncNow(applicationContext) } catch (_: Exception) { }
+        }) { render(); loadFamily() }
         Settings.load(this)
         content = findViewById(R.id.homeContent)
         // Posts reach the screen edges (negative side margins): don't cut them at the page padding.

@@ -64,6 +64,11 @@ class MemoriesActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_memories)
         list = findViewById(R.id.bubbleList)
+        // Pull down: the other parent's newest moments now (not waiting for the next automatic check).
+        PullRefresh.attach(this, list, work = { Circle.partnerMoments(applicationContext) }) {
+            partner = if (PartnerShare.partner(this).isEmpty()) emptyList() else Circle.cachedPartnerMoments(this)
+            reload()
+        }
         empty = findViewById(R.id.emptyText)
         chips = findViewById(R.id.filterChips)
 

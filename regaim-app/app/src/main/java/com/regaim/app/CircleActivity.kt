@@ -51,6 +51,8 @@ class CircleActivity : AppCompatActivity() {
         ui = Ui(this)
         mv = MemoryViews(this)
         content = findViewById(R.id.screenContent)
+        // Pull down for the family's newest moments and messages.
+        PullRefresh.attach(this, findViewById(R.id.screenScroll), work = { }) { load() }
         findViewById<TextView>(R.id.screenTitle).text = L.t("מעגל המשפחה", "Family circle")
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         takeInvite(intent)
