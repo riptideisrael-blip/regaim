@@ -5,14 +5,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Probe open data
+        shell: bash
         run: |
           set +e
-          n() { echo "::notice title=$1::$(echo "$2" | head -c 3500 | tr '\n' ' ' | sed 's/%/%25/g' | sed 's/::/: :/g')"; }
+          echo "::notice title=start::begin"
           R=a30dcbea-a1d2-482c-ae29-8f781f5025fb
-          s() { curl -sS -m 60 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql=$1"; }
-          A=$(s "SELECT \"FUND_ID\",\"FUND_NAME\",\"REPORT_PERIOD\",\"MONTHLY_YIELD\",\"YEAR_TO_DATE_YIELD\" FROM \"$R\" WHERE \"FUND_CLASSIFICATION\" = 'קופת גמל להשקעה' AND \"FUND_NAME\" LIKE '%500%' AND \"REPORT_PERIOD\" >= 202601")
-          n harelsp-ok "$(echo "$A" | jq -c '.success, (.error // empty)')"
-          n harelsp "$(echo "$A" | jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)|\(.REPORT_PERIOD)|\(.MONTHLY_YIELD)|\(.YEAR_TO_DATE_YIELD)"' | grep 'הראל' | sort)"
-          B=$(s "SELECT DISTINCT \"FUND_ID\",\"FUND_NAME\",\"MANAGING_CORPORATION\" FROM \"$R\" WHERE \"FUND_CLASSIFICATION\" = 'קופת גמל להשקעה - חסכון לילד' AND \"REPORT_PERIOD\" = 202609")
-          n child-ok "$(echo "$B" | jq -c '.success, (.error // empty)')"
-          n child "$(echo "$B" | jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)"' | head -60)"
+          cat > q1.sql <<'SQL'
+          SELECT "FUND_ID","FUND_NAME","REPORT_PERIOD","MONTHLY_YIELD","YEAR_TO_DATE_YIELD" FROM "a30dcbea-a1d2-482c-ae29-8f781f5025fb" WHERE "FUND_CLASSIFICATION" = 'קופת גמל להשקעה' AND "FUND_NAME" LIKE '%500%' AND "REPORT_PERIOD" >= 202601
+          SQL
+          cat > q2.sql <<'SQL'
+          SELECT DISTINCT "FUND_ID","FUND_NAME" FROM "a30dcbea-a1d2-482c-ae29-8f781f5025fb" WHERE "FUND_CLASSIFICATION" = 'קופת גמל להשקעה - חסכון לילד' AND "REPORT_PERIOD" = 202609
+          SQL
+          curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql@q1.sql" -o a.json; echo "::notice title=a-size::$(wc -c < a.json)"
+          curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql@q2.sql" -o b.json; echo "::notice title=b-size::$(wc -c < b.json)"
+          echo "::notice title=a-head::$(head -c 300 a.json | tr '\n' ' ')"
+          echo "::notice title=harel::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)|\(.REPORT_PERIOD)|\(.MONTHLY_YIELD)|\(.YEAR_TO_DATE_YIELD)"' a.json | grep 'הראל' | sort | tr '\n' ';' | head -c 3000)"
+          echo "::notice title=child::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)"' b.json | tr '\n' ';' | head -c 3500)"
