@@ -109,6 +109,15 @@ class PeopleActivity : AppCompatActivity() {
             }
             unknown.addView(line)
         }
+        // Moments with no face to name (a back, a small face, a pet): ticked one by one.
+        val noName = NameMomentsActivity.waiting(this).size
+        if (noName > 0) unknown.addView(TextView(this).apply {
+            text = L.t("📷 $noName רגעים בלי אף שם: לסמן מי בהם ›", "📷 $noName moments with no name: mark who's in them ›")
+            textSize = 15f
+            setTextColor(DS.primary(this@PeopleActivity))
+            setPadding(0, (14 * d).toInt(), 0, (8 * d).toInt())
+            setOnClickListener { NameMomentsActivity.open(this@PeopleActivity) }
+        })
         known.setPadding(0, (4 * d).toInt(), 0, 0)
     }
 

@@ -248,6 +248,7 @@ class HomeActivity : AppCompatActivity() {
         filmInProgress()
         pitzkiWaiting()
         connectCard()
+        nameMomentsCard()
         peopleStrip(all)
         queueCard(waiting)
         backupTip(all.isNotEmpty())
@@ -544,6 +545,25 @@ class HomeActivity : AppCompatActivity() {
         card.addView(ui.text(if (done) L.t("הסרט המצויר מוכן", "Your animated film is ready") else L.t("סרט מצויר בהכנה · ${s.estimate()}%", "Animated film in progress · ${s.estimate()}%"), 16f, bold = true))
         card.addView(ui.hint(if (s.state == CartoonFilm.Session.State.LOOK) L.t("מחכה לאישור שלכם: איך הדמויות נראות", "Waiting for you: approve how the characters look") else L.t("לחצו כדי לראות", "Tap to see it"), top = 2))
         card.setOnClickListener { CartoonFilmActivity.open(this, s.memory.id) }
+        content.addView(card)
+    }
+
+    /**
+     * Moments where nobody was recognized get no words: a card when a few are waiting, to mark who's in them in one
+     * go (they're then described with the names). Hidden for a week after "Not now".
+     */
+    private fun nameMomentsCard() {
+        val prefs = Settings.prefs(this)
+        if (System.currentTimeMillis() - prefs.getLong("name_moments_later", 0L) < 7 * DateUtils.DAY_IN_MILLIS) return
+        val n = NameMomentsActivity.waiting(this).size
+        if (n < 3) return
+        val card = ui.card(top = 16)
+        card.addView(ui.text(L.t("👤 מי ב-$n רגעים?", "👤 Who's in $n moments?"), 16f, bold = true))
+        card.addView(ui.hint(L.t("לא זיהינו אף אחד בהם, אז אין להם תיאור. מסמנים מי שם, והם מקבלים תיאור עם השמות.", "Nobody was recognized in them, so they have no words. Mark who's there and they're described with the names."), top = 4))
+        val row = ui.horizontal(top = 6)
+        row.addView(ui.action(L.t("לסמן ›", "Mark ›")) { NameMomentsActivity.open(this) })
+        row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putLong("name_moments_later", System.currentTimeMillis()).apply(); render() })
+        card.addView(row)
         content.addView(card)
     }
 
