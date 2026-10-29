@@ -104,7 +104,13 @@ object FamilyFile {
         fund
     }
 
+    /** Funds removed on this phone (so the other parent's copy is removed too, and doesn't come back). */
+    fun deletedFunds(ctx: Context): Set<String> = Settings.prefs(ctx).getStringSet("savings_deleted", emptySet()).orEmpty()
+    fun forgetDeleted(ctx: Context, ids: Set<String>) = Settings.prefs(ctx).edit().putStringSet("savings_deleted", deletedFunds(ctx) - ids).apply()
+    fun markDeleted(ctx: Context, id: String) = Settings.prefs(ctx).edit().putStringSet("savings_deleted", deletedFunds(ctx) + id).apply()
+
     fun deleteFund(ctx: Context, id: String) = synchronized(lock) {
+        markDeleted(ctx, id)
         val list = Savings.listFromJson(try { SecureFiles.readText(savingsFile(ctx)) } catch (_: Exception) { null })
         SecureFiles.writeText(savingsFile(ctx), Savings.listToJson(list.filterNot { it.id == id }))
     }

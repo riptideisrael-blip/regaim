@@ -57,4 +57,33 @@ class SavingsTest {
         val f = Fund("1", "uri", reports = listOf(Report("2026-09-30", 9850.12, 342.0, 4.2)), monthly = 57.0)
         assertEquals(listOf(f), Savings.listFromJson(Savings.listToJson(listOf(f))))
     }
+
+    @Test fun estimateGrowsAtTheReportsReturn() {
+        // A quarter's +3% ≈ 0.99% a month; one month since, plus 100 ₪ deposited.
+        val f = Fund("1", "uri", monthly = 100.0, reports = listOf(Report("2026-09-30", 10000.0, returnPct = 3.0, months = 3)))
+        val e = Savings.estimate(f, today)!!
+        val g = Math.pow(1.03, 1.0 / 3) - 1
+        assertEquals(10000 * (1 + g) + 100, e.total, 0.01)
+        assertEquals(10000 * g, e.growth, 0.01)
+        assertEquals(g * 100, e.ratePct!!, 0.0001)
+        assertEquals(3.0, e.periodReturnPct!!, 0.0)
+        // A loss the same way.
+        assertEquals(true, Savings.estimate(f.copy(reports = listOf(Report("2026-09-30", 10000.0, returnPct = -1.5))), today)!!.growth < 0)
+    }
+
+    @Test fun bothParentsReportsJoin() {
+        val mine = Fund("f1", "uri", provider = "מור", track = "מניות", monthly = 57.0, updated = 100, reports = listOf(Report("2026-06-30", 9000.0)))
+        val theirs = Fund("f1", "kid9", provider = "מור", track = "מניות", monthly = 100.0, updated = 200, reports = listOf(Report("2026-09-30", 9850.0), Report("2026-06-30", 8999.0)))
+        val m = Savings.merge(mine, theirs)
+        assertEquals(listOf("2026-06-30", "2026-09-30"), m.reports.map { it.date })
+        assertEquals(8999.0, m.reports[0].balance, 0.0) // the newer side's when both have the date
+        assertEquals(100.0, m.monthly, 0.0)
+        assertEquals(200L, m.updated)
+        assertEquals(m, Savings.merge(m, theirs))
+        val shared = Savings.shareData(mine, "אורי נתן")
+        assertEquals("kid7", Savings.fromShare("f1", shared) { if (it == "אורי נתן") "kid7" else "" }.child)
+        // Monthly from the period's deposits when the report doesn't say it.
+        val r = Savings.reading(JSONObject("""{"deposits_in_period":342,"period_months":3}"""))
+        assertEquals(114.0, r.perMonth!!, 0.001)
+    }
 }

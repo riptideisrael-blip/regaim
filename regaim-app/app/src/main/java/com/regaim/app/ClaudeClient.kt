@@ -566,9 +566,10 @@ object ClaudeClient {
              "report_date": "yyyy-MM-dd the date the balance is for (end of the quarter)",
              "balance": number in shekels (the accumulated balance / יתרה צבורה / סך החיסכון on that date),
              "deposits_in_period": number in shekels deposited during the report's period, or null,
+             "period_months": how many months the report covers (a quarterly report = 3, a yearly one = 12), or null,
              "state_monthly_deposit": number the state deposits each month if written, or null,
              "parent_monthly_deposit": number the parents deposit each month if written, or null,
-             "return_pct": the period's return in percent as a number (e.g. 4.2), or null,
+             "return_pct": the report period's net return in percent as a number (e.g. 4.2, or -1.3 for a loss), or null,
              "fees_pct": the management fee from balance in percent, or null,
              "child_name": "one of these names only if it is clearly the account holder: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
             Rules: copy numbers and dates exactly; never guess; if something isn't written, use null. Dates are usually day/month/year.

@@ -51,7 +51,12 @@ class SavingsActivity : AppCompatActivity() {
             .setOnCancelListener { finish() }.show()
     }
 
-    override fun onResume() { super.onResume(); if (FamilyFile.consented(this)) render() }
+    override fun onResume() {
+        super.onResume()
+        if (!FamilyFile.consented(this)) return
+        render()
+        FamilyFileSync.kick(this) { runOnUiThread { if (!isDestroyed) render() } }
+    }
     override fun onDestroy() { worker.shutdownNow(); super.onDestroy() }
 
     private fun amount(text: String, size: Float, color: Int) = TextView(this).apply {
@@ -84,7 +89,10 @@ class SavingsActivity : AppCompatActivity() {
             addView(TextView(this@SavingsActivity).apply {
                 text = listOfNotNull(
                     if (monthly > 0) L.t("נכנסים ${FamilyItems.money(monthly)} בחודש", "${FamilyItems.money(monthly)} goes in each month") else null,
-                    L.t("לפי הדוח האחרון של כל קופה, ועוד ההפקדות מאז. התשואה מתעדכנת בדוח הבא.", "From each fund's last report, plus the deposits since. Returns update with the next report."),
+                    funds.mapNotNull { Savings.estimate(it, today) }.sumOf { it.growth }.takeIf { it != 0.0 }?.let { g ->
+                        L.t("רווח/הפסד משוער מאז הדוחות: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}", "Estimated gain/loss since the reports: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}")
+                    },
+                    L.t("הערכה: היתרה בדוח האחרון של כל קופה, עם התשואה שהדוח הראה, ועוד ההפקדות מאז. הדוח הבא מביא את המספר האמיתי.", "Estimate: each fund's last balance at the return its report showed, plus the deposits since. The next report brings the real number."),
                 ).joinToString("\n")
                 textSize = 12.5f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(6), 0, 0)
             })
@@ -114,14 +122,23 @@ class SavingsActivity : AppCompatActivity() {
             card.addView(ui.action(L.t("+ קופה ל${k.name}", "+ A fund for ${k.name}")) { SavingsFundActivity.newFor(this, k.id) })
             content.addView(card)
         }
+        // Both parents see the same savings when the family file is shared.
+        if (PartnerShare.partner(this).isNotEmpty() && !FamilyFileSync.on(this)) content.addView(ui.hint(
+            L.t("כדי שגם ההורה השני יראה את החיסכון ויוכל להעלות את הדוח הבא: מפעילים \"שיתוף התיק\" בתחתית תיק המשפחה (אצל שניכם).",
+                "So the other parent sees the savings and can upload the next report: turn on \"Share the file\" at the bottom of the family file (on both phones)."), top = 16))
         if (kids.isEmpty()) content.addView(ui.hint(L.t("כדי לעקוב אחרי חיסכון מוסיפים קודם ילדים בפרופיל המשפחה.", "To follow savings, first add children in the family profile."), top = 16))
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
     }
+
+    private fun sign(v: Double) = if (v >= 0) "+" else "−"
+    private fun pct(v: Double) = sign(v) + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(v)) + "%"
 
     private fun fundRow(f: Savings.Fund, today: String): View {
         val e = Savings.estimate(f, today)
         val meta = listOfNotNull(
             f.kind.label,
+            e?.periodReturnPct?.let { L.t("תשואה בדוח: ${pct(it)}", "Report's return: ${pct(it)}") },
+            e?.ratePct?.takeIf { e.months > 0 }?.let { L.t("מאז (משוער): ${pct(it)}", "Since (est.): ${pct(it)}") },
             f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
             if (f.perMonth > 0) L.t("+${FamilyItems.money(f.perMonth)} בחודש", "+${FamilyItems.money(f.perMonth)} a month") else null,

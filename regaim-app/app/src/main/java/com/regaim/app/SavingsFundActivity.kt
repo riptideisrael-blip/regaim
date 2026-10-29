@@ -31,7 +31,7 @@ class SavingsFundActivity : AppCompatActivity() {
                 .put("balance", r.balance ?: org.json.JSONObject.NULL).put("deposits_in_period", r.deposits ?: org.json.JSONObject.NULL)
                 .put("parent_monthly_deposit", r.monthly ?: org.json.JSONObject.NULL).put("state_monthly_deposit", r.stateMonthly ?: org.json.JSONObject.NULL)
                 .put("return_pct", r.returnPct ?: org.json.JSONObject.NULL).put("fees_pct", r.feesPct ?: org.json.JSONObject.NULL)
-                .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName)
+                .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName).put("period_months", r.months ?: org.json.JSONObject.NULL)
             ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_READING, o.toString()).putExtra(EXTRA_DOC, docId).putExtra(EXTRA_CHILD, child))
         }
     }
@@ -70,9 +70,10 @@ class SavingsFundActivity : AppCompatActivity() {
             val child = kids.firstOrNull { r.childName.isNotBlank() && (Profile.sameName(it.name, r.childName) || Profile.sameName(PitzkiScript.firstName(it.name), PitzkiScript.firstName(r.childName))) }?.id ?: fund.child
             val match = Savings.match(funds, child, r.provider, r.track)
             if (match != null) { fund = match; isNew = false; matchedExisting = true }
+            // What goes in each month: as the report says, or its period's deposits spread over the months.
             else fund = fund.copy(child = child, kind = r.kind ?: fund.kind, provider = r.provider, name = r.name, track = r.track,
-                monthly = r.monthly ?: 0.0, stateMonthly = r.stateMonthly ?: 0.0)
-            pending = Savings.Report(r.date, r.balance ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, intent.getStringExtra(EXTRA_DOC).orEmpty())
+                monthly = r.monthly ?: (if (r.stateMonthly == null) r.perMonth ?: 0.0 else 0.0), stateMonthly = r.stateMonthly ?: 0.0)
+            pending = Savings.Report(r.date, r.balance ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, intent.getStringExtra(EXTRA_DOC).orEmpty(), r.months)
         }
         render()
     }
@@ -140,21 +141,26 @@ class SavingsFundActivity : AppCompatActivity() {
             val card = ui.card(top = 6)
             fund.reports.sortedByDescending { it.date }.forEach { r ->
                 card.addView(ui.row(L.t("${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}", "${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}"),
-                    if (r.doc.isNotEmpty()) L.t("הדוח ›", "Report ›") else "", top = 0) { if (r.doc.isNotEmpty()) FamilyItemActivity.open(this, r.doc) })
+                    if (docOf(r.doc) != null) L.t("הדוח ›", "Report ›") else "", top = 0) { docOf(r.doc)?.let { FamilyItemActivity.open(this, it.id) } })
             }
             content.addView(card)
         }
-        content.addView(ui.hint(L.t("כמה יש היום = היתרה בדוח האחרון ועוד ההפקדות מאז. התשואה האמיתית מתעדכנת בדוח הבא.", "Today's amount = the last report's balance plus the deposits since. The real return updates with the next report."), top = 10))
+        content.addView(ui.hint(L.t("כמה יש היום (הערכה) = היתרה בדוח האחרון, עם התשואה שהדוח הראה בתקופה שלו, ועוד ההפקדות מאז. זו לא תחזית ולא המלצה: הדוח הבא מביא את המספר האמיתי.",
+            "Today (estimate) = the last report's balance at the return that report showed for its period, plus the deposits since. Not a forecast or advice: the next report brings the real number."), top = 10))
 
         content.addView(ui.button(L.t("שמירה", "Save"), primary = true, top = 18) { save() })
         if (!isNew) content.addView(ui.action(L.t("מחיקת הקופה", "Delete the fund"), R.color.ds_error) {
             AlertDialog.Builder(this).setTitle(L.t("למחוק את הקופה?", "Delete the fund?"))
                 .setMessage(L.t("הקופה והיתרות שלה יימחקו מהאפליקציה. הדוחות נשארים בתיק המשפחה.", "The fund and its balances are removed from the app. The reports stay in the family file."))
-                .setPositiveButton(L.t("מחיקה", "Delete")) { _, _ -> FamilyFile.deleteFund(this, fund.id); finish() }
+                .setPositiveButton(L.t("מחיקה", "Delete")) { _, _ -> FamilyFile.deleteFund(this, fund.id); FamilyFileSync.kick(this, force = true); finish() }
                 .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
         })
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
     }
+
+    /** The report's document here: this phone's own, or the one that came from the other parent ("p_…"), either way. */
+    private fun docOf(id: String): FamilyItems.Item? = if (id.isEmpty()) null
+        else FamilyFile.get(this, id) ?: FamilyFile.get(this, FamilyShare.localId(id)) ?: FamilyFile.get(this, id.removePrefix("p_"))
 
     private fun save() {
         fromFields()
@@ -164,7 +170,8 @@ class SavingsFundActivity : AppCompatActivity() {
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {
             Toast.makeText(this, L.t("חסרים תאריך או יתרה בדוח (תאריך: יום.חודש.שנה)", "The report's date or balance is missing (date: day.month.year)"), Toast.LENGTH_LONG).show(); return
         }
-        val saved = FamilyFile.saveFund(this, if (p != null) Savings.withReport(fund, p) else fund)
+        val saved = FamilyFile.saveFund(this, (if (p != null) Savings.withReport(fund, p) else fund).copy(updated = System.currentTimeMillis()))
+        FamilyFileSync.kick(this, force = true)
         // The report document: now filed under the child, with a clear title.
         if (p != null && p.doc.isNotEmpty()) FamilyFile.get(this, p.doc)?.let { d ->
             FamilyFile.save(this, d.copy(child = saved.child, title = L.t("דוח חיסכון · ${saved.title} · ${FamilyItems.short(p.date)}", "Savings report · ${saved.title} · ${FamilyItems.short(p.date)}"), date = p.date))

@@ -11,6 +11,7 @@ import java.io.File
  * from the server. Runs in the background, a minute apart at most; nothing happens unless both chose each other.
  */
 object FamilyFileSync {
+    private const val FUND = "fund_"
     private const val ON = "family_file_share_on"
     private const val SHARE_CONSENT = "family_file_share_consent_at"
 
@@ -83,7 +84,8 @@ object FamilyFileSync {
         // Send: this phone's own items that changed (not lines from a spreadsheet with nothing to redeem).
         val sent = map(app, sentKey(app))
         val items = FamilyFile.all(app).filterNot { CouponImport.noCode(it) }
-        val plan = FamilyShare.plan(items, sent, nameOf)
+        // (The children's savings travel in the same table as "fund_…" rows: handled below, not as items.)
+        val plan = FamilyShare.plan(items, sent.filterKeys { !it.startsWith(FUND) }, nameOf)
         for (i in plan.send) {
             val stamp = FamilyShare.stamp(i, nameOf(i.child))
             var path: String? = null
@@ -105,6 +107,21 @@ object FamilyFileSync {
             save(app, sentKey(app), sent)
         }
 
+        // The children's savings: every fund on this phone (either parent can add the next report), and removals.
+        for (f in FamilyFile.savings(app)) {
+            val key = FUND + f.id
+            val data = Savings.shareData(f, nameOf(f.child))
+            val stamp = data.toString().hashCode().toUInt().toString(16)
+            if (sent[key] == stamp) continue
+            Circle.fileItemPut(app, partner, key, data, null)
+            sent[key] = stamp
+            save(app, sentKey(app), sent)
+        }
+        val gone = FamilyFile.deletedFunds(app)
+        for (id in gone) {
+            if (sent.containsKey(FUND + id)) { Circle.fileItemRemove(app, FUND + id); sent.remove(FUND + id); save(app, sentKey(app), sent) }
+        }
+
         // Take: the other parent's items (only there if they turned sharing on too).
         var changed = false
         val got = map(app, gotKey(app))
@@ -112,6 +129,20 @@ object FamilyFileSync {
         val present = mutableSetOf<String>()
         for (r in rows) {
             val itemId = r.optString("item_id")
+            if (itemId.startsWith(FUND)) {
+                val id = itemId.removePrefix(FUND)
+                val local = FamilyFile.savings(app).firstOrNull { it.id == id }
+                if (!r.isNull("deleted_at")) {
+                    // Removed on the other phone: removed here too (and this phone's copy on the server with it).
+                    if (local != null) { FamilyFile.deleteFund(app, id); changed = true }
+                    continue
+                }
+                if (id in gone) continue
+                val remote = Savings.fromShare(id, r.optJSONObject("data") ?: continue, idOf)
+                val merged = Savings.merge(local, remote)
+                if (merged != local) { FamilyFile.saveFund(app, merged); changed = true }
+                continue
+            }
             val local = FamilyShare.localId(itemId)
             if (!r.isNull("deleted_at")) {
                 if (FamilyFile.get(app, local) != null) { FamilyFile.delete(app, local); changed = true }
