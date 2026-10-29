@@ -129,18 +129,10 @@ class FamilyActivity : AppCompatActivity() {
 
     private fun render() {
         content.removeAllViews()
-        content.addView(ui.hint(L.t("כאן נפגשים הסיפורים והאנשים שלכם.", "Where your stories and your people come together."), top = 10))
-        val circle = ui.card(top = 14)
-        circle.addView(ui.row(L.t("מעגל המשפחה", "Family circle"), if (Circle.joined(this)) Circle.name(this) else L.t("פתחו מעגל", "Start a circle"), top = 0) { CircleActivity.open(this) })
-        circle.addView(ui.hint(L.t("הזמינו את המשפחה, שתפו זיכרון והתחילו שיחה.", "Invite your family, share a memory and start a conversation."), top = 0))
-        if (Circle.joined(this)) circle.addView(ui.action(L.t("שיחה במשפחה", "Family chat")) { FamilyChatActivity.open(this) })
-        content.addView(circle)
-        // The family file: receipts, documents, coupons and vouchers (on this phone).
-        val file = ui.card(top = 12)
-        val n = if (FamilyFile.consented(this)) FamilyFile.all(this).size else 0
-        file.addView(ui.row(L.t("תיק המשפחה", "Family file"), if (n > 0) L.t("$n פריטים", "$n items") else "", top = 0) { FamilyFileActivity.open(this) })
-        file.addView(ui.hint(L.t("קבלות, מסמכים, קופונים ושוברים. שתפו לכאן מכל אפליקציה.", "Receipts, documents, coupons and vouchers. Share them here from any app."), top = 0))
-        content.addView(file)
+        // The family first: everyone in the profile (the children too), a tap away from their page.
+        familyStrip()
+        // Where to go: the circle, the chat, the family file and the savings, as tiles.
+        tiles()
         if (loading) content.addView(ui.hint(L.t("רגע, פותחים את הזיכרונות של המשפחה...", "Loading your family's memories..."), top = 10))
         if (familyError.isNotBlank()) {
             content.addView(ui.hint(familyError, top = 10))
@@ -148,7 +140,8 @@ class FamilyActivity : AppCompatActivity() {
             if (!Account.signedIn(this)) content.addView(ui.action(L.t("התחברו למעגל", "Sign in to your circle")) { WelcomeActivity.open(this) })
         }
         if (circleMembers.isNotEmpty()) {
-            content.addView(ui.section(L.t("במעגל שלכם", "In your circle")))
+            content.addView(ui.section(L.t("מחוברים למעגל", "Connected to the circle")))
+            content.addView(ui.hint(L.t("מי שיש לו את האפליקציה ומחובר למעגל המשפחה.", "Who has the app and is connected to the family circle."), top = 2))
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             val local = Profile.members(this)
             var unlinked = 0
@@ -256,5 +249,75 @@ class FamilyActivity : AppCompatActivity() {
             card.addView(ui.action(L.t("מי זה? ›", "Who's this? ›")) { PeopleActivity.open(this) })
         }
         return card
+    }
+
+    /** Everyone in the family profile: a round picture, the name, and the age (children) or relation; tap = their page. */
+    private fun familyStrip() {
+        val people = Profile.members(this).filter { !it.isPet }
+        if (people.isEmpty()) return
+        content.addView(ui.text(L.t("המשפחה שלנו", "Our family"), 13f, R.color.ink_soft, bold = true, top = 12))
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        // The children first: they're who most of it is about.
+        for (p in people.sortedByDescending { it.isChild }) row.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(ui.dp(8), ui.dp(4), ui.dp(8), ui.dp(4))
+            minimumWidth = ui.dp(76)
+            addView(mv.avatar(p.name, 64, ring = p.isChild))
+            addView(ui.text(PitzkiScript.firstName(p.name), 14f, bold = true, top = 6).apply { gravity = Gravity.CENTER })
+            addView(ui.hint(if (p.isChild) Profile.ageText(p.birth).ifEmpty { Profile.relationLabel(p.relation) } else Profile.relationLabel(p.relation), top = 0).apply { gravity = Gravity.CENTER; maxLines = 1 })
+            background = DS.pressable(this@FamilyActivity, DS.rounded(android.graphics.Color.TRANSPARENT, ui.dp(16).toFloat()))
+            contentDescription = listOf(p.name, if (p.isChild) Profile.ageText(p.birth) else Profile.relationLabel(p.relation)).filter { it.isNotBlank() }.joinToString(", ")
+            A11y.button(this)
+            setOnClickListener { if (!(p.isChild && ChildActivity.openByName(this@FamilyActivity, p.name))) openPerson(p.name) }
+        })
+        content.addView(ui.scrollRow(row, top = 6))
+    }
+
+    /** Two tiles a row: an icon on a soft circle, what it is, and a line of what's there. */
+    private fun tiles() {
+        val today = java.time.LocalDate.now().toString()
+        val consented = FamilyFile.consented(this)
+        val items = if (consented) FamilyFile.all(this).filterNot { CouponImport.noCode(it) }.size else 0
+        val funds = if (consented) FamilyFile.savings(this) else emptyList()
+        val saved = Savings.familyTotal(funds, today) { Savings.estimate(it, today, GemelNet.cached(this, it.gemelId), CryptoPrices.cached(this)) }
+        val joined = Circle.joined(this)
+        val list = listOf(
+            Triple(R.drawable.ic_tab_family, L.t("מעגל המשפחה", "Family circle") to (if (joined) Circle.name(this) else L.t("פותחים ומזמינים", "Start and invite"))) { CircleActivity.open(this) },
+            Triple(R.drawable.ic_comment, L.t("שיחה במשפחה", "Family chat") to (if (joined) L.t("כולם ביחד", "Everyone together") else L.t("אחרי שמצטרפים למעגל", "Once you join the circle"))) {
+                if (joined) FamilyChatActivity.open(this) else CircleActivity.open(this)
+            },
+            Triple(R.drawable.ic_tab_file, L.t("תיק המשפחה", "Family file") to (if (items > 0) L.t("$items פריטים", "$items items") else L.t("קבלות, שוברים, אחריות", "Receipts, vouchers, warranties"))) { FamilyFileActivity.open(this) },
+            Triple(R.drawable.ic_savings, L.t("חיסכון והשקעות", "Savings") to (if (saved > 0) FamilyItems.money(Math.rint(saved)) else L.t("קופות הילדים", "The children's funds"))) { SavingsActivity.open(this) },
+        )
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) } }
+        list.chunked(2).forEach { pair ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = ui.dp(10) } }
+            pair.forEachIndexed { n, (icon, texts, go) ->
+                row.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14)); minimumHeight = ui.dp(112)
+                    background = DS.pressable(this@FamilyActivity, DS.rounded(DS.card(this@FamilyActivity), ui.dp(20).toFloat()))
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { if (n == 0) marginEnd = ui.dp(10) }
+                    addView(android.widget.ImageView(this@FamilyActivity).apply {
+                        setImageResource(icon); setColorFilter(DS.primary(this@FamilyActivity))
+                        setPadding(ui.dp(9), ui.dp(9), ui.dp(9), ui.dp(9))
+                        background = DS.oval(DS.cardAlt(this@FamilyActivity))
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        layoutParams = LinearLayout.LayoutParams(ui.dp(42), ui.dp(42))
+                    })
+                    addView(ui.text(texts.first, 15f, bold = true, top = 10))
+                    addView(TextView(this@FamilyActivity).apply {
+                        text = texts.second; textSize = 12.5f; setTextColor(DS.inkSoft(this@FamilyActivity)); maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END; textDirection = View.TEXT_DIRECTION_FIRST_STRONG
+                        setPadding(0, ui.dp(2), 0, 0)
+                    })
+                    contentDescription = texts.first + ", " + texts.second
+                    A11y.button(this)
+                    setOnClickListener { go() }
+                })
+            }
+            grid.addView(row)
+        }
+        content.addView(grid)
     }
 }

@@ -139,14 +139,16 @@ class FamilyFileActivity : AppCompatActivity() {
         }
         if (query.isNotEmpty()) { searchResults(byChild, names, today); return }
 
+        // What you do here, at the top: add, import a list of coupons, the savings.
+        quickActions()
+
         // The overview: one tile per kind of thing in the file, each a filter.
         tiles(byChild, today, year)
 
         // The children's savings, in one line (its own screen).
         val funds = FamilyFile.savings(this).let { f -> if (child.isEmpty()) f else f.filter { it.child == child } }
-        if (funds.isNotEmpty() && tile == null) content.addView(ui.card(top = 2).apply {
-            addView(ui.row(L.t("💰 חיסכון והשקעות", "💰 Savings and investments"), FamilyItems.money(Savings.familyTotal(funds, today) { Savings.estimate(it, today, GemelNet.cached(this@FamilyFileActivity, it.gemelId), CryptoPrices.cached(this@FamilyFileActivity)) }) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
-        })
+        if (funds.isNotEmpty() && tile == null) content.addView(savingsCard(Savings.familyTotal(funds, today) {
+            Savings.estimate(it, today, GemelNet.cached(this@FamilyFileActivity, it.gemelId), CryptoPrices.cached(this@FamilyFileActivity)) }, funds.sumOf { it.perMonth }))
 
         val cats = FamilyItems.Category.values().filter { c -> byGroup.any { it.category == c.id } }
         if (cats.size > 1 && (tile == FamilyItems.Tile.RECEIPTS || tile == FamilyItems.Tile.DOCUMENTS)) {
@@ -208,9 +210,8 @@ class FamilyFileActivity : AppCompatActivity() {
     }
 
     private fun addButtons() {
-        content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
-        content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
-        content.addView(ui.button(L.t("💰 חיסכון והשקעות", "💰 Savings and investments"), top = 8) { SavingsActivity.open(this, child) })
+        // The file's settings, together and quiet at the end.
+        content.addView(ui.text(L.t("הגדרות התיק", "File settings"), 13f, R.color.ink_soft, bold = true, top = 26))
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         // Sharing with the other parent: each of them turns it on, after reading what it means.
@@ -350,7 +351,7 @@ class FamilyFileActivity : AppCompatActivity() {
             background = android.util.TypedValue().let { tv -> theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true); getDrawable(tv.resourceId) }
             // The category's initial in its colour.
             addView(TextView(this@FamilyFileActivity).apply {
-                text = (cat?.label ?: i.kind.label).take(1)
+                text = if (i.source == "savings") "₪" else (cat?.label ?: i.kind.label).take(1)
                 textSize = 15f; gravity = Gravity.CENTER; setTextColor(ink); typeface = DS.emphasis
                 background = DS.rounded(bg, ui.dp(12).toFloat())
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -360,7 +361,7 @@ class FamilyFileActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(10) }
                 addView(TextView(this@FamilyFileActivity).apply {
-                    text = title; textSize = 15f; setTextColor(DS.ink(this@FamilyFileActivity)); typeface = DS.emphasis
+                    text = Savings.isolateLatin(title); textSize = 15f; setTextColor(DS.ink(this@FamilyFileActivity)); typeface = DS.emphasis
                     maxLines = 2; ellipsize = TextUtils.TruncateAt.END
                     textDirection = View.TEXT_DIRECTION_FIRST_STRONG
                 })
@@ -620,5 +621,60 @@ class FamilyFileActivity : AppCompatActivity() {
                 render()
             }
         }
+    }
+
+    /** Three actions side by side: add (the main one), import coupons from Excel, savings. */
+    private fun quickActions() {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) } }
+        val acts = listOf(
+            Triple(R.drawable.ic_add, L.t("הוספה", "Add")) { FamilyItemActivity.pick(this, child) },
+            Triple(R.drawable.ic_tab_file, L.t("ייבוא Excel", "Import Excel")) { FamilyImportActivity.open(this) },
+            Triple(R.drawable.ic_savings, L.t("חיסכון", "Savings")) { SavingsActivity.open(this, child) },
+        )
+        acts.forEachIndexed { n, (icon, label, go) ->
+            val main = n == 0
+            val ink = if (main) DS.onButton(this) else DS.primary(this)
+            row.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                setPadding(ui.dp(6), ui.dp(12), ui.dp(6), ui.dp(12)); minimumHeight = ui.dp(76)
+                background = DS.pressable(this@FamilyFileActivity, DS.rounded(if (main) DS.primary(this@FamilyFileActivity) else DS.card(this@FamilyFileActivity), ui.dp(18).toFloat()), onDark = main)
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (n < 2) marginEnd = ui.dp(8) }
+                addView(android.widget.ImageView(this@FamilyFileActivity).apply {
+                    setImageResource(icon); setColorFilter(ink)
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    layoutParams = LinearLayout.LayoutParams(ui.dp(24), ui.dp(24))
+                })
+                addView(TextView(this@FamilyFileActivity).apply { text = label; textSize = 13.5f; setTextColor(ink); typeface = DS.emphasis; gravity = Gravity.CENTER; setPadding(0, ui.dp(6), 0, 0) })
+                contentDescription = label
+                A11y.button(this)
+                setOnClickListener { go() }
+            })
+        }
+        content.addView(row)
+    }
+
+    /** The savings in one card: what there is today and what goes in each month; opens the savings screen. */
+    private fun savingsCard(total: Double, monthly: Double): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14))
+        background = DS.pressable(this@FamilyFileActivity, DS.rounded(0xFF6F4E37.toInt(), ui.dp(20).toFloat()), onDark = true)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(4) }
+        addView(android.widget.ImageView(this@FamilyFileActivity).apply {
+            setImageResource(R.drawable.ic_savings); setColorFilter(0xFFFFFFFF.toInt())
+            setPadding(ui.dp(9), ui.dp(9), ui.dp(9), ui.dp(9)); background = DS.oval(0x33FFFFFF)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)).apply { marginEnd = ui.dp(12) }
+        })
+        addView(LinearLayout(this@FamilyFileActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(TextView(this@FamilyFileActivity).apply { text = L.t("חיסכון והשקעות", "Savings and investments"); textSize = 13f; setTextColor(0xE6FFFFFF.toInt()) })
+            addView(amount(FamilyItems.money(Math.rint(total)), 22f, 0xFFFFFFFF.toInt()).apply { setPadding(0, ui.dp(2), 0, 0) })
+            if (monthly > 0) addView(TextView(this@FamilyFileActivity).apply { text = L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month"); textSize = 12f; setTextColor(0xCCFFFFFF.toInt()) })
+        })
+        addView(TextView(this@FamilyFileActivity).apply { text = "›"; textSize = 24f; setTextColor(0xCCFFFFFF.toInt()); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+        contentDescription = L.t("חיסכון והשקעות, ${FamilyItems.money(Math.rint(total))}", "Savings and investments, ${FamilyItems.money(Math.rint(total))}")
+        A11y.button(this)
+        setOnClickListener { SavingsActivity.open(this@FamilyFileActivity, child) }
     }
 }

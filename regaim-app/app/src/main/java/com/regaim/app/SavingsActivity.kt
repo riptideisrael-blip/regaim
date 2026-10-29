@@ -103,7 +103,7 @@ class SavingsActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(24) }
                 addView(ui.text(k.name, 18f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) })
-                if (sum > 0) addView(amount(FamilyItems.money(sum), 17f, DS.ink(this@SavingsActivity)))
+                if (sum > 0) addView(amount(ils(sum), 17f, DS.ink(this@SavingsActivity)))
             })
             val card = ui.card(top = 8)
             card.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(4))
@@ -141,9 +141,9 @@ class SavingsActivity : AppCompatActivity() {
             if (f.kind == Savings.Kind.CRYPTO) e?.ratePct?.takeIf { CryptoPrices.cached(this) != null }?.let { L.t("מאז הדוח: ${pct(it)} (מחיר עכשיו)", "Since the report: ${pct(it)} (price now)") }
             else e?.ratePct?.let { L.t("מאז הדוח: ${pct(it)} (גמל נט עד ${GemelNet.latestLabel(off(f))})", "Since the report: ${pct(it)} (Gemel-Net to ${GemelNet.latestLabel(off(f))})") }
                 ?: if (f.lastReport != null && f.gemelId == 0) L.t("לא נמצאה בגמל נט: יתרה + הפקדות", "Not found at Gemel-Net: balance + deposits") else null,
-            f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}") }
+            f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${ils(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${ils(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
-            if (f.perMonth > 0) L.t("+${FamilyItems.money(f.perMonth)} בחודש", "+${FamilyItems.money(f.perMonth)} a month") else null,
+            if (f.perMonth > 0) L.t("+${ils(f.perMonth)} בחודש", "+${ils(f.perMonth)} a month") else null,
         )
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -160,8 +160,8 @@ class SavingsActivity : AppCompatActivity() {
                     text = meta.joinToString(" · ") { "⁨$it⁩" }; textSize = 12.5f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0)
                 })
             })
-            e?.let { addView(amount(FamilyItems.money(it.total), 15f, DS.ink(this@SavingsActivity))) }
-            contentDescription = (listOf(f.title) + meta + listOfNotNull(e?.let { FamilyItems.money(it.total) })).joinToString(", ")
+            e?.let { addView(amount(ils(it.total), 15f, DS.ink(this@SavingsActivity))) }
+            contentDescription = (listOf(f.title) + meta + listOfNotNull(e?.let { ils(it.total) })).joinToString(", ")
             setOnClickListener { SavingsFundActivity.open(this@SavingsActivity, f.id) }
         }
     }
@@ -227,7 +227,7 @@ class SavingsActivity : AppCompatActivity() {
 
         val monthlyNow = funds.sumOf { it.perMonth }
         card.addView(ui.text(L.t("הפקדה חודשית ב-₪", "Each month in ₪"), 13f, R.color.ink_soft, bold = true, top = 10))
-        val monthlyField = ui.field(L.t("הפקדה חודשית", "Each month"), FamilyItems.money(calcMonthly ?: monthlyNow).removeSuffix(" ₪"), top = 4).apply {
+        val monthlyField = ui.field(L.t("הפקדה חודשית", "Each month"), ils(calcMonthly ?: monthlyNow).removeSuffix(" ₪"), top = 4).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
         card.addView(monthlyField)
@@ -246,11 +246,11 @@ class SavingsActivity : AppCompatActivity() {
             val pts = Savings.project(start, monthly, calcRate, years)
             val end = pts.last()
             val whenText = if (calcYears == null && to18 != null) L.t("בגיל 18", "at 18") else L.t("בעוד ${trim(years)} שנים", "in ${trim(years)} years")
-            result.text = FamilyItems.money(end.total)
-            split.text = L.t("$whenText · הופקדו ${FamilyItems.money(end.deposited)} · תשואה ${FamilyItems.money(end.total - end.deposited)}",
-                "$whenText · deposited ${FamilyItems.money(end.deposited)} · growth ${FamilyItems.money(end.total - end.deposited)}")
+            result.text = ils(end.total)
+            split.text = L.t("$whenText · הופקדו ${ils(end.deposited)} · תשואה ${ils(end.total - end.deposited)}",
+                "$whenText · deposited ${ils(end.deposited)} · growth ${ils(end.total - end.deposited)}")
             chart.startLabel = L.t("היום", "today"); chart.endLabel = whenText; chart.points = pts
-            result.contentDescription = L.t("יכול להיות $whenText: ${FamilyItems.money(end.total)}", "Could be $whenText: ${FamilyItems.money(end.total)}")
+            result.contentDescription = L.t("יכול להיות $whenText: ${ils(end.total)}", "Could be $whenText: ${ils(end.total)}")
         }
         monthlyField.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -293,10 +293,10 @@ class SavingsActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) } }
         row.addView(DonutView(this).apply {
             slices = parts.mapIndexed { i, p -> p.second to PALETTE[i % PALETTE.size] }
-            center = if (total > 0) FamilyItems.money(total) else "—"
+            center = if (total > 0) ils(total) else "—"
             caption = L.t("יש היום (הערכה)", "today (estimate)")
             track = DS.cardAlt(this@SavingsActivity); ink = DS.ink(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
-            contentDescription = L.t("יש היום ${FamilyItems.money(total)}", "Today ${FamilyItems.money(total)}") + ", " + parts.joinToString(", ") { "${it.first} ${FamilyItems.money(it.second)}" }
+            contentDescription = L.t("יש היום ${ils(total)}", "Today ${ils(total)}") + ", " + parts.joinToString(", ") { "${it.first} ${ils(it.second)}" }
             layoutParams = LinearLayout.LayoutParams(ui.dp(150), ui.dp(150)).apply { marginEnd = ui.dp(14) }
         })
         val legend = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
@@ -312,7 +312,7 @@ class SavingsActivity : AppCompatActivity() {
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     addView(TextView(this@SavingsActivity).apply { text = name; textSize = 13f; setTextColor(DS.ink(this@SavingsActivity)); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
                     addView(TextView(this@SavingsActivity).apply {
-                        text = "\u2068${FamilyItems.money(v)}\u2069 · ${Math.round(v / total * 100)}%"; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity))
+                        text = "\u2068${ils(v)}\u2069 · ${Math.round(v / total * 100)}%"; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity))
                     })
                 })
             })
@@ -332,14 +332,17 @@ class SavingsActivity : AppCompatActivity() {
             if (sub.isNotEmpty()) addView(TextView(this@SavingsActivity).apply { text = sub; textSize = 11f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0) })
             contentDescription = listOf(label, value, sub).filter { it.isNotBlank() }.joinToString(", ")
         })
-        stat(L.t("יש בתיק", "In the portfolio"), FamilyItems.money(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
+        stat(L.t("יש בתיק", "In the portfolio"), ils(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
         stat(L.t("תשואה השנה", "Return this year"), ytd?.let { pct(it) } ?: "—", ytd?.let { if (it >= 0) UP else DOWN } ?: DS.inkSoft(this),
             last12?.let { L.t("12 חודשים: ${pct(it)}", "12 months: ${pct(it)}") } ?: L.t("גמל נט", "Gemel-Net"), 1)
-        stat(L.t("הפקדה חודשית", "Each month"), FamilyItems.money(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
+        stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
         card.addView(stats)
 
         card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר), מטבעות דיגיטליים לפי המחיר של היום, ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
             "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance), crypto at today's price, plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
         return card
     }
+
+    /** Savings in whole shekels (an estimate isn't precise to the agora). */
+    private fun ils(v: Double) = FamilyItems.money(Math.rint(v))
 }
