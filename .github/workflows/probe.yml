@@ -7,14 +7,10 @@ jobs:
       - name: Probe open data
         run: |
           set +e
-          n() { echo "::notice title=$1::$(echo "$2" | head -c 3000 | tr '\n' ' ' | sed 's/%/%25/g')"; }
-          P=$(curl -sS -m 30 "https://data.gov.il/api/3/action/package_show?id=gemelnet")
-          n resources "$(echo "$P" | jq -c '[.result.resources[]|{id,name,format,last_modified,datastore_active}]')"
-          for R in $(echo "$P" | jq -r '.result.resources[]|select(.datastore_active==true)|.id'); do
-            D=$(curl -sS -m 60 "https://data.gov.il/api/3/action/datastore_search?resource_id=$R&limit=1")
-            n "fields-$R" "$(echo "$D" | jq -c '[.result.fields[].id]')"
-            n "total-$R" "$(echo "$D" | jq -c '.result.total')"
-            n "sample-$R" "$(echo "$D" | jq -c '.result.records[0]')"
-            Q=$(curl -sS -m 60 -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "q=S&P 500" --data-urlencode "limit=40")
-            n "sp500-$R" "$(echo "$Q" | jq -c '[.result.records[]|del(._full_text)]' | head -c 2900)"
-          done
+          n() { echo "::notice title=$1::$(echo "$2" | head -c 3500 | tr '\n' ' ' | sed 's/%/%25/g')"; }
+          R=a30dcbea-a1d2-482c-ae29-8f781f5025fb
+          s() { curl -sS -m 60 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql=$1"; }
+          n classes "$(s "SELECT DISTINCT \"FUND_CLASSIFICATION\" FROM \"$R\"" | jq -c '[.result.records[]?.FUND_CLASSIFICATION] // .')"
+          n harel-sp "$(s "SELECT \"FUND_ID\",\"FUND_NAME\",\"FUND_CLASSIFICATION\",\"REPORT_PERIOD\",\"MONTHLY_YIELD\",\"YEAR_TO_DATE_YIELD\",\"AVG_ANNUAL_MANAGEMENT_FEE\" FROM \"$R\" WHERE \"FUND_NAME\" LIKE '%הראל%' AND \"FUND_NAME\" LIKE '%500%' AND \"REPORT_PERIOD\" >= 202601 ORDER BY \"FUND_ID\",\"REPORT_PERIOD\"" | jq -c '[.result.records[]?|[.FUND_ID,.FUND_NAME,.FUND_CLASSIFICATION,.REPORT_PERIOD,.MONTHLY_YIELD,.YEAR_TO_DATE_YIELD]] // .')"
+          n child "$(s "SELECT DISTINCT \"FUND_ID\",\"FUND_NAME\",\"FUND_CLASSIFICATION\",\"MANAGING_CORPORATION\" FROM \"$R\" WHERE (\"FUND_NAME\" LIKE '%ילד%' OR \"FUND_CLASSIFICATION\" LIKE '%ילד%') AND \"REPORT_PERIOD\" = 202609" | jq -c '[.result.records[]?|[.FUND_ID,.FUND_NAME,.FUND_CLASSIFICATION]] // .')"
+          n latest "$(s "SELECT MAX(\"REPORT_PERIOD\") AS p FROM \"$R\"" | jq -c '.result.records // .')"
