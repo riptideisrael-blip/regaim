@@ -142,6 +142,12 @@ class FamilyFileActivity : AppCompatActivity() {
         // The overview: one tile per kind of thing in the file, each a filter.
         tiles(byChild, today, year)
 
+        // The children's savings, in one line (its own screen).
+        val funds = FamilyFile.savings(this).let { f -> if (child.isEmpty()) f else f.filter { it.child == child } }
+        if (funds.isNotEmpty() && tile == null) content.addView(ui.card(top = 2).apply {
+            addView(ui.row(L.t("💰 חיסכון לילדים", "💰 Children's savings"), FamilyItems.money(Savings.familyTotal(funds, today)) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
+        })
+
         val cats = FamilyItems.Category.values().filter { c -> byGroup.any { it.category == c.id } }
         if (cats.size > 1 && (tile == FamilyItems.Tile.RECEIPTS || tile == FamilyItems.Tile.DOCUMENTS)) {
             val labels = listOf(L.t("כל הקטגוריות", "All categories")) + cats.map { it.label }
@@ -204,6 +210,7 @@ class FamilyFileActivity : AppCompatActivity() {
     private fun addButtons() {
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
         content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
+        content.addView(ui.button(L.t("💰 חיסכון לילדים", "💰 Children's savings"), top = 8) { SavingsActivity.open(this, child) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         // Sharing with the other parent: each of them turns it on, after reading what it means.

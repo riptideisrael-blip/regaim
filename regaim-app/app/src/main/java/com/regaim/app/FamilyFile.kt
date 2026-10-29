@@ -90,6 +90,25 @@ object FamilyFile {
         write(ctx, list.filterNot { it.id == id })
     }
 
+    // The children's savings (funds and their quarterly balances), encrypted next to the file.
+    private fun savingsFile(ctx: Context) = File(dir(ctx), "savings.json")
+
+    fun savings(ctx: Context): List<Savings.Fund> = synchronized(lock) {
+        Savings.listFromJson(try { SecureFiles.readText(savingsFile(ctx)) } catch (_: Exception) { null })
+    }
+
+    fun saveFund(ctx: Context, f: Savings.Fund): Savings.Fund = synchronized(lock) {
+        val fund = f.copy(id = f.id.ifBlank { UUID.randomUUID().toString() })
+        val list = Savings.listFromJson(try { SecureFiles.readText(savingsFile(ctx)) } catch (_: Exception) { null })
+        SecureFiles.writeText(savingsFile(ctx), Savings.listToJson(list.filterNot { it.id == fund.id } + fund))
+        fund
+    }
+
+    fun deleteFund(ctx: Context, id: String) = synchronized(lock) {
+        val list = Savings.listFromJson(try { SecureFiles.readText(savingsFile(ctx)) } catch (_: Exception) { null })
+        SecureFiles.writeText(savingsFile(ctx), Savings.listToJson(list.filterNot { it.id == id }))
+    }
+
     /** Deletes everything in the family file (the list and all the documents). */
     fun deleteAll(ctx: Context) = synchronized(lock) { dir(ctx).deleteRecursively() }
 

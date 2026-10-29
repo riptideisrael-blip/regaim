@@ -549,6 +549,44 @@ object ClaudeClient {
         return extractJson(answer)
     }
 
+    /**
+     * Reads a child's savings quarterly report (a picture or the PDF itself): which fund, which track, the balance on
+     * the report's date, and the deposits. Only when the parent taps it (the family file's consent covers it).
+     * Background thread only.
+     */
+    fun readSavingsReport(ctx: Context, jpegBase64: String?, pdfBase64: String?, children: List<String>, today: String): JSONObject {
+        val system = """
+            You read an Israeli savings report (דוח רבעוני / דוח שנתי) of a child's savings: "חיסכון לכל ילד" (the state's savings
+            for every child, deposits from ביטוח לאומי) or a private fund (קופת גמל להשקעה, פוליסת חיסכון, תוכנית חיסכון בבנק).
+            Answer with ONE JSON object only, no other text:
+            {"kind": "child_savings|private",
+             "provider": "the managing company, e.g. מור, הראל, מגדל, אלטשולר שחם, ילין לפידות, מיטב, הפניקס, כלל, מנורה, בנק …",
+             "fund_name": "the fund / plan name as written",
+             "track": "the investment track (מסלול) as written, e.g. מניות, כללי, הלכה, סיכון מוגבר, סיכון מועט",
+             "report_date": "yyyy-MM-dd the date the balance is for (end of the quarter)",
+             "balance": number in shekels (the accumulated balance / יתרה צבורה / סך החיסכון on that date),
+             "deposits_in_period": number in shekels deposited during the report's period, or null,
+             "state_monthly_deposit": number the state deposits each month if written, or null,
+             "parent_monthly_deposit": number the parents deposit each month if written, or null,
+             "return_pct": the period's return in percent as a number (e.g. 4.2), or null,
+             "fees_pct": the management fee from balance in percent, or null,
+             "child_name": "one of these names only if it is clearly the account holder: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
+            Rules: copy numbers and dates exactly; never guess; if something isn't written, use null. Dates are usually day/month/year.
+            Today is $today.
+        """.trimIndent()
+        val content = JSONArray()
+        if (!jpegBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "image")
+            .put("source", JSONObject().put("type", "base64").put("media_type", "image/jpeg").put("data", jpegBase64)))
+        if (!pdfBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "document")
+            .put("source", JSONObject().put("type", "base64").put("media_type", "application/pdf").put("data", pdfBase64)))
+        content.put(JSONObject().put("type", "text").put("text", "Read this report."))
+        val body = JSONObject().put("model", CHAT_MODEL).put("max_tokens", 500).put("system", system)
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+        TestMode.guard()
+        val answer = AiGate.claude(ctx, body, "family_file", if (jpegBase64.isNullOrEmpty()) 0 else 1, consentedNow = true)
+        return extractJson(answer)
+    }
+
     fun describeTime(t: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = t }
         if (L.isEn) return EN_DAYS[c.get(Calendar.DAY_OF_WEEK)] + " " + SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))

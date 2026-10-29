@@ -149,6 +149,20 @@ class ChildActivity : AppCompatActivity() {
         fc.addView(ui.row(line, "", top = 0) { FamilyFileActivity.open(this, kid.id) })
         content.addView(fc)
 
+        // The child's savings: how much there is today (estimated from the last report and the deposits since).
+        val funds = if (FamilyFile.consented(this)) FamilyFile.savings(this).filter { it.child == kid.id } else emptyList()
+        content.addView(ui.section(L.t("החיסכון של ${kid.name}", "${kid.name}'s savings")))
+        val sc = ui.card(top = 8)
+        val today = java.time.LocalDate.now().toString()
+        val saved = Savings.childTotal(funds, kid.id, today)
+        val monthly = funds.sumOf { it.perMonth }
+        sc.addView(ui.row(
+            if (funds.isEmpty()) L.t("מוסיפים קופה או מעלים דוח רבעוני", "Add a fund or upload a quarterly report")
+            else L.t("${FamilyItems.money(saved)} היום (הערכה)", "${FamilyItems.money(saved)} today (estimate)"),
+            if (monthly > 0) L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month") else "", top = 0,
+        ) { SavingsActivity.open(this, kid.id) })
+        content.addView(sc)
+
         // More about the child.
         content.addView(ui.section(L.t("עוד", "More")))
         val more = ui.card(top = 8)
