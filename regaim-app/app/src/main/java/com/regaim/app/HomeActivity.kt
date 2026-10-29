@@ -98,6 +98,8 @@ class HomeActivity : AppCompatActivity() {
         // The children, the same on both parents' phones (in the background, at most once a minute).
         ChildSync.kick(this)
         FamilyFileSync.kick(this)
+        // A notification when the other parent shares something (checked in the background).
+        PartnerNotify.schedule(this)
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {

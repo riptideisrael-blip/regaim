@@ -334,6 +334,12 @@ class CircleActivity : AppCompatActivity() {
                     }) else card.addView(ui.hint(L.t("✓ גם הרגעים הישנים עוברים (ברקע, כמה בכל פעם).", "✓ The older moments are going too (in the background, a few at a time)."), top = 2))
                 }
                 if (chosen != null && status.second) {
+                    // A notification when the other parent shares a moment or adds to the family file.
+                    card.addView(ui.switch(L.t("התראה כשמשתפים איתי רגע או פריט בתיק", "Notify me when a moment or a file item is shared with me"), PartnerNotify.on(app), top = 8) { on ->
+                        PartnerNotify.setOn(app, on)
+                        if (on && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 43)
+                    })
                     // What the last sharing did, and a way to run it now (it runs by itself when the app opens).
                     card.addView(ui.hint(L.t("שיתוף אחרון: ", "Last sharing: ") + PartnerShare.lastResult(app).ifBlank { L.t("עוד לא רץ בטלפון הזה", "hasn't run on this phone yet") }, top = 2))
                     actions.addView(ui.action(L.t("🔄 לשתף עכשיו", "🔄 Share now")) {

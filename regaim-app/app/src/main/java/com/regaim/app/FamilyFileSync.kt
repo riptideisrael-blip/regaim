@@ -71,6 +71,15 @@ object FamilyFileSync {
         }.start()
     }
 
+    /** One round now, on this thread (the background check for notifications); false when another is running. */
+    fun syncNow(ctx: Context): Boolean {
+        val app = ctx.applicationContext
+        if (!on(app) || !FamilyFile.consented(app) || !Account.signedIn(app) || !Circle.joined(app)) return false
+        if (!running.compareAndSet(false, true)) return false
+        lastRun = System.currentTimeMillis()
+        return try { sync(app) } catch (_: Exception) { false } finally { running.set(false) }
+    }
+
     /** One round: send what changed here, take what changed there. True when this phone's list changed. */
     private fun sync(app: Context): Boolean {
         val partner = PartnerShare.partner(app)

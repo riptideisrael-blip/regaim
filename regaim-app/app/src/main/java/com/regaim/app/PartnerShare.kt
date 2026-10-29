@@ -16,6 +16,7 @@ object PartnerShare {
 
     fun turnOn(ctx: Context, partnerId: String) {
         p(ctx).edit().putString("partner_id", partnerId).putLong("partner_since", if (since(ctx) > 0 && partner(ctx) == partnerId) since(ctx) else System.currentTimeMillis()).apply()
+        PartnerNotify.schedule(ctx)
     }
 
     fun turnOff(ctx: Context) { p(ctx).edit().remove("partner_id").remove("partner_since").apply() }

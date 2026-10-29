@@ -36,8 +36,9 @@ class StoryViewerActivity : AppCompatActivity() {
         fun open(ctx: Context, memoryId: String) =
             ctx.startActivity(Intent(ctx, StoryViewerActivity::class.java).putExtra(EXTRA_ID, memoryId))
         /** The other parent's moments (ids of [Circle.cachedPartnerMoments]), in this order. */
-        fun partner(ctx: Context, postIds: List<String>) =
-            ctx.startActivity(Intent(ctx, StoryViewerActivity::class.java).putStringArrayListExtra(EXTRA_POSTS, ArrayList(postIds)))
+        fun partner(ctx: Context, postIds: List<String>) = ctx.startActivity(partnerIntent(ctx, postIds))
+        fun partnerIntent(ctx: Context, postIds: List<String>): Intent =
+            Intent(ctx, StoryViewerActivity::class.java).putStringArrayListExtra(EXTRA_POSTS, ArrayList(postIds))
     }
 
     /** One thing on the screen: a memory on this phone, or a moment the other parent shared. */
