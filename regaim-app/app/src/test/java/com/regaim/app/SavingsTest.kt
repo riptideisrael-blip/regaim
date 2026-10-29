@@ -123,4 +123,32 @@ class SavingsTest {
         assertEquals(6.0, Savings.weighted(listOf(3000.0 to 8.0, 1500.0 to 2.0, 500.0 to null))!!, 0.0001)
         assertNull(Savings.weighted(listOf(100.0 to null)))
     }
+
+    /** The September Horizon statement: 0.00679205 BTC and 0.22533479 ETH, 150 ₪ of each bought every month. */
+    @Test fun cryptoAtTodaysPrices() {
+        val f = Fund("c", "uri", Savings.Kind.CRYPTO, "הוריזון",
+            coins = listOf(Savings.Coin("BTC", 0.00679205, 150.0), Savings.Coin("ETH", 0.22533479, 150.0)),
+            reports = listOf(Report("2026-09-30", 3650.0, coins = mapOf("BTC" to 0.00679205, "ETH" to 0.22533479))))
+        val p = Savings.Prices(now = mapOf("BTC" to 250646.0, "ETH" to 7262.14), daily = mapOf(
+            "BTC" to mapOf("2026-09-30" to 256517.5, "2026-10-15" to 240000.0, "2026-01-01" to 300000.0),
+            "ETH" to mapOf("2026-09-30" to 8400.0, "2026-10-14" to 7000.0, "2026-01-01" to 9000.0)))
+        val e = Savings.estimate(f, today, p = p)!!
+        val held = 0.00679205 * 250646 + 0.22533479 * 7262.14
+        val bought = 150.0 / 240000 * 250646 + 150.0 / 7000 * 7262.14 // October's buys (ETH: the day before the 15th)
+        assertEquals(held + bought, e.total, 0.01)
+        assertEquals(300.0, e.depositedSince, 0.0)
+        assertEquals(0.00679205 * 256517.5 + 0.22533479 * 8400, e.reported, 0.01)
+        assertEquals(true, e.growth < 0) // both fell since September
+        assertEquals(300.0, f.perMonth, 0.0)
+        // Without today's prices: the statement's value and the buys since, said plainly.
+        assertEquals(3950.0, Savings.estimate(f, today)!!.total, 0.01)
+        assertEquals(true, Savings.yearToDateCrypto(f, p, 2026)!! < 0)
+        assertEquals(f, Savings.listFromJson(Savings.listToJson(listOf(f))).single())
+        val r = Savings.reading(JSONObject("""{"kind":"crypto","provider":"הוריזון","value_usd":1171.82,"report_date":"30/09/2026",
+            "coins":[{"symbol":"btc","units":"0.00679205","monthly_ils":150},{"symbol":"ETH","units":0.22533479,"monthly_ils":150}]}"""))
+        assertEquals(Savings.Kind.CRYPTO, r.kind)
+        assertEquals(listOf("BTC", "ETH"), r.coins.map { it.symbol })
+        assertEquals(300.0, r.perMonth!!, 0.0)
+        assertEquals(1171.82, r.valueUsd!!, 0.0)
+    }
 }

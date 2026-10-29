@@ -31,7 +31,9 @@ class SavingsFundActivity : AppCompatActivity() {
                 .put("balance", r.balance ?: org.json.JSONObject.NULL).put("deposits_in_period", r.deposits ?: org.json.JSONObject.NULL)
                 .put("parent_monthly_deposit", r.monthly ?: org.json.JSONObject.NULL).put("state_monthly_deposit", r.stateMonthly ?: org.json.JSONObject.NULL)
                 .put("return_pct", r.returnPct ?: org.json.JSONObject.NULL).put("fees_pct", r.feesPct ?: org.json.JSONObject.NULL)
-                .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName).put("period_months", r.months ?: org.json.JSONObject.NULL)
+                .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName)
+                .put("value_usd", r.valueUsd ?: org.json.JSONObject.NULL)
+                .put("coins", org.json.JSONArray().apply { r.coins.forEach { put(org.json.JSONObject().put("symbol", it.symbol).put("units", it.units).put("monthly_ils", it.monthly)) } }).put("period_months", r.months ?: org.json.JSONObject.NULL)
             ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_READING, o.toString()).putExtra(EXTRA_DOC, docId).putExtra(EXTRA_CHILD, child))
         }
     }
@@ -69,19 +71,33 @@ class SavingsFundActivity : AppCompatActivity() {
             val r = Savings.reading(try { org.json.JSONObject(text) } catch (_: Exception) { org.json.JSONObject() })
             val child = kids.firstOrNull { r.childName.isNotBlank() && (Profile.sameName(it.name, r.childName) || Profile.sameName(PitzkiScript.firstName(it.name), PitzkiScript.firstName(r.childName))) }?.id ?: fund.child
             val match = Savings.match(funds, child, r.provider, r.track)
-            if (match != null) { fund = match; isNew = false; matchedExisting = true }
+            if (match != null) {
+                fund = match; isNew = false; matchedExisting = true
+                // A crypto statement: the units it shows (and the monthly buys, when it shows them).
+                if (fund.kind == Savings.Kind.CRYPTO && r.coins.isNotEmpty()) fund = fund.copy(coins = r.coins.map { c ->
+                    c.copy(monthly = if (c.monthly > 0) c.monthly else fund.coins.firstOrNull { it.symbol == c.symbol }?.monthly ?: 0.0) })
+            }
             // What goes in each month: as the report says, or its period's deposits spread over the months.
             else fund = fund.copy(child = child, kind = r.kind ?: fund.kind, provider = r.provider, name = r.name, track = r.track,
-                monthly = r.monthly ?: (if (r.stateMonthly == null) r.perMonth ?: 0.0 else 0.0), stateMonthly = r.stateMonthly ?: 0.0)
-            pending = Savings.Report(r.date, r.balance ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, intent.getStringExtra(EXTRA_DOC).orEmpty(), r.months)
+                monthly = if (r.kind == Savings.Kind.CRYPTO) 0.0 else r.monthly ?: (if (r.stateMonthly == null) r.perMonth ?: 0.0 else 0.0),
+                stateMonthly = r.stateMonthly ?: 0.0, coins = if (r.kind == Savings.Kind.CRYPTO) r.coins else emptyList())
+            pending = Savings.Report(r.date, r.balance ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, intent.getStringExtra(EXTRA_DOC).orEmpty(), r.months,
+                r.coins.associate { it.symbol to it.units })
         }
         render()
     }
 
     private fun num(e: EditText?) = FamilyItems.cleanAmount(e?.text?.toString())
 
+    /** Crypto: each coin's units and monthly buys. */
+    private val coinFields = linkedMapOf<String, Pair<EditText, EditText>>()
+
     private fun fromFields() {
         fProvider ?: return
+        if (fund.kind == Savings.Kind.CRYPTO && coinFields.isNotEmpty()) {
+            fund = fund.copy(coins = coinFields.map { (sym, f) -> Savings.Coin(sym, num(f.first) ?: 0.0, num(f.second) ?: 0.0) })
+            pending?.let { p -> pending = p.copy(coins = fund.coins.associate { it.symbol to it.units }) }
+        }
         fund = fund.copy(provider = fProvider?.text?.toString().orEmpty().trim(), name = fName?.text?.toString().orEmpty().trim(),
             track = fTrack?.text?.toString().orEmpty().trim(), monthly = num(fMonthly) ?: 0.0, stateMonthly = if (fState != null) num(fState) ?: 0.0 else fund.stateMonthly)
         pending?.let { p ->
@@ -118,10 +134,29 @@ class SavingsFundActivity : AppCompatActivity() {
         content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(fund.kind), top = 6) { i -> fromFields(); fund = fund.copy(kind = kinds[i]); render() })
 
         fProvider = field(L.t("החברה המנהלת (למשל: מור, הראל, אלטשולר שחם)", "Managing company (e.g. Mor, Harel)"), fund.provider)
-        fTrack = field(L.t("מסלול (למשל: מניות, כללי, הלכה)", "Track (e.g. stocks, general)"), fund.track)
-        fName = field(L.t("שם הקופה או התוכנית (אם יש)", "Fund or plan name (if any)"), fund.name)
-        fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪", "What you deposit each month in ₪"), money(fund.monthly), number = true)
-        fState = if (fund.kind == Savings.Kind.CHILD_SAVINGS) field(L.t("כמה המדינה מפקידה בחודש ב-₪ (כתוב בדוח)", "What the state deposits each month in ₪ (in the report)"), money(fund.stateMonthly), number = true) else null
+        coinFields.clear()
+        if (fund.kind == Savings.Kind.CRYPTO) {
+            fTrack = null; fMonthly = null; fState = null
+            fName = field(L.t("שם החשבון (אם יש)", "Account name (if any)"), fund.name)
+            // Each coin: how many units (as in the statement) and what's bought each month.
+            content.addView(ui.section(L.t("המטבעות", "The coins")))
+            for (c in fund.coins) {
+                content.addView(ui.text(coinName(c.symbol), 15f, bold = true, top = 12))
+                val units = field(L.t("כמה יחידות (כמו בדוח)", "Units (as in the statement)"), if (c.units > 0) c.units.toBigDecimal().stripTrailingZeros().toPlainString() else "", number = true)
+                val monthly = field(L.t("קנייה חודשית ב-₪ (הוראת קבע)", "Bought each month in ₪ (standing order)"), money(c.monthly), number = true)
+                coinFields[c.symbol] = units to monthly
+            }
+            val more = listOf("BTC", "ETH", "SOL", "XRP", "ADA", "DOGE").filter { s -> fund.coins.none { it.symbol == s } }
+            if (more.isNotEmpty()) {
+                content.addView(ui.text(L.t("+ הוספת מטבע", "+ Add a coin"), 13f, R.color.ink_soft, bold = true, top = 12))
+                content.addView(ui.chips(more.map { coinName(it) }, -1, top = 4) { i -> fromFields(); fund = fund.copy(coins = fund.coins + Savings.Coin(more[i])); render() })
+            }
+        } else {
+            fTrack = field(L.t("מסלול (למשל: מניות, כללי, הלכה)", "Track (e.g. stocks, general)"), fund.track)
+            fName = field(L.t("שם הקופה או התוכנית (אם יש)", "Fund or plan name (if any)"), fund.name)
+            fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪", "What you deposit each month in ₪"), money(fund.monthly), number = true)
+            fState = if (fund.kind == Savings.Kind.CHILD_SAVINGS) field(L.t("כמה המדינה מפקידה בחודש ב-₪ (כתוב בדוח)", "What the state deposits each month in ₪ (in the report)"), money(fund.stateMonthly), number = true) else null
+        }
 
         // The report being added (read, or typed by hand).
         content.addView(ui.section(L.t("יתרה לפי דוח", "Balance from a report")))
@@ -129,6 +164,7 @@ class SavingsFundActivity : AppCompatActivity() {
         if (p != null) {
             fDate = field(L.t("תאריך הדוח (יום.חודש.שנה)", "Report date (day.month.year)"), FamilyItems.short(p.date))
             fBalance = field(L.t("היתרה בדוח ב-₪", "Balance in the report in ₪"), money(p.balance), number = true)
+            if (fund.kind == Savings.Kind.CRYPTO) content.addView(ui.hint(L.t("אפשר להשאיר ריק: יחושב לפי מחירי המטבעות ביום הדוח.", "Can stay empty: worked out from the coins' prices on the report's date."), top = 4))
             val extra = listOfNotNull(p.deposits?.let { L.t("הופקדו בתקופה: ${FamilyItems.money(it)}", "Deposited in the period: ${FamilyItems.money(it)}") },
                 p.returnPct?.let { L.t("תשואה בתקופה: $it%", "Return in the period: $it%") }, p.feesPct?.let { L.t("דמי ניהול: $it%", "Management fee: $it%") })
             if (extra.isNotEmpty()) content.addView(ui.hint(extra.joinToString(" · "), top = 6))
@@ -147,7 +183,9 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         // Where today's amount comes from.
         val o = GemelNet.cached(this, fund.gemelId)
-        content.addView(ui.hint(if (fund.gemelId > 0) L.t("תשואות רשמיות: ${fund.gemelName} (קופה ${fund.gemelId}, גמל נט${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " עד $it" }}). כמה יש היום = היתרה בדוח האחרון לפי התשואות האלה, ועוד ההפקדות. הערכה, לא המלצה.",
+        if (fund.kind == Savings.Kind.CRYPTO) content.addView(ui.hint(L.t("כמה יש היום = היחידות מהדוח במחיר של היום, ועוד הקניות החודשיות מאז (כל אחת לפי המחיר ביום הקנייה, בשווי של היום). מחירים: CoinGecko, בשקלים. הערכה, לא המלצה.",
+            "Today = the statement's units at today's price, plus the monthly buys since (each at its day's price, valued today). Prices: CoinGecko, in shekels. An estimate, not advice."), top = 10))
+        else content.addView(ui.hint(if (fund.gemelId > 0) L.t("תשואות רשמיות: ${fund.gemelName} (קופה ${fund.gemelId}, גמל נט${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " עד $it" }}). כמה יש היום = היתרה בדוח האחרון לפי התשואות האלה, ועוד ההפקדות. הערכה, לא המלצה.",
                 "Official returns: ${fund.gemelName} (fund ${fund.gemelId}, Gemel-Net${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " to $it" }}). Today = the last report's balance at these returns, plus the deposits. An estimate, not advice.")
             else L.t("הקופה עוד לא זוהתה בגמל נט (לפי החברה והמסלול). עד אז: כמה יש היום = היתרה בדוח האחרון ועוד ההפקדות, בלי ניחוש תשואה.",
                 "Not found at Gemel-Net yet (by company and track). Until then: today = the last report's balance plus the deposits, no guessed return."), top = 10))
@@ -170,6 +208,14 @@ class SavingsFundActivity : AppCompatActivity() {
         fromFields()
         if (fund.child.isEmpty()) { Toast.makeText(this, L.t("בחרו של איזה ילד הקופה", "Choose which child the fund is for"), Toast.LENGTH_SHORT).show(); return }
         if (fund.provider.isBlank() && fund.name.isBlank()) { Toast.makeText(this, L.t("כתבו את שם החברה או הקופה", "Write the company or fund name"), Toast.LENGTH_SHORT).show(); return }
+        // A crypto statement without a shekel balance: worked out from the coins' prices on its date.
+        pending?.let { pr ->
+            if (fund.kind == Savings.Kind.CRYPTO && pr.balance.isNaN() && pr.date.isNotEmpty()) {
+                val prices = CryptoPrices.cached(this)
+                val v = pr.coins.entries.sumOf { e -> prices?.on(e.key, pr.date)?.let { it * e.value } ?: Double.NaN }
+                if (!v.isNaN() && pr.coins.isNotEmpty()) pending = pr.copy(balance = v)
+            }
+        }
         val p = pending
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {
             Toast.makeText(this, L.t("חסרים תאריך או יתרה בדוח (תאריך: יום.חודש.שנה)", "The report's date or balance is missing (date: day.month.year)"), Toast.LENGTH_LONG).show(); return
@@ -185,5 +231,10 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         Toast.makeText(this, L.t("נשמר ✓", "Saved ✓"), Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    private fun coinName(sym: String) = when (sym) {
+        "BTC" -> L.t("ביטקוין (BTC)", "Bitcoin (BTC)"); "ETH" -> L.t("אתריום (ETH)", "Ethereum (ETH)"); "SOL" -> L.t("סולנה (SOL)", "Solana (SOL)")
+        "XRP" -> "XRP"; "ADA" -> L.t("קרדנו (ADA)", "Cardano (ADA)"); "DOGE" -> L.t("דוג'קוין (DOGE)", "Dogecoin (DOGE)"); else -> sym
     }
 }

@@ -57,7 +57,13 @@ class SavingsActivity : AppCompatActivity() {
         render()
         FamilyFileSync.kick(this) { runOnUiThread { if (!isDestroyed) render() } }
         // The official monthly returns (public data, nothing about the family is sent).
-        worker.execute { val got = try { GemelNet.refresh(applicationContext) } catch (_: Exception) { false }; if (got) runOnUiThread { if (!isDestroyed) render() } }
+        worker.execute {
+            val got = try { GemelNet.refresh(applicationContext) } catch (_: Exception) { false }
+            // Coin prices (only the coins' names are sent).
+            val coins = FamilyFile.savings(applicationContext).filter { it.kind == Savings.Kind.CRYPTO }.flatMap { f -> f.coins.map { it.symbol } + (f.lastReport?.coins?.keys ?: emptySet()) }.toSet()
+            val priced = try { coins.isNotEmpty() && CryptoPrices.refresh(applicationContext, coins) } catch (_: Exception) { false }
+            if (got || priced) runOnUiThread { if (!isDestroyed) render() }
+        }
     }
     override fun onDestroy() { worker.shutdownNow(); super.onDestroy() }
 
@@ -90,7 +96,7 @@ class SavingsActivity : AppCompatActivity() {
 
         for (k in shownKids) {
             val mine = funds.filter { it.child == k.id }
-            val sum = mine.sumOf { Savings.estimate(it, today, off(it))?.total ?: 0.0 }
+            val sum = mine.sumOf { est(it, today)?.total ?: 0.0 }
             content.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(24) }
@@ -115,6 +121,9 @@ class SavingsActivity : AppCompatActivity() {
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
     }
 
+    /** Today's amount: official monthly returns (Gemel-Net) or, for crypto, today's coin prices. */
+    private fun est(f: Savings.Fund, today: String) = Savings.estimate(f, today, off(f), if (f.kind == Savings.Kind.CRYPTO) CryptoPrices.cached(this) else null)
+
     /** The fund's official months (Gemel-Net), kept on the phone. */
     private fun off(f: Savings.Fund) = GemelNet.cached(this, f.gemelId)
 
@@ -122,11 +131,13 @@ class SavingsActivity : AppCompatActivity() {
     private fun pct(v: Double) = sign(v) + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(v)) + "%"
 
     private fun fundRow(f: Savings.Fund, today: String): View {
-        val e = Savings.estimate(f, today, off(f))
+        val e = est(f, today)
         val meta = listOfNotNull(
             f.kind.label,
             e?.periodReturnPct?.let { L.t("תשואה בדוח: ${pct(it)}", "Report's return: ${pct(it)}") },
-            e?.ratePct?.let { L.t("מאז הדוח: ${pct(it)} (גמל נט עד ${GemelNet.latestLabel(off(f))})", "Since the report: ${pct(it)} (Gemel-Net to ${GemelNet.latestLabel(off(f))})") }
+            if (f.kind == Savings.Kind.CRYPTO) f.coins.joinToString(" · ") { "${it.symbol} ${it.units.toBigDecimal().stripTrailingZeros().toPlainString()}" }.ifEmpty { null } else null,
+            if (f.kind == Savings.Kind.CRYPTO) e?.ratePct?.takeIf { CryptoPrices.cached(this) != null }?.let { L.t("מאז הדוח: ${pct(it)} (מחיר עכשיו)", "Since the report: ${pct(it)} (price now)") }
+            else e?.ratePct?.let { L.t("מאז הדוח: ${pct(it)} (גמל נט עד ${GemelNet.latestLabel(off(f))})", "Since the report: ${pct(it)} (Gemel-Net to ${GemelNet.latestLabel(off(f))})") }
                 ?: if (f.lastReport != null && f.gemelId == 0) L.t("לא נמצאה בגמל נט: יתרה + הפקדות", "Not found at Gemel-Net: balance + deposits") else null,
             f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
@@ -171,6 +182,8 @@ class SavingsActivity : AppCompatActivity() {
                 val pdfB64 = if (pdf && b.size < 8 * 1024 * 1024) android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP) else null
                 Savings.reading(ClaudeClient.readSavingsReport(applicationContext, pic, pdfB64, kids.map { it.name }, java.time.LocalDate.now().toString()))
             } catch (_: Exception) { null }
+            // A crypto statement: the coins' prices (to value it in shekels on its date).
+            if (reading?.kind == Savings.Kind.CRYPTO && reading.coins.isNotEmpty()) try { CryptoPrices.refresh(applicationContext, reading.coins.map { it.symbol }.toSet()) } catch (_: Exception) { }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 busy = false; render()
@@ -192,10 +205,10 @@ class SavingsActivity : AppCompatActivity() {
      */
     private fun portfolio(funds: List<Savings.Fund>, kids: List<FamilyMember>, today: String): View {
         val year = today.take(4).toIntOrNull() ?: 0
-        val est = funds.associateWith { Savings.estimate(it, today, off(it)) }
+        val est = funds.associateWith { est(it, today) }
         val total = est.values.sumOf { it?.total ?: 0.0 }
         val monthly = funds.sumOf { it.perMonth }
-        val ytd = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to Savings.yearToDate(off(it), year) })
+        val ytd = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to (if (it.kind == Savings.Kind.CRYPTO) Savings.yearToDateCrypto(it, CryptoPrices.cached(this), year) else Savings.yearToDate(off(it), year)) })
         val last12 = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to Savings.lastYear(off(it)) })
         val byChild = child.isEmpty() && kids.size > 1
         val parts: List<Pair<String, Double>> = if (byChild) kids.map { k -> k.name to funds.filter { it.child == k.id }.sumOf { est[it]?.total ?: 0.0 } }.filter { it.second > 0 }
@@ -254,8 +267,8 @@ class SavingsActivity : AppCompatActivity() {
         stat(L.t("הפקדה חודשית", "Each month"), FamilyItems.money(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
         card.addView(stats)
 
-        card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר) ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
-            "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance) plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
+        card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר), מטבעות דיגיטליים לפי המחיר של היום, ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
+            "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance), crypto at today's price, plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
         return card
     }
 }

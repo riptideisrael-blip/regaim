@@ -13,7 +13,8 @@ import java.time.LocalDate
 object Savings {
     enum class Kind(val id: String, val he: String, val en: String) {
         CHILD_SAVINGS("child_savings", "חיסכון לכל ילד", "Savings for every child"),
-        PRIVATE("private", "חיסכון פרטי", "Private savings");
+        PRIVATE("private", "חיסכון פרטי", "Private savings"),
+        CRYPTO("crypto", "מטבעות דיגיטליים", "Crypto");
         val label: String get() = L.t(he, en)
         companion object { fun of(id: String?) = values().firstOrNull { it.id == id } ?: PRIVATE }
     }
@@ -21,7 +22,12 @@ object Savings {
     /** One quarterly report: the balance on that date (and what it says about the period, when it says). */
     data class Report(val date: String, val balance: Double, val deposits: Double? = null, val returnPct: Double? = null, val feesPct: Double? = null, val doc: String = "",
                       /** How many months the report covers (a quarter = 3), when known. */
-                      val months: Int? = null)
+                      val months: Int? = null,
+                      /** Crypto: how many units of each coin (by symbol, e.g. "BTC") on the report's date. */
+                      val coins: Map<String, Double> = emptyMap())
+
+    /** A coin in a crypto fund: its symbol, the units held (as of the last report) and what's bought each month (₪). */
+    data class Coin(val symbol: String, val units: Double = 0.0, val monthly: Double = 0.0)
 
     data class Fund(
         val id: String,
@@ -43,9 +49,11 @@ object Savings {
         /** The fund's number in Gemel-Net (the Ministry of Finance's monthly returns), and its name there; 0 = not found. */
         val gemelId: Int = 0,
         val gemelName: String = "",
+        /** Crypto: the coins, their units and monthly buys. */
+        val coins: List<Coin> = emptyList(),
     ) {
         val lastReport: Report? get() = reports.maxByOrNull { it.date }
-        val perMonth: Double get() = monthly + stateMonthly
+        val perMonth: Double get() = monthly + stateMonthly + coins.sumOf { it.monthly }
         val title: String get() = listOf(provider, track).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { name.ifBlank { kind.label } }
     }
 
@@ -66,14 +74,15 @@ object Savings {
      * The fund now: from the official monthly returns when the fund was found at Gemel-Net ([estimateOfficial]);
      * otherwise the last report's balance plus the deposits since (no guessed return). Null before the first report.
      */
-    fun estimate(f: Fund, today: String, o: Official? = null): Estimate? = best(f, today, o)
+    fun estimate(f: Fund, today: String, o: Official? = null, p: Prices? = null): Estimate? =
+        if (f.kind == Kind.CRYPTO) estimateCrypto(f, today, p) ?: best(f, today, null) else best(f, today, o)
 
     /** A child's total now (estimated), over the funds that have a report. */
-    fun childTotal(funds: List<Fund>, child: String, today: String, official: (Fund) -> Official? = { null }): Double =
-        funds.filter { it.child == child }.sumOf { estimate(it, today, official(it))?.total ?: 0.0 }
+    fun childTotal(funds: List<Fund>, child: String, today: String, est: (Fund) -> Estimate? = { estimate(it, today) }): Double =
+        funds.filter { it.child == child }.sumOf { est(it)?.total ?: 0.0 }
 
-    fun familyTotal(funds: List<Fund>, today: String, official: (Fund) -> Official? = { null }): Double =
-        funds.sumOf { estimate(it, today, official(it))?.total ?: 0.0 }
+    fun familyTotal(funds: List<Fund>, today: String, est: (Fund) -> Estimate? = { estimate(it, today) }): Double =
+        funds.sumOf { est(it)?.total ?: 0.0 }
 
     /** The fund a new report belongs to: same child, same company and (when known) same track; else null (a new fund). */
     fun match(funds: List<Fund>, child: String, provider: String, track: String): Fund? {
@@ -108,11 +117,12 @@ object Savings {
     fun toJson(f: Fund): JSONObject = JSONObject().put("id", f.id).put("child", f.child).put("kind", f.kind.id).put("provider", f.provider)
         .put("name", f.name).put("track", f.track).put("monthly", f.monthly).put("stateMonthly", f.stateMonthly).put("note", f.note).put("updated", f.updated)
         .put("gemelId", f.gemelId).put("gemelName", f.gemelName)
+        .put("coins", JSONArray().apply { f.coins.forEach { put(JSONObject().put("symbol", it.symbol).put("units", it.units).put("monthly", it.monthly)) } })
         .put("reports", JSONArray().apply {
             f.reports.forEach { r ->
                 put(JSONObject().put("date", r.date).put("balance", r.balance).put("deposits", r.deposits ?: JSONObject.NULL)
                     .put("returnPct", r.returnPct ?: JSONObject.NULL).put("feesPct", r.feesPct ?: JSONObject.NULL).put("doc", r.doc)
-                    .put("months", r.months ?: JSONObject.NULL))
+                    .put("months", r.months ?: JSONObject.NULL).put("coins", JSONObject(r.coins as Map<*, *>)))
             }
         })
 
@@ -120,11 +130,14 @@ object Savings {
         id = o.optString("id"), child = o.optString("child"), kind = Kind.of(o.optString("kind")), provider = o.optString("provider"),
         name = o.optString("name"), track = o.optString("track"), monthly = num(o, "monthly") ?: 0.0, stateMonthly = num(o, "stateMonthly") ?: 0.0,
         note = o.optString("note"), updated = o.optLong("updated"), gemelId = o.optInt("gemelId"), gemelName = o.optString("gemelName"),
+        coins = (o.optJSONArray("coins") ?: JSONArray()).let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { c ->
+            Coin(c.optString("symbol").uppercase(), num(c, "units") ?: 0.0, num(c, "monthly") ?: 0.0) }.filter { it.symbol.isNotBlank() } },
         reports = (o.optJSONArray("reports") ?: JSONArray()).let { a ->
             (0 until a.length()).mapNotNull { a.optJSONObject(it) }.mapNotNull { r ->
                 val d = FamilyItems.cleanDate(r.optString("date")); val b = num(r, "balance")
                 if (d.isEmpty() || b == null) null else Report(d, b, num(r, "deposits"), num(r, "returnPct"), num(r, "feesPct"), r.optString("doc"),
-                    if (r.isNull("months") || !r.has("months")) null else r.optInt("months").takeIf { it in 1..12 })
+                    if (r.isNull("months") || !r.has("months")) null else r.optInt("months").takeIf { it in 1..12 },
+                    r.optJSONObject("coins")?.let { c -> c.keys().asSequence().associateWith { c.optDouble(it) }.filterValues { !it.isNaN() } } ?: emptyMap())
             }.sortedBy { it.date }
         },
     )
@@ -137,9 +150,12 @@ object Savings {
     /** What the report reader found (fields it couldn't read stay empty). */
     data class Reading(val provider: String, val name: String, val track: String, val date: String, val balance: Double?, val deposits: Double?,
                        val monthly: Double?, val stateMonthly: Double?, val returnPct: Double?, val feesPct: Double?, val kind: Kind?, val childName: String,
-                       val months: Int? = null) {
+                       val months: Int? = null,
+                       /** Crypto: units per coin, what's bought each month per coin (₪), and the value in dollars. */
+                       val coins: List<Coin> = emptyList(), val valueUsd: Double? = null) {
         /** What goes in each month: as written, or the period's deposits spread over its months. */
-        val perMonth: Double? get() = if (monthly != null || stateMonthly != null) (monthly ?: 0.0) + (stateMonthly ?: 0.0)
+        val perMonth: Double? get() = if (coins.any { it.monthly > 0 }) coins.sumOf { it.monthly }
+            else if (monthly != null || stateMonthly != null) (monthly ?: 0.0) + (stateMonthly ?: 0.0)
             else deposits?.let { it / (months ?: 3).coerceIn(1, 12) }
     }
 
@@ -149,8 +165,12 @@ object Savings {
         return Reading(s("provider"), s("fund_name"), s("track"), FamilyItems.cleanDate(s("report_date")), d("balance"), d("deposits_in_period"),
             d("parent_monthly_deposit"), d("state_monthly_deposit"), if (o.isNull("return_pct")) null else o.optDouble("return_pct").takeIf { !it.isNaN() },
             if (o.isNull("fees_pct")) null else o.optDouble("fees_pct").takeIf { !it.isNaN() },
-            when (s("kind")) { "child_savings" -> Kind.CHILD_SAVINGS; "private" -> Kind.PRIVATE; else -> null }, s("child_name"),
-            if (o.isNull("period_months")) null else o.optInt("period_months").takeIf { it in 1..12 })
+            when (s("kind")) { "child_savings" -> Kind.CHILD_SAVINGS; "private" -> Kind.PRIVATE; "crypto" -> Kind.CRYPTO; else -> null }, s("child_name"),
+            if (o.isNull("period_months")) null else o.optInt("period_months").takeIf { it in 1..12 },
+            (o.optJSONArray("coins") ?: JSONArray()).let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.mapNotNull { c ->
+                val sym = c.optString("symbol").uppercase().trim()
+                if (sym.isEmpty()) null else Coin(sym, FamilyItems.cleanAmount(c.opt("units")) ?: 0.0, FamilyItems.cleanAmount(c.opt("monthly_ils")) ?: 0.0) } },
+            d("value_usd"))
     }
 
     // ---- Official monthly returns (Gemel-Net, data.gov.il) ----
@@ -242,5 +262,62 @@ object Savings {
         val known = parts.filter { it.second != null && it.first > 0 }
         val w = known.sumOf { it.first }
         return if (w <= 0) null else known.sumOf { it.first * it.second!! } / w
+    }
+
+    // ---- Crypto: today's prices (₪) ----
+
+    /** CoinGecko's names for the usual symbols. */
+    val COIN_IDS = mapOf("BTC" to "bitcoin", "ETH" to "ethereum", "SOL" to "solana", "XRP" to "ripple", "ADA" to "cardano", "DOGE" to "dogecoin",
+        "LTC" to "litecoin", "BNB" to "binancecoin", "USDT" to "tether", "USDC" to "usd-coin", "DOT" to "polkadot", "AVAX" to "avalanche-2", "LINK" to "chainlink")
+
+    /** Prices in ₪: now per symbol, and each day's price per symbol (yyyy-MM-dd). */
+    data class Prices(val now: Map<String, Double>, val daily: Map<String, Map<String, Double>> = emptyMap()) {
+        /** The price on a day, or the closest day before it (up to a week). */
+        fun on(symbol: String, date: String): Double? {
+            val days = daily[symbol] ?: return null
+            var d = try { LocalDate.parse(date) } catch (_: Exception) { return null }
+            repeat(8) { days[d.toString()]?.let { return it }; d = d.minusDays(1) }
+            return null
+        }
+    }
+
+    /**
+     * A crypto fund now: the units on the report's date at today's price, plus each month's buys since (on the
+     * 15th, at that day's price) at today's price. Null without today's prices for its coins.
+     */
+    fun estimateCrypto(f: Fund, today: String, p: Prices?): Estimate? {
+        val r = f.lastReport ?: return null
+        if (p == null) return null
+        val units = r.coins.ifEmpty { f.coins.associate { it.symbol to it.units } }
+        if (units.isEmpty() || units.keys.any { p.now[it] == null }) return null
+        var value = units.entries.sumOf { it.value * p.now.getValue(it.key) }
+        val reportValue = units.entries.sumOf { e -> p.on(e.key, r.date)?.let { e.value * it } ?: Double.NaN }.takeIf { !it.isNaN() } ?: r.balance
+        var deposits = 0.0; var months = 0
+        var m = try { LocalDate.parse(r.date).withDayOfMonth(15).plusMonths(1) } catch (_: Exception) { return null }
+        val end = try { LocalDate.parse(today) } catch (_: Exception) { return null }
+        while (!m.isAfter(end)) {
+            for (c in f.coins.filter { it.monthly > 0 }) {
+                val now = p.now[c.symbol] ?: continue
+                val then = p.on(c.symbol, m.toString()) ?: now
+                value += c.monthly / then * now
+                deposits += c.monthly
+            }
+            months++; m = m.plusMonths(1)
+        }
+        val growth = value - reportValue - deposits
+        val base = reportValue + deposits
+        return Estimate(value, reportValue, deposits, months, r.date, growth, if (base > 0) growth / base * 100 else null, r.returnPct)
+    }
+
+    /** A crypto fund's change since 1 January (its coins by today's weight), or null without the prices. */
+    fun yearToDateCrypto(f: Fund, p: Prices?, year: Int): Double? {
+        if (p == null) return null
+        val units = (f.lastReport?.coins ?: emptyMap()).ifEmpty { f.coins.associate { it.symbol to it.units } }
+        val parts = units.mapNotNull { (sym, u) ->
+            val now = p.now[sym] ?: return@mapNotNull null
+            val jan = p.on(sym, "$year-01-01") ?: p.daily[sym]?.filterKeys { it.startsWith("$year-01") }?.minByOrNull { it.key }?.value ?: return@mapNotNull null
+            (u * now) to (now / jan - 1) * 100
+        }
+        return weighted(parts.map { it.first to it.second })
     }
 }

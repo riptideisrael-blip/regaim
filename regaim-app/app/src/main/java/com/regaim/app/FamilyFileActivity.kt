@@ -145,7 +145,7 @@ class FamilyFileActivity : AppCompatActivity() {
         // The children's savings, in one line (its own screen).
         val funds = FamilyFile.savings(this).let { f -> if (child.isEmpty()) f else f.filter { it.child == child } }
         if (funds.isNotEmpty() && tile == null) content.addView(ui.card(top = 2).apply {
-            addView(ui.row(L.t("💰 חיסכון לילדים", "💰 Children's savings"), FamilyItems.money(Savings.familyTotal(funds, today) { GemelNet.cached(this@FamilyFileActivity, it.gemelId) }) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
+            addView(ui.row(L.t("💰 חיסכון לילדים", "💰 Children's savings"), FamilyItems.money(Savings.familyTotal(funds, today) { Savings.estimate(it, today, GemelNet.cached(this@FamilyFileActivity, it.gemelId), CryptoPrices.cached(this@FamilyFileActivity)) }) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
         })
 
         val cats = FamilyItems.Category.values().filter { c -> byGroup.any { it.category == c.id } }

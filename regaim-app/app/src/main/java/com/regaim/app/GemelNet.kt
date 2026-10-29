@@ -72,6 +72,7 @@ object GemelNet {
         val lists = HashMap<String, List<Pair<Int, String>>>()
         for (f in FamilyFile.savings(ctx)) {
             var fund = f
+            if (fund.kind == Savings.Kind.CRYPTO) continue // not at Gemel-Net: priced by CryptoPrices
             if (fund.gemelId == 0 && fund.provider.isNotBlank()) {
                 val cls = Savings.classification(fund.kind)
                 val found = try { Savings.pickGemel(lists.getOrPut(cls) { candidates(cls) }, fund.provider, fund.track) } catch (_: Exception) { null }
