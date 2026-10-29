@@ -211,10 +211,12 @@ class MomentActivity : AppCompatActivity() {
             findViewById<View>(R.id.mediaControls).visibility = View.GONE
             poster.visibility = View.VISIBLE
             poster.setOnClickListener(null)
+            if (!memory.isPending) photoExpandHint()
             // A photo: at the screen's own sharpness, not the small card cover.
             Covers.loadSharp(poster, memory, maxOf(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)) { bmp -> fitBox(bmp) }
             return
         }
+        findViewById<View>(R.id.videoBox).findViewWithTag<View>("expand")?.visibility = View.GONE
         video.visibility = View.VISIBLE
         findViewById<View>(R.id.mediaControls).visibility = View.VISIBLE
         video.setVideoURI(uri())
@@ -262,7 +264,8 @@ class MomentActivity : AppCompatActivity() {
         val gesture = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: android.view.MotionEvent) = true
             override fun onSingleTapConfirmed(e: android.view.MotionEvent): Boolean {
-                if (!memory.isVideo) return true
+                // A photo: a tap opens it full screen, like a story.
+                if (!memory.isVideo) { if (!memory.isPending) fullscreen(); return true }
                 if (!controlsShown) setControls(true)
                 else if (video.isPlaying) pause() else play()
                 return true
@@ -277,7 +280,7 @@ class MomentActivity : AppCompatActivity() {
             }
         })
         layer.setOnTouchListener { _, e -> gesture.onTouchEvent(e) }
-        layer.contentDescription = L.t("נגן או עצור", "Play or pause")
+        layer.contentDescription = if (memory.isVideo) L.t("נגן או עצור", "Play or pause") else L.t("פתיחה במסך מלא", "Open full screen")
     }
 
     private fun setControls(show: Boolean) {
@@ -320,6 +323,24 @@ class MomentActivity : AppCompatActivity() {
         try { player?.setVolume(if (muted) 0f else 1f, if (muted) 0f else 1f) } catch (_: Exception) {}
         muteBtn.setImageResource(if (muted) R.drawable.ic_volume_off else R.drawable.ic_volume)
         muteBtn.contentDescription = if (muted) L.t("הפעל קול", "Unmute") else L.t("השתק", "Mute")
+    }
+
+    /** On a photo: a small "full screen" mark in the corner (a tap anywhere on the photo opens it). */
+    private fun photoExpandHint() {
+        val box = findViewById<android.widget.FrameLayout>(R.id.videoBox)
+        box.findViewWithTag<View>("expand")?.let { it.visibility = View.VISIBLE; return }
+        val d = resources.displayMetrics.density
+        box.addView(android.widget.ImageView(this).apply {
+            tag = "expand"
+            setImageResource(R.drawable.ic_fullscreen); setColorFilter(0xFFFFFFFF.toInt())
+            setPadding((10 * d).toInt(), (10 * d).toInt(), (10 * d).toInt(), (10 * d).toInt())
+            background = DS.oval(0x59000000)
+            contentDescription = L.t("מסך מלא", "Full screen")
+            setOnClickListener { fullscreen() }
+            layoutParams = android.widget.FrameLayout.LayoutParams((40 * d).toInt(), (40 * d).toInt(), android.view.Gravity.BOTTOM or android.view.Gravity.START).apply {
+                setMargins((14 * d).toInt(), 0, 0, (34 * d).toInt())
+            }
+        })
     }
 
     private fun fullscreen() {
