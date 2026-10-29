@@ -77,7 +77,7 @@ object FamilyFileSync {
         if (partner.isEmpty()) return false
         val status = Circle.partnerStatus(app) ?: return false
         if (status.first != partner || !status.second) return false
-        val kids = Profile.members(app).filter { it.isChild }
+        val kids = Profile.members(app).filter { !it.isPet } /* parents too, not only the children */
         val nameOf = { id: String -> kids.firstOrNull { it.id == id }?.name.orEmpty() }
         val idOf = { name: String -> if (name.isBlank()) "" else kids.firstOrNull { Profile.sameName(it.name, name) }?.id.orEmpty() }
 

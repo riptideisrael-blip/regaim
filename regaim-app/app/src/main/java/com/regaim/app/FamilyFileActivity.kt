@@ -119,7 +119,7 @@ class FamilyFileActivity : AppCompatActivity() {
 
     private fun render() {
         content.removeAllViews()
-        val kids = Profile.members(this).filter { it.isChild }
+        val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
         val names = kids.associate { it.id to it.name }
         val now = java.time.LocalDate.now()
         val today = now.toString()
@@ -145,7 +145,7 @@ class FamilyFileActivity : AppCompatActivity() {
         // The children's savings, in one line (its own screen).
         val funds = FamilyFile.savings(this).let { f -> if (child.isEmpty()) f else f.filter { it.child == child } }
         if (funds.isNotEmpty() && tile == null) content.addView(ui.card(top = 2).apply {
-            addView(ui.row(L.t("💰 חיסכון לילדים", "💰 Children's savings"), FamilyItems.money(Savings.familyTotal(funds, today)) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
+            addView(ui.row(L.t("💰 חיסכון והשקעות", "💰 Savings and investments"), FamilyItems.money(Savings.familyTotal(funds, today) { Savings.estimate(it, today, GemelNet.cached(this@FamilyFileActivity, it.gemelId), CryptoPrices.cached(this@FamilyFileActivity)) }) + " ›", top = 0) { SavingsActivity.open(this@FamilyFileActivity, child) })
         })
 
         val cats = FamilyItems.Category.values().filter { c -> byGroup.any { it.category == c.id } }
@@ -210,7 +210,7 @@ class FamilyFileActivity : AppCompatActivity() {
     private fun addButtons() {
         content.addView(ui.button(L.t("+ הוספה לתיק", "+ Add to the file"), primary = true, top = 20) { FamilyItemActivity.pick(this, child) })
         content.addView(ui.button(L.t("ייבוא קופונים מקובץ Excel", "Import coupons from an Excel file"), top = 8) { FamilyImportActivity.open(this) })
-        content.addView(ui.button(L.t("💰 חיסכון לילדים", "💰 Children's savings"), top = 8) { SavingsActivity.open(this, child) })
+        content.addView(ui.button(L.t("💰 חיסכון והשקעות", "💰 Savings and investments"), top = 8) { SavingsActivity.open(this, child) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         // Sharing with the other parent: each of them turns it on, after reading what it means.
@@ -602,7 +602,7 @@ class FamilyFileActivity : AppCompatActivity() {
             return
         }
         val q = query
-        val kids = Profile.members(this).filter { it.isChild }.associate { it.id to it.name }
+        val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */.associate { it.id to it.name }
         val items = FamilyFile.all(this).filterNot { CouponImport.noCode(it) }.let { a -> if (child.isEmpty()) a else a.filter { it.child == child } }
         smartBusy = true; render()
         worker.execute {

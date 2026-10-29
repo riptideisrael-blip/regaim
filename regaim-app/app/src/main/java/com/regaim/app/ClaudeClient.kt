@@ -556,10 +556,11 @@ object ClaudeClient {
      */
     fun readSavingsReport(ctx: Context, jpegBase64: String?, pdfBase64: String?, children: List<String>, today: String): JSONObject {
         val system = """
-            You read an Israeli savings report (דוח רבעוני / דוח שנתי) of a child's savings: "חיסכון לכל ילד" (the state's savings
-            for every child, deposits from ביטוח לאומי) or a private fund (קופת גמל להשקעה, פוליסת חיסכון, תוכנית חיסכון בבנק).
+            You read an Israeli savings report (דוח רבעוני / דוח שנתי / דוח פעילות חודשי) of a child's savings: "חיסכון לכל ילד" (the
+            state's savings for every child, deposits from ביטוח לאומי), a private fund (קופת גמל להשקעה, פוליסת חיסכון, תוכנית חיסכון
+            בבנק), or a crypto account (e.g. Horizon / הוריזון, Bits of Gold: holdings in BTC, ETH…).
             Answer with ONE JSON object only, no other text:
-            {"kind": "child_savings|private",
+            {"kind": "child_savings|private|crypto",
              "provider": "the managing company, e.g. מור, הראל, מגדל, אלטשולר שחם, ילין לפידות, מיטב, הפניקס, כלל, מנורה, בנק …",
              "fund_name": "the fund / plan name as written",
              "track": "the investment track (מסלול) as written, e.g. מניות, כללי, הלכה, סיכון מוגבר, סיכון מועט",
@@ -571,6 +572,8 @@ object ClaudeClient {
              "parent_monthly_deposit": number the parents deposit each month if written, or null,
              "return_pct": the report period's net return in percent as a number (e.g. 4.2, or -1.3 for a loss), or null,
              "fees_pct": the management fee from balance in percent, or null,
+             "coins": for crypto only: [{"symbol": "BTC", "units": the balance in that coin exactly as written, "monthly_ils": shekels bought each month by a standing order (הוראת קבע) if shown, else null}], else null,
+             "value_usd": for crypto: the account's value in dollars if written (שערוך יתרה), else null,
              "child_name": "one of these names only if it is clearly the account holder: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
             Rules: copy numbers and dates exactly; never guess; if something isn't written, use null. Dates are usually day/month/year.
             Today is $today.

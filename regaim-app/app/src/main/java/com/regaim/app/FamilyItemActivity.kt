@@ -164,7 +164,7 @@ class FamilyItemActivity : AppCompatActivity() {
         }
     }
 
-    private fun children() = Profile.members(this).filter { it.isChild }
+    private fun children() = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
 
     // The fields, kept across re-renders.
     private var fTitle: EditText? = null
