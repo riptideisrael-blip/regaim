@@ -26,21 +26,33 @@ import kotlin.math.abs
  * Memories full screen, like stories: one after another, each video plays to its end and the next one starts by
  * itself (photos stay 5 seconds). Tap the left side for the next memory and the right side for the previous one
  * (Hebrew reading direction), hold to pause, swipe down to close. Only kept memories (never the approval queue).
+ * Also the other parent's new moments as a story ([partner]): played from the family server, each marked as watched.
  */
 class StoryViewerActivity : AppCompatActivity() {
     companion object {
         private const val EXTRA_ID = "id"
         private const val PHOTO_MS = 5_000L
+        private const val EXTRA_POSTS = "posts"
         fun open(ctx: Context, memoryId: String) =
             ctx.startActivity(Intent(ctx, StoryViewerActivity::class.java).putExtra(EXTRA_ID, memoryId))
+        /** The other parent's moments (ids of [Circle.cachedPartnerMoments]), in this order. */
+        fun partner(ctx: Context, postIds: List<String>) =
+            ctx.startActivity(Intent(ctx, StoryViewerActivity::class.java).putStringArrayListExtra(EXTRA_POSTS, ArrayList(postIds)))
     }
+
+    /** One thing on the screen: a memory on this phone, or a moment the other parent shared. */
+    private class Item(val time: Long, val isVideo: Boolean, val title: String, val memory: Memory? = null, val post: Circle.Post? = null)
+
+    private val loader = java.util.concurrent.Executors.newSingleThreadExecutor()
+    /** Which item is on the screen: a link or picture that arrives late for another item is dropped. */
+    private var showing = 0
 
     private lateinit var video: VideoView
     private lateinit var photo: ImageView
     private lateinit var bar: ProgressBar
     private lateinit var title: TextView
     private lateinit var meta: TextView
-    private var list: List<Memory> = emptyList()
+    private var list: List<Item> = emptyList()
     private var at = 0
     private var paused = false
     private var photoShownAt = 0L
@@ -54,8 +66,15 @@ class StoryViewerActivity : AppCompatActivity() {
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-        list = MemoryStore.kept(this).sortedByDescending { it.time }
-        at = list.indexOfFirst { it.id == intent.getStringExtra(EXTRA_ID) }.coerceAtLeast(0)
+        val postIds = intent.getStringArrayListExtra(EXTRA_POSTS)
+        if (postIds != null) {
+            val byId = Circle.cachedPartnerMoments(this).associateBy { it.id }
+            list = postIds.mapNotNull { byId[it] }.map { p -> Item(p.takenAt.takeIf { it > 0 } ?: p.createdAt, p.kind != "photo", p.title, post = p) }
+            at = 0
+        } else {
+            list = MemoryStore.kept(this).sortedByDescending { it.time }.map { Item(it.time, it.isVideo, it.displayTitle, memory = it) }
+            at = list.indexOfFirst { it.memory?.id == intent.getStringExtra(EXTRA_ID) }.coerceAtLeast(0)
+        }
         if (list.isEmpty()) { finish(); return }
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
@@ -127,24 +146,52 @@ class StoryViewerActivity : AppCompatActivity() {
     private fun uriOf(m: Memory): Uri = if (m.uri.startsWith("content://") || m.uri.startsWith("file://")) Uri.parse(m.uri) else Uri.fromFile(java.io.File(m.uri))
 
     private fun show() {
-        val m = list.getOrNull(at) ?: run { finish(); return }
+        val cur = list.getOrNull(at) ?: run { finish(); return }
+        val token = ++showing
         paused = false
         bar.progress = 0
-        meta.text = "${Fmt.day(m.time)}  ·  ${at + 1}/${list.size}"
-        title.text = m.displayTitle
-        if (m.isVideo) {
+        meta.text = (cur.post?.let { p -> p.author.trim().substringBefore(' ') + "  ·  " }.orEmpty()) + "${Fmt.day(cur.time)}  ·  ${at + 1}/${list.size}"
+        title.text = cur.title
+        cur.post?.let { p -> PartnerStories.markSeen(this, p.id) }
+        val m = cur.memory
+        val p = cur.post
+        if (cur.isVideo) {
             photo.visibility = View.GONE
             video.visibility = View.VISIBLE
-            try { video.setVideoURI(uriOf(m)); video.start() } catch (_: Exception) { next() }
+            if (m != null) play(uriOf(m))
+            else if (p != null) {
+                try { video.stopPlayback() } catch (_: Exception) { }
+                // From the family server: a fresh link first (off the main thread).
+                loader.execute {
+                    val url = try { p.video.ifEmpty { Circle.mediaLink(applicationContext, p.videoPath) } } catch (_: Exception) { "" }
+                    runOnUiThread { if (token == showing && !isDestroyed) { if (url.isEmpty()) next() else play(Uri.parse(url)) } }
+                }
+            }
         } else {
             try { video.stopPlayback() } catch (_: Exception) { }
             video.visibility = View.GONE
             photo.visibility = View.VISIBLE
-            photo.setImageBitmap(MediaImages.decode(this, m.uri, 1600))
+            if (m != null) photo.setImageBitmap(MediaImages.decode(this, m.uri, 1600))
+            else if (p != null) {
+                photo.setImageDrawable(null)
+                loader.execute {
+                    val bmp = try {
+                        val url = p.cover.ifEmpty { p.video }.ifEmpty { Circle.mediaLink(applicationContext, p.coverPath.ifEmpty { p.videoPath }) }
+                        Circle.image(applicationContext, url)
+                    } catch (_: Exception) { null }
+                    runOnUiThread { if (token == showing && !isDestroyed && bmp != null) photo.setImageBitmap(bmp) }
+                }
+            }
             photoShownAt = System.currentTimeMillis()
             photoElapsed = 0L
         }
     }
+
+    private fun play(uri: Uri) {
+        try { video.setVideoURI(uri); video.start() } catch (_: Exception) { next() }
+    }
+
+    override fun onDestroy() { loader.shutdownNow(); super.onDestroy() }
 
     private fun next() { if (at + 1 < list.size) { at++; show() } else finish() }
     private fun previous() { if (at > 0) { at--; show() } else show() }

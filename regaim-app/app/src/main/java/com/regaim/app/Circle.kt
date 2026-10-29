@@ -662,6 +662,9 @@ object Circle {
         return if (index >= 0) value.substring(index + marker.length).substringBefore('?') else ""
     }
 
+    /** A link to play a post's file (its video, or its picture), good for 15 minutes. Background thread only. */
+    fun mediaLink(ctx: Context, path: String): String = signedUrl(ctx, path)
+
     private fun signedUrl(ctx: Context, path: String): String {
         if (path.isEmpty()) return ""
         val conn = open(ctx, "POST", "/storage/v1/object/sign/$BUCKET/$path")

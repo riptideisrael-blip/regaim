@@ -33,7 +33,8 @@ class SavingsActivity : AppCompatActivity() {
     private var child = ""
     private var busy = false
 
-    private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) readReport(uri) }
+    /** One document or several of the same fund (a statement, a tracks report, a screenshot): read together. */
+    private val picker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) readReport(uris) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,7 +99,8 @@ class SavingsActivity : AppCompatActivity() {
         content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח (קופה או קריפטו)", "📄 Upload a report (fund or crypto)"), primary = true, top = 14) {
             if (!busy) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !busy })
-        content.addView(ui.hint(L.t("דוח רבעוני או דף חשבון של קריפטו: הקופה, המטבעות והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "A quarterly report or a crypto statement: the fund, coins and balance are read from it; you check before saving."), top = 4))
+        content.addView(ui.hint(L.t("דוח רבעוני או דף חשבון של קריפטו: הקופה, המטבעות והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה. אפשר לבחור כמה קבצים של אותה קופה יחד (למשל מצב חשבון ופירוט מסלולים).",
+            "A quarterly report or a crypto statement: the fund, coins and balance are read from it; you check before saving. You can pick several files of the same fund together (e.g. the statement and the tracks report)."), top = 4))
 
         // Children always; a parent once they have a fund (adding one: from the fund screen, "whose").
         for (k in shownKids.filter { p -> p.isChild || funds.any { it.child == p.id } || child == p.id }) {
@@ -147,7 +149,8 @@ class SavingsActivity : AppCompatActivity() {
             if (f.kind == Savings.Kind.CRYPTO) f.coins.joinToString(" · ") { "${it.symbol} ${it.units.toBigDecimal().stripTrailingZeros().toPlainString()}" }.ifEmpty { null } else null,
             if (f.kind == Savings.Kind.CRYPTO) e?.ratePct?.takeIf { CryptoPrices.cached(this) != null }?.let { L.t("מאז הדוח: ${pct(it)} (מחיר עכשיו)", "Since the report: ${pct(it)} (price now)") }
             else e?.ratePct?.let { L.t("מאז הדוח: ${pct(it)} (גמל נט עד ${GemelNet.latestLabel(off(f))})", "Since the report: ${pct(it)} (Gemel-Net to ${GemelNet.latestLabel(off(f))})") }
-                ?: if (f.lastReport != null && f.gemelId == 0) L.t("לא נמצאה בגמל נט: יתרה + הפקדות", "Not found at Gemel-Net: balance + deposits") else null,
+                ?: if (Savings.needsTrack(f)) L.t("⚠️ חסר מסלול, אין תשואה", "⚠️ No track, no return")
+                else if (f.lastReport != null && f.gemelId == 0) L.t("לא נמצאה בגמל נט: יתרה + הפקדות", "Not found at Gemel-Net: balance + deposits") else null,
             f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${ils(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${ils(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
             if (f.perMonth > 0) L.t("+${ils(f.perMonth)} בחודש", "+${ils(f.perMonth)} a month") else null,
@@ -183,9 +186,9 @@ class SavingsActivity : AppCompatActivity() {
     }
 
     /** A report: read on request (signed in), then the fund screen opens with what was read, for the parent to check. */
-    private fun readReport(uri: android.net.Uri) {
+    private fun readReport(uris: List<android.net.Uri>) {
         busy = true; render()
-        SavingsReports.read(this, uri, child) { reading, docId ->
+        SavingsReports.readAll(this, uris, child) { reading, docId ->
             busy = false; render()
             SavingsFundActivity.fromReport(this, reading, docId, child)
         }

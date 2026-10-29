@@ -318,7 +318,7 @@ class CommunityActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(4), 0, ui.dp(10), 0)
-            addView(mv.avatar(p.author, 60, ring = true, byName = false))
+            addView(mv.avatar(p.author, 60, byName = false))
             addView(TextView(this@CommunityActivity).apply {
                 text = p.author
                 textSize = 12f

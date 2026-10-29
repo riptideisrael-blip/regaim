@@ -416,25 +416,28 @@ class MemoryViews(private val a: Activity) {
 
     /**
      * A round profile picture: the person's photo, or their initial (or a pet's emoji) on a soft color.
-     * [ring] adds a colorful ring around it, like a story that has something new.
+     * [ring] adds a soft ring around it (something new with this person this week); [story] a bold blue one, like a
+     * story not watched yet (the other parent's new moments).
      */
-    fun avatar(name: String, sizeDp: Int = 56, ring: Boolean = false, byName: Boolean = true, photoPath: String = ""): View {
+    fun avatar(name: String, sizeDp: Int = 56, ring: Boolean = false, byName: Boolean = true, photoPath: String = "", story: Boolean = false): View {
         // [byName] false: someone from the server (a circle member). Their picture is never looked up by name, so a
         // relative who happens to share a name with someone in the family profile doesn't get that person's photo.
         val configured = if (byName) Profile.members(a).firstOrNull { it.name == name }?.photo.orEmpty() else photoPath
         val photo = if (!byName) configured else configured.ifEmpty { PeopleStore.people(a).firstOrNull { it.name == name }?.photo.orEmpty() }
         val size = dp(sizeDp)
-        val inset = if (ring) dp(if (sizeDp >= 56) 4 else 3) else 0
+        val ringed = ring || story
+        val inset = if (story) dp(if (sizeDp >= 56) 4 else 3) else if (ring) dp(2) else 0
         val bmp = Avatars.photo(photo, size * 2)
         val (bg, fg) = DS.avatar(a, name)
         val frame = FrameLayout(a).apply {
             layoutParams = LinearLayout.LayoutParams(size, size)
-            if (ring) background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(DS.button(a), DS.cardAlt(a))).apply { shape = GradientDrawable.OVAL }
+            if (story) background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(DS.primary(a), 0xFF5AC8FA.toInt())).apply { shape = GradientDrawable.OVAL }
+            else if (ring) background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor((DS.primary(a) and 0x00FFFFFF) or 0x59000000) }
             else background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(dp(1), color(R.color.line)); setColor(color(R.color.ds_photo_clear)) }
         }
-        val gap = if (ring) dp(2) else 0
+        val gap = if (ringed) dp(2) else 0
         val innerLp = { FrameLayout.LayoutParams(size - 2 * (inset + gap), size - 2 * (inset + gap), Gravity.CENTER) }
-        if (ring) frame.addView(View(a).apply {
+        if (ringed) frame.addView(View(a).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color(R.color.bg)) }
             layoutParams = FrameLayout.LayoutParams(size - 2 * inset, size - 2 * inset, Gravity.CENTER)
         })
