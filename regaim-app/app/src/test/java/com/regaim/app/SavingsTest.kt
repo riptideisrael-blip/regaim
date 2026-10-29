@@ -261,4 +261,11 @@ class SavingsTest {
         val b = Fund("b", "u", Savings.Kind.CRYPTO, reports = listOf(Report(today, 1171.0)))
         assertEquals(listOf("2026-03-31" to 4344.0, today to 7338.0), Savings.history(listOf(a, b), today, 7338.0))
     }
+
+    @Test fun fundNumberReadFromTheReport() {
+        assertEquals(13414, Savings.reading(JSONObject().put("fund_number", "13414")).fundNumber)
+        assertEquals(13414, Savings.reading(JSONObject().put("fund_number", 13414)).fundNumber)
+        assertNull(Savings.reading(JSONObject().put("fund_number", JSONObject.NULL)).fundNumber)
+        assertNull(Savings.reading(JSONObject().put("fund_number", "7")).fundNumber) // too short to be one
+    }
 }

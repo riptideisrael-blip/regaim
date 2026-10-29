@@ -33,7 +33,7 @@ class SavingsFundActivity : AppCompatActivity() {
                 .put("parent_monthly_deposit", r.monthly ?: org.json.JSONObject.NULL).put("state_monthly_deposit", r.stateMonthly ?: org.json.JSONObject.NULL)
                 .put("return_pct", r.returnPct ?: org.json.JSONObject.NULL).put("fees_pct", r.feesPct ?: org.json.JSONObject.NULL)
                 .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName)
-                .put("value_usd", r.valueUsd ?: org.json.JSONObject.NULL)
+                .put("value_usd", r.valueUsd ?: org.json.JSONObject.NULL).put("fund_number", r.fundNumber ?: org.json.JSONObject.NULL)
                 .put("coins", org.json.JSONArray().apply { r.coins.forEach { put(org.json.JSONObject().put("symbol", it.symbol).put("units", it.units).put("monthly_ils", it.monthly)) } }).put("period_months", r.months ?: org.json.JSONObject.NULL)
             ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_READING, o.toString()).putExtra(EXTRA_DOC, docId).putExtra(EXTRA_CHILD, child)
                 .apply { if (fundId.isNotEmpty()) putExtra(EXTRA_ID, fundId) })
@@ -83,6 +83,8 @@ class SavingsFundActivity : AppCompatActivity() {
             r.monthly?.let { fund = fund.copy(monthly = it) }
             r.stateMonthly?.let { fund = fund.copy(stateMonthly = it) }
         }
+        // The fund's number from the report: its Gemel-Net fund (checked against the list in the background).
+        if (fund.kind != Savings.Kind.CRYPTO && fund.gemelId == 0 && r.fundNumber != null) fund = fund.copy(gemelId = r.fundNumber, gemelName = "")
         val units = r.coins.associate { it.symbol to it.units }
         val date = r.date.ifEmpty { java.time.LocalDate.now().toString() }
         val prices = CryptoPrices.cached(this)
@@ -292,7 +294,7 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         // A different company, track or kind: found again at Gemel-Net.
         val before = FamilyFile.savings(this).firstOrNull { it.id == fund.id }
-        if (before != null && (before.provider != fund.provider || before.track != fund.track || before.kind != fund.kind)) fund = fund.copy(gemelId = 0, gemelName = "")
+        if (before != null && before.gemelId == fund.gemelId && (before.provider != fund.provider || before.track != fund.track || before.kind != fund.kind)) fund = fund.copy(gemelId = 0, gemelName = "")
         val saved = FamilyFile.saveFund(this, (if (p != null) Savings.withReport(fund, p) else fund).copy(updated = System.currentTimeMillis()))
         FamilyFileSync.kick(this, force = true)
         // The report document: now filed under the child, with a clear title.

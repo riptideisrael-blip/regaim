@@ -574,6 +574,7 @@ object ClaudeClient {
              "fees_pct": the management fee from balance in percent, or null,
              "coins": for crypto only: [{"symbol": "BTC", "units": the balance in that coin exactly as written, "monthly_ils": shekels bought each month by a standing order (הוראת קבע) if shown, else null}], else null,
              "value_usd": for crypto: the account's value in dollars if written (שערוך יתרה), else null,
+             "fund_number": the fund's / track's number at the Ministry of Finance if written (מספר קופה / קוד קופה / מס' אישור קופה / מספר מסלול, usually 3-5 digits), as a number, else null,
              "child_name": "one of these names only if it is clearly the account holder: ${children.joinToString(", ").ifEmpty { "(none)" }}; else null"}
             Rules: copy numbers and dates exactly; never guess; if something isn't written, use null. Dates are usually day/month/year.
             Today is $today.
