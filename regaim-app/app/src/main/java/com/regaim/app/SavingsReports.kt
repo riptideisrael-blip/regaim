@@ -38,8 +38,9 @@ object SavingsReports {
             val doc = FamilyFile.save(ctx, FamilyItems.Item("", FamilyItems.Kind.DOCUMENT, child = child, title = L.t("דוח חיסכון", "Savings report"),
                 date = java.time.LocalDate.now().toString(), mime = mime, hash = FamilyFile.hash(b), source = "savings"), b, if (pdf) "pdf" else "jpg")
             val reading = if (!Account.signedIn(ctx)) null else try {
-                val pic = if (pdf) null else FamilyFile.picture(ctx, b, mime)?.let { FamilyFile.jpegBase64(it) }
                 val pdfB64 = if (pdf && b.size < 8 * 1024 * 1024) android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP) else null
+                // A picture: as is. A PDF too big to send: its first page as a picture.
+                val pic = if (pdf && pdfB64 != null) null else FamilyFile.picture(ctx, b, mime, 2000)?.let { FamilyFile.jpegBase64(it, 1800) }
                 Savings.reading(ClaudeClient.readSavingsReport(ctx, pic, pdfB64, kids.map { it.name }, java.time.LocalDate.now().toString()))
             } catch (_: Exception) { null }
             // A crypto statement: the coins' prices (to value it in shekels on its date).
