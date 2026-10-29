@@ -91,7 +91,7 @@ object SavingsPdf {
         // ---- What the total is made of.
         val b = Savings.breakdown(funds.map { e[it] })
         if (b.total > 0) {
-            p.ensure(96)
+            p.ensure(96f)
             p.heading(L.t("ממה מורכב הסכום", "What the total is made of"))
             val up = maxOf(b.growth, 0.0)
             val parts = listOf(b.reported to BLUE, b.depositedSince to SKY, up to UP).filter { it.first > 0 }
@@ -108,7 +108,7 @@ object SavingsPdf {
         // ---- How it grew (one point per report date, today last).
         val hist = Savings.history(funds, today, total)
         if (hist.size >= 2) {
-            p.ensure(150)
+            p.ensure(150f)
             p.heading(L.t("איך התיק גדל", "How it grew"))
             p.chart(M, p.y, W - 2 * M, 96f, hist)
             p.y += 96 + 26
@@ -118,7 +118,7 @@ object SavingsPdf {
         for (k in kids) {
             val mine = funds.filter { it.child == k.id }
             val kidTotal = mine.sumOf { e[it]?.total ?: 0.0 }
-            p.ensure(74 + 78)
+            p.ensure(152f)
             // One child: the title already has the name and the tiles the total.
             if (kids.size > 1) {
                 p.text(k.name, p.readX(M, W - 2 * M, W - 2 * M - 120), p.y, W - 2 * M - 120, 15f, INK, bold = true)
