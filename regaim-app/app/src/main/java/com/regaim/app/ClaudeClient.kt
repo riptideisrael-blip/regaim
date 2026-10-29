@@ -565,7 +565,7 @@ object ClaudeClient {
              "fund_name": "the fund / plan name as written",
              "track": "the investment track (מסלול) as written, e.g. מניות, כללי, הלכה, סיכון מוגבר, סיכון מועט",
              "report_date": "yyyy-MM-dd the date the balance is for (end of the quarter)",
-             "balance": number in shekels (the accumulated balance / יתרה צבורה / סך החיסכון on that date),
+             "balance": number in shekels (the accumulated balance / יתרה צבורה / סך החיסכון on that date); null if the document shows the value only in dollars (never put dollars here),
              "deposits_in_period": number in shekels deposited during the report's period, or null,
              "period_months": how many months the report covers (a quarterly report = 3, a yearly one = 12), or null,
              "state_monthly_deposit": number the state deposits each month if written, or null,

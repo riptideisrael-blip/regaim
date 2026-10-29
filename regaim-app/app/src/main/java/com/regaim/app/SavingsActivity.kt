@@ -61,7 +61,7 @@ class SavingsActivity : AppCompatActivity() {
             val got = try { GemelNet.refresh(applicationContext) } catch (_: Exception) { false }
             // Coin prices (only the coins' names are sent).
             val coins = FamilyFile.savings(applicationContext).filter { it.kind == Savings.Kind.CRYPTO }.flatMap { f -> f.coins.map { it.symbol } + (f.lastReport?.coins?.keys ?: emptySet()) }.toSet()
-            val priced = try { coins.isNotEmpty() && CryptoPrices.refresh(applicationContext, coins) } catch (_: Exception) { false }
+            val priced = try { coins.isNotEmpty() && CryptoPrices.refresh(applicationContext, coins + "USDT") } catch (_: Exception) { false }
             if (got || priced) runOnUiThread { if (!isDestroyed) render() }
         }
     }

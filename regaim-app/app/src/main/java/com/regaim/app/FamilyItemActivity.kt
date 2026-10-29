@@ -239,6 +239,8 @@ class FamilyItemActivity : AppCompatActivity() {
             content.addView(ui.button(if (busy) L.t("קוראים את הפרטים…", "Reading the details…") else L.t("✨ מילוי אוטומטי", "✨ Auto-fill"), primary = false, top = 12) { autoFill() }.apply { isEnabled = !busy })
             content.addView(ui.hint(L.t("שולח את התמונה לקריאה בלבד, ממלא את השדות ואתם בודקים לפני שמירה.", "Sends the picture to be read only; fills the fields, and you check them before saving."), top = 4))
         }
+        // A savings report or a crypto statement: straight into a fund (read there, checked before saving).
+        if (isNew && bytes != null) content.addView(ui.button(L.t("💰 דוח של קופת חיסכון או קריפטו? הוספה לקופה", "💰 A savings or crypto report? Add it to a fund"), top = 8) { toSavings() })
 
         content.addView(ui.section(if (!isNew && FamilyItems.isWallet(item)) L.t("עריכת פרטים", "Edit the details") else L.t("מה זה?", "What is it?")))
         val kinds = FamilyItems.Kind.values().toList()
@@ -487,6 +489,28 @@ class FamilyItemActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
             })
         }
+    }
+
+    /** Which fund the report is for (or a new one, from what the report says); then it's read into that fund. */
+    private fun toSavings() {
+        val b = bytes ?: return
+        if (!FamilyFile.consented(this)) return
+        val names = Profile.members(this).associate { it.id to it.name }
+        val funds = FamilyFile.savings(this).sortedBy { names[it.child].orEmpty() }
+        val labels = funds.map { f -> listOfNotNull(names[f.child], f.title).joinToString(" · ") } + L.t("+ קופה חדשה (לפי הדוח)", "+ A new fund (from the report)")
+        AlertDialog.Builder(this).setTitle(L.t("לאיזו קופה הדוח?", "Which fund is the report for?"))
+            .setItems(labels.toTypedArray()) { _, i ->
+                val f = funds.getOrNull(i)
+                busy = true; render()
+                Toast.makeText(this, L.t("קוראים את הדוח…", "Reading the report…"), Toast.LENGTH_SHORT).show()
+                SavingsReports.readBytes(this, b, mime, f?.child ?: item.child) { r, docId ->
+                    busy = false
+                    if (docId.isEmpty()) { render(); return@readBytes }
+                    SavingsFundActivity.fromReport(this, r, docId, f?.child ?: item.child, f?.id.orEmpty())
+                    finish()
+                }
+            }
+            .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
     }
 
     /** A field with its name above it, so a filled-in "150" or "1.10.2026" still says what it is. */

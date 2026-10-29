@@ -24,7 +24,9 @@ object Savings {
                       /** How many months the report covers (a quarter = 3), when known. */
                       val months: Int? = null,
                       /** Crypto: how many units of each coin (by symbol, e.g. "BTC") on the report's date. */
-                      val coins: Map<String, Double> = emptyMap())
+                      val coins: Map<String, Double> = emptyMap(),
+                      /** A statement in dollars: its value in $ as written (the ₪ balance is that at the day's dollar rate). */
+                      val usd: Double? = null)
 
     /** A coin in a crypto fund: its symbol, the units held (as of the last report) and what's bought each month (₪). */
     data class Coin(val symbol: String, val units: Double = 0.0, val monthly: Double = 0.0)
@@ -122,7 +124,7 @@ object Savings {
             f.reports.forEach { r ->
                 put(JSONObject().put("date", r.date).put("balance", r.balance).put("deposits", r.deposits ?: JSONObject.NULL)
                     .put("returnPct", r.returnPct ?: JSONObject.NULL).put("feesPct", r.feesPct ?: JSONObject.NULL).put("doc", r.doc)
-                    .put("months", r.months ?: JSONObject.NULL).put("coins", JSONObject(r.coins as Map<*, *>)))
+                    .put("months", r.months ?: JSONObject.NULL).put("coins", JSONObject(r.coins as Map<*, *>)).put("usd", r.usd ?: JSONObject.NULL))
             }
         })
 
@@ -137,7 +139,8 @@ object Savings {
                 val d = FamilyItems.cleanDate(r.optString("date")); val b = num(r, "balance")
                 if (d.isEmpty() || b == null) null else Report(d, b, num(r, "deposits"), num(r, "returnPct"), num(r, "feesPct"), r.optString("doc"),
                     if (r.isNull("months") || !r.has("months")) null else r.optInt("months").takeIf { it in 1..12 },
-                    r.optJSONObject("coins")?.let { c -> c.keys().asSequence().associateWith { c.optDouble(it) }.filterValues { !it.isNaN() } } ?: emptyMap())
+                    r.optJSONObject("coins")?.let { c -> c.keys().asSequence().associateWith { c.optDouble(it) }.filterValues { !it.isNaN() } } ?: emptyMap(),
+                    num(r, "usd"))
             }.sortedBy { it.date }
         },
     )
@@ -344,6 +347,12 @@ object Savings {
         }
         return weighted(parts.map { it.first to it.second })
     }
+
+    /** The dollar in ₪ on a day: USDT's price that day (a dollar-pegged coin, within a fraction of a percent of the dollar), else today's. */
+    fun usdRate(date: String, p: Prices?): Double? = p?.on("USDT", date) ?: p?.now?.get("USDT")
+
+    /** Dollars to ₪ at the day's rate; null without a rate. */
+    fun usdToIls(usd: Double, date: String, p: Prices?): Double? = usdRate(date, p)?.let { usd * it }
 
     /** Coins' worth in ₪ on a day (each at that day's price, or the closest before it); null without a price for every coin. */
     fun valueOn(units: Map<String, Double>, date: String, p: Prices?): Double? {
