@@ -8,16 +8,13 @@ jobs:
         shell: bash
         run: |
           set +e
-          echo "::notice title=start::begin"
           R=a30dcbea-a1d2-482c-ae29-8f781f5025fb
-          cat > q1.sql <<'SQL'
-          SELECT "FUND_ID","FUND_NAME","REPORT_PERIOD","MONTHLY_YIELD","YEAR_TO_DATE_YIELD" FROM "a30dcbea-a1d2-482c-ae29-8f781f5025fb" WHERE "FUND_CLASSIFICATION" = 'קופת גמל להשקעה' AND "FUND_NAME" LIKE '%500%' AND "REPORT_PERIOD" >= 202601
-          SQL
-          cat > q2.sql <<'SQL'
-          SELECT DISTINCT "FUND_ID","FUND_NAME" FROM "a30dcbea-a1d2-482c-ae29-8f781f5025fb" WHERE "FUND_CLASSIFICATION" = 'קופת גמל להשקעה - חסכון לילד' AND "REPORT_PERIOD" = 202609
-          SQL
-          curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql@q1.sql" -o a.json; echo "::notice title=a-size::$(wc -c < a.json)"
-          curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search_sql" --data-urlencode "sql@q2.sql" -o b.json; echo "::notice title=b-size::$(wc -c < b.json)"
-          echo "::notice title=a-head::$(head -c 300 a.json | tr '\n' ' ')"
-          echo "::notice title=harel::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)|\(.REPORT_PERIOD)|\(.MONTHLY_YIELD)|\(.YEAR_TO_DATE_YIELD)"' a.json | grep 'הראל' | sort | tr '\n' ';' | head -c 3000)"
-          echo "::notice title=child::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)"' b.json | tr '\n' ';' | head -c 3500)"
+          g() { curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "filters=$1" --data-urlencode "limit=${2:-1000}" -o "$3"; echo "::notice title=size-$3::$(wc -c < $3) $(head -c 60 $3 | tr '\n' ' ')"; }
+          g '{"FUND_CLASSIFICATION":"קופת גמל להשקעה","REPORT_PERIOD":202609}' 1000 a.json
+          echo "::notice title=sp500::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)|\(.MONTHLY_YIELD)|\(.YEAR_TO_DATE_YIELD)"' a.json | grep '500' | tr '\n' ';' | head -c 3000)"
+          g '{"FUND_CLASSIFICATION":"קופת גמל להשקעה - חסכון לילד","REPORT_PERIOD":202609}' 1000 b.json
+          echo "::notice title=child::$(jq -r '.result.records[]? | "\(.FUND_ID)|\(.FUND_NAME)|\(.MONTHLY_YIELD)|\(.YEAR_TO_DATE_YIELD)"' b.json | tr '\n' ';' | head -c 3500)"
+          for ID in $(jq -r '.result.records[]? | select(.FUND_NAME|test("הראל")) | select(.FUND_NAME|test("500")) | .FUND_ID' a.json); do
+            g "{\"FUND_ID\":$ID}" 100 f$ID.json
+            echo "::notice title=fund-$ID::$(jq -r '[.result.records[]? | select(.REPORT_PERIOD>=202601)] | sort_by(.REPORT_PERIOD) | .[] | "\(.REPORT_PERIOD):\(.MONTHLY_YIELD)"' f$ID.json | tr '\n' ' ')"
+          done
