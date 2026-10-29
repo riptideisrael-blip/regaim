@@ -117,6 +117,15 @@ object ClaudeClient {
             m.allPeople.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet(), Profile.names(ctx), milestoneMarked = m.milestone.isNotEmpty(),
         )
         fun honest(t: String) = HonestyRules.clean(t, honesty)
+        // Nobody in the moment was recognized or marked: no words about "a child sitting…". The moment is still
+        // sorted and scored; its title, description and reason wait until the parent says who's in it (or a face is
+        // recognized), and then it's described again ([MemoryStore.toAnalyze]).
+        if (!MomentWords.named(m)) return m.copy(
+            reason = "", score = score, title = "", description = "", descriptionSource = MomentWords.UNNAMED,
+            tags = tagList.filter { it.isNotBlank() && HonestyRules.check(it, honesty).isEmpty() && !MomentWords.aboutSomeone(it) }.joinToString(", "),
+            category = if (m.milestone.isNotEmpty()) "אבן דרך" else category.takeIf { it != "אבן דרך" } ?: "אחר",
+            milestone = m.milestone, milestoneGuess = m.milestoneGuess, analyzed = true,
+        )
         return m.copy(
             reason = honest(json.optString("reason").trim()),
             score = score,
