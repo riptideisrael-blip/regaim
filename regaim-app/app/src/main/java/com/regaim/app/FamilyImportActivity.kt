@@ -136,7 +136,7 @@ class FamilyImportActivity : AppCompatActivity() {
             card.setPadding(ui.dp(10), ui.dp(2), ui.dp(14), ui.dp(2))
             rows.forEachIndexed { n, idx ->
                 if (n > 0) card.addView(View(this).apply {
-                    setBackgroundColor(0xFFE8DED3.toInt())
+                    setBackgroundColor(0xFFE4E9F0.toInt())
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply { marginStart = ui.dp(44) }
                 })
                 card.addView(row(idx))

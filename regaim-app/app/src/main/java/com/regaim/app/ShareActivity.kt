@@ -259,7 +259,7 @@ class ShareActivity : AppCompatActivity() {
         val card = preview.parent as? FrameLayout ?: return
         card.foreground = if (style == "party") android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = ui.dp(22).toFloat()
-            setStroke(ui.dp(5), 0xFF87664F.toInt())
+            setStroke(ui.dp(5), 0xFF1A6FCC.toInt())
         } else null
     }
 

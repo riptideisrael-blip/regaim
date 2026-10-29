@@ -87,7 +87,7 @@ object ComicMaker {
     private val INK = Color.parseColor("#1F1D2B")
     private val PAPER = Color.parseColor("#FBF8F1")
     private val CAPTION_BG = Color.parseColor("#FFE9A8")
-    private val ACCENT = Color.parseColor("#87664F")
+    private val ACCENT = Color.parseColor("#1A6FCC")
 
     // ---------- frames ----------
 

@@ -291,7 +291,7 @@ class MainActivity : AppCompatActivity() {
         if (s.running) {
             statusChip.text = L.t("● מקליט", "● Recording")
             statusChip.setBackgroundResource(R.drawable.chip_on)
-            statusChip.setTextColor(ContextCompat.getColor(this, R.color.white))
+            statusChip.setTextColor(ContextCompat.getColor(this, R.color.ds_primary))
             btnToggle.text = L.t("עצור", "Stop")
         } else {
             statusChip.text = L.t("כבוי", "Off")

@@ -520,7 +520,7 @@ object MemoryStore {
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 8f
-            color = Color.parseColor("#87664F")
+            color = Color.parseColor("#1A6FCC")
         }
         canvas.drawCircle(r, r, r - 6f, ring)
 

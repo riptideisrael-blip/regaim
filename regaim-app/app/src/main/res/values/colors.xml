@@ -1,37 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Moments design system: the only place colors are defined (Minimal Luxury: cream, beige, mocha).
+  Moments design system: the only place colors are defined (Sky Clean: light gray-white, white cards with a hairline, one clear blue).
   Code reads them through DS.kt; layouts and drawables through @color/... Never a color literal elsewhere.
 -->
 <resources>
     <!-- Surfaces -->
-    <color name="ds_bg">#FAF7F2</color>              <!-- main background: light cream -->
-    <color name="ds_card">#F3EBE2</color>            <!-- cards: warm beige -->
-    <color name="ds_card_alt">#E9D9C8</color>        <!-- secondary background: champagne -->
-    <color name="ds_line">#E8DED3</color>            <!-- lines and borders -->
+    <color name="ds_bg">#F7F9FC</color>              <!-- main background: light cream -->
+    <color name="ds_card">#FFFFFF</color>            <!-- cards: warm beige -->
+    <color name="ds_card_alt">#EEF3F9</color>        <!-- secondary background: champagne -->
+    <color name="ds_line">#E4E9F0</color>            <!-- lines and borders -->
     <!-- Brand -->
-    <color name="ds_primary">#72513D</color>         <!-- mocha: brand, active, pressed buttons -->
-    <color name="ds_button">#87664F</color>          <!-- primary buttons -->
-    <color name="ds_button_pressed">#72513D</color>
-    <color name="ds_button_secondary">#F0E6DC</color>
-    <color name="ds_button_secondary_pressed">#E9D9C8</color>
+    <color name="ds_primary">#1A6FCC</color>         <!-- mocha: brand, active, pressed buttons -->
+    <color name="ds_button">#1A6FCC</color>          <!-- primary buttons -->
+    <color name="ds_button_pressed">#155BA8</color>
+    <color name="ds_button_secondary">#EEF3F9</color>
+    <color name="ds_button_secondary_pressed">#E4ECF6</color>
     <color name="ds_on_button">#FFFFFF</color>
-    <color name="ds_disabled_bg">#EDE5DC</color>
-    <color name="ds_disabled_ink">#B3A89E</color>
+    <color name="ds_disabled_bg">#EEF1F5</color>
+    <color name="ds_disabled_ink">#A3ADBA</color>
     <!-- Text -->
-    <color name="ds_ink">#30251E</color>             <!-- main text: very dark brown -->
-    <color name="ds_ink_soft">#675C54</color>        <!-- secondary text: warm taupe -->
+    <color name="ds_ink">#0F1B2D</color>             <!-- main text: very dark brown -->
+    <color name="ds_ink_soft">#5B687A</color>        <!-- secondary text: warm taupe -->
     <color name="ds_on_photo">#FFFFFF</color>        <!-- text and icons over photos / video -->
     <!-- States -->
-    <color name="ds_selected_bg">#E9D9C8</color>
-    <color name="ds_error">#A4442F</color>
-    <color name="ds_error_bg">#F6E3DC</color>
-    <color name="ds_success">#4A643D</color>
+    <color name="ds_selected_bg">#E8F1FC</color>
+    <color name="ds_error">#B3261E</color>
+    <color name="ds_error_bg">#FCE8E6</color>
+    <color name="ds_success">#1C7F46</color>
     <color name="ds_heart">#C8473F</color>
-    <color name="ds_star">#C9973A</color>
+    <color name="ds_star">#C98A12</color>
     <color name="ds_scrim">#99000000</color>         <!-- dark layer over photos for legible text -->
     <color name="ds_scrim_soft">#40000000</color>
-    <color name="ds_shadow">#1A30251E</color>
+    <color name="ds_shadow">#140F1B2D</color>
     <!-- Over photos and video (neutral, so pictures keep their own colors) -->
     <color name="ds_photo_scrim_strong">#B3000000</color>
     <color name="ds_photo_scrim_mid">#40000000</color>
@@ -42,11 +42,11 @@
     <color name="ds_photo_track">#4DFFFFFF</color>
     <color name="ds_photo_pill">#80000000</color>
     <color name="ds_check_off">#33000000</color>
-    <color name="ds_ripple">#1A72513D</color>        <!-- touch feedback on light surfaces -->
+    <color name="ds_ripple">#1F1A6FCC</color>        <!-- touch feedback on light surfaces -->
     <color name="ds_ripple_on_dark">#33FFFFFF</color> <!-- touch feedback on mocha / photos -->
     <color name="ds_handle">#33000000</color>        <!-- bottom-sheet handle -->
     <color name="ds_video_bg">#000000</color>        <!-- behind a playing video -->
-    <color name="ds_icon_soft_bg">#F0E6DC</color>    <!-- round soft background behind an icon -->
+    <color name="ds_icon_soft_bg">#E8F1FC</color>    <!-- round soft background behind an icon -->
 
     <!-- Content palette: Pitzki's lesson colors (the color words themselves, readable on cream). -->
     <color name="pitzki_green">#2F7D32</color>
@@ -62,12 +62,12 @@
     <color name="pitzki_blue">#1E63C4</color>
 
     <!-- Content palette: initials of people without a photo (warm mocha family, text contrast >= 4.5:1). -->
-    <color name="ds_avatar_1_bg">#E9D9C8</color> <color name="ds_avatar_1_ink">#5C4030</color>
-    <color name="ds_avatar_2_bg">#F0E6DC</color> <color name="ds_avatar_2_ink">#72513D</color>
-    <color name="ds_avatar_3_bg">#E4D3C0</color> <color name="ds_avatar_3_ink">#4E3A2C</color>
-    <color name="ds_avatar_4_bg">#EADFD3</color> <color name="ds_avatar_4_ink">#6B4E3B</color>
-    <color name="ds_avatar_5_bg">#DCC9B6</color> <color name="ds_avatar_5_ink">#3F2F24</color>
-    <color name="ds_avatar_6_bg">#F3EBE2</color> <color name="ds_avatar_6_ink">#6E4F3C</color>
+    <color name="ds_avatar_1_bg">#E8F1FC</color> <color name="ds_avatar_1_ink">#155BA8</color>
+    <color name="ds_avatar_2_bg">#E6F6FD</color> <color name="ds_avatar_2_ink">#0B5E80</color>
+    <color name="ds_avatar_3_bg">#ECEFFB</color> <color name="ds_avatar_3_ink">#3B4A9C</color>
+    <color name="ds_avatar_4_bg">#E7F4F1</color> <color name="ds_avatar_4_ink">#1E6B5C</color>
+    <color name="ds_avatar_5_bg">#EEF1F5</color> <color name="ds_avatar_5_ink">#34404F</color>
+    <color name="ds_avatar_6_bg">#FDF0E6</color> <color name="ds_avatar_6_ink">#8A4B12</color>
 
     <!-- Older names used across the app, now pointing at the design system (kept so nothing breaks). -->
     <color name="bg">@color/ds_bg</color>

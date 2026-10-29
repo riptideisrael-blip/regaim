@@ -93,10 +93,10 @@ class SavingsActivity : AppCompatActivity() {
         if (hist.isNotEmpty()) content.addView(historyCard(hist))
         content.addView(calculator(funds, shownKids, today))
 
-        content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח רבעוני", "📄 Upload a quarterly report"), primary = true, top = 14) {
-            if (!busy) picker.launch(arrayOf("application/pdf", "image/*"))
+        content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח (קופה או קריפטו)", "📄 Upload a report (fund or crypto)"), primary = true, top = 14) {
+            if (!busy) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !busy })
-        content.addView(ui.hint(L.t("הקופה, המסלול והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "The fund, track and balance are read from the report; you check them before saving."), top = 4))
+        content.addView(ui.hint(L.t("דוח רבעוני או דף חשבון של קריפטו: הקופה, המטבעות והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "A quarterly report or a crypto statement: the fund, coins and balance are read from it; you check before saving."), top = 4))
 
         // Children always; a parent once they have a fund (adding one: from the fund screen, "whose").
         for (k in shownKids.filter { p -> p.isChild || funds.any { it.child == p.id } || child == p.id }) {
@@ -112,7 +112,7 @@ class SavingsActivity : AppCompatActivity() {
             card.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(4))
             if (mine.isEmpty()) card.addView(ui.hint(L.t("עוד אין קופה. מעלים דוח, או מוסיפים ידנית.", "No fund yet. Upload a report, or add one by hand."), top = 12).apply { setPadding(0, 0, 0, ui.dp(12)) })
             mine.forEachIndexed { n, f ->
-                if (n > 0) card.addView(View(this).apply { setBackgroundColor(0xFFE8DED3.toInt()); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1) })
+                if (n > 0) card.addView(View(this).apply { setBackgroundColor(0xFFE4E9F0.toInt()); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1) })
                 card.addView(fundRow(f, today))
             }
             card.addView(ui.action(L.t("+ קופה ל${k.name}", "+ A fund for ${k.name}")) { SavingsFundActivity.newFor(this, k.id) })
@@ -183,30 +183,9 @@ class SavingsActivity : AppCompatActivity() {
     /** A report: read on request (signed in), then the fund screen opens with what was read, for the parent to check. */
     private fun readReport(uri: android.net.Uri) {
         busy = true; render()
-        worker.execute {
-            val type = try { contentResolver.getType(uri) } catch (_: Exception) { null }.orEmpty()
-            val b = try { contentResolver.openInputStream(uri)?.use { it.readBytes() } } catch (_: Exception) { null }
-            if (b == null || b.size > 20 * 1024 * 1024) { runOnUiThread { busy = false; render(); Toast.makeText(this, L.t("לא הצלחנו לקרוא את הקובץ (עד 20MB)", "Couldn't read the file (up to 20 MB)"), Toast.LENGTH_LONG).show() }; return@execute }
-            val pdf = type == "application/pdf" || (b.size > 4 && String(b, 0, 4) == "%PDF")
-            val mime = if (pdf) "application/pdf" else "image/jpeg"
-            val kids = Profile.members(applicationContext).filter { !it.isPet } /* parents too, not only the children */
-            // The report is kept in the family file (a document of that child, once known).
-            val doc = FamilyFile.save(applicationContext, FamilyItems.Item("", FamilyItems.Kind.DOCUMENT, child = child, title = L.t("דוח חיסכון", "Savings report"),
-                date = java.time.LocalDate.now().toString(), mime = mime, hash = FamilyFile.hash(b), source = "savings"), b, if (pdf) "pdf" else "jpg")
-            val reading = if (!Account.signedIn(applicationContext)) null else try {
-                val pic = if (pdf) null else FamilyFile.picture(applicationContext, b, mime)?.let { FamilyFile.jpegBase64(it) }
-                val pdfB64 = if (pdf && b.size < 8 * 1024 * 1024) android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP) else null
-                Savings.reading(ClaudeClient.readSavingsReport(applicationContext, pic, pdfB64, kids.map { it.name }, java.time.LocalDate.now().toString()))
-            } catch (_: Exception) { null }
-            // A crypto statement: the coins' prices (to value it in shekels on its date).
-            if (reading?.kind == Savings.Kind.CRYPTO && reading.coins.isNotEmpty()) try { CryptoPrices.refresh(applicationContext, reading.coins.map { it.symbol }.toSet()) } catch (_: Exception) { }
-            runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                busy = false; render()
-                if (reading == null) Toast.makeText(this, if (!Account.signedIn(this)) L.t("קריאה אוטומטית דורשת התחברות. ממלאים ידנית.", "Reading needs you to sign in. Fill it in by hand.")
-                    else L.t("לא הצלחנו לקרוא את הדוח. ממלאים ידנית.", "Couldn't read the report. Fill it in by hand."), Toast.LENGTH_LONG).show()
-                SavingsFundActivity.fromReport(this, reading, doc.id, child)
-            }
+        SavingsReports.read(this, uri, child) { reading, docId ->
+            busy = false; render()
+            SavingsFundActivity.fromReport(this, reading, docId, child)
         }
     }
 
@@ -249,7 +228,7 @@ class SavingsActivity : AppCompatActivity() {
         val result = amount("", 28f, DS.ink(this)).apply { setPadding(0, ui.dp(14), 0, 0) }
         val split = ui.hint("", top = 2)
         val chart = GrowthChartView(this).apply {
-            deposits = 0xFFE3D5C6.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
+            deposits = 0xFFD6E4F5.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
         }
         val legend = ui.hint(L.t("בהיר: מה שהופקד · כהה: התשואה", "Light: deposited · dark: growth"), top = 4)
@@ -279,10 +258,10 @@ class SavingsActivity : AppCompatActivity() {
 
     private fun trim(y: Double) = if (y % 1.0 == 0.0) y.toInt().toString() else String.format(java.util.Locale.US, "%.1f", y)
 
-    private val PALETTE = listOf(0xFF6F4E37.toInt(), 0xFFC0784A.toInt(), 0xFF7E9A7A.toInt(), 0xFF5B7A99.toInt(), 0xFFB58B3A.toInt(), 0xFF8E5A7A.toInt())
-    private val UP = 0xFF3E7D4F.toInt()
-    private val DOWN = 0xFFA4442F.toInt()
-    private val DEPOSITED = 0xFFC0784A.toInt()
+    private val PALETTE = listOf(0xFF1A6FCC.toInt(), 0xFF5AC8FA.toInt(), 0xFF7B8CDE.toInt(), 0xFF2BA8A0.toInt(), 0xFFF2A971.toInt(), 0xFF9B7FD1.toInt())
+    private val UP = 0xFF1C7F46.toInt()
+    private val DOWN = 0xFFB3261E.toInt()
+    private val DEPOSITED = 0xFF5AC8FA.toInt()
 
     /**
      * The portfolio card: a ring (by child for the whole family, by fund for one child) with the total in the middle
@@ -493,7 +472,7 @@ class SavingsActivity : AppCompatActivity() {
     }
 
     // ---- The ring's colours: chosen per part (kept on this phone) ----
-    private val COLOR_NAMES get() = listOf(L.t("מוקה", "Mocha"), L.t("כתום", "Orange"), L.t("ירוק", "Green"), L.t("כחול", "Blue"), L.t("חרדל", "Mustard"), L.t("סגול", "Purple"))
+    private val COLOR_NAMES get() = listOf(L.t("כחול", "Blue"), L.t("תכלת", "Sky"), L.t("לבנדר", "Lavender"), L.t("טורקיז", "Teal"), L.t("משמש", "Apricot"), L.t("סגול", "Purple"))
 
     private fun colorOf(part: String, i: Int): Int =
         PALETTE[Settings.prefs(this).getInt("savings_color_$part", i % PALETTE.size).coerceIn(0, PALETTE.size - 1)]

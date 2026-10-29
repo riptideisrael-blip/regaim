@@ -420,7 +420,7 @@ class CameraImportActivity : AppCompatActivity() {
         row.gravity = Gravity.CENTER_VERTICAL
         val thumb = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { cornerRadius = ui.dp(12).toFloat(); setColor(0xFFF0E6DC.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = ui.dp(12).toFloat(); setColor(0xFFEEF3F9.toInt()) }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(ui.dp(84), ui.dp(108))
             item.f.scan?.thumbs?.get(c.peakMs)?.let { p -> thumbCache.getOrPut(p) { android.graphics.BitmapFactory.decodeFile(p) }?.let { setImageBitmap(it) } }
@@ -434,9 +434,9 @@ class CameraImportActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         val (fg, bg) = when (c.tier) {
-            Tier.STRONG -> Color.WHITE to 0xFF87664F.toInt()
-            Tier.GOOD -> 0xFF72513D.toInt() to 0xFFF0E6DC.toInt()
-            Tier.MAYBE -> 0xFF555555.toInt() to 0xFFF0E6DC.toInt()
+            Tier.STRONG -> Color.WHITE to 0xFF1A6FCC.toInt()
+            Tier.GOOD -> 0xFF155BA8.toInt() to 0xFFEEF3F9.toInt()
+            Tier.MAYBE -> 0xFF555555.toInt() to 0xFFEEF3F9.toInt()
         }
         col.addView(TextView(this).apply {
             text = MomentWords.tier(c.tier)
@@ -465,7 +465,7 @@ class CameraImportActivity : AppCompatActivity() {
             check.setTextColor(Color.WHITE)
             check.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                if (item.selected) setColor(0xFF87664F.toInt()) else { setColor(Color.TRANSPARENT); setStroke(ui.dp(2), 0xFFBBBBBB.toInt()) }
+                if (item.selected) setColor(0xFF1A6FCC.toInt()) else { setColor(Color.TRANSPARENT); setStroke(ui.dp(2), 0xFFBBBBBB.toInt()) }
             }
         }
         paint()

@@ -124,7 +124,7 @@ class StudioActivity : AppCompatActivity() {
             content.addView(card)
         }
 
-        // The headline feature: big, dark, impossible to miss.
+        // The headline feature: a clean white card with one blue button.
         val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundResource(R.drawable.card_accent_bg)
@@ -135,13 +135,13 @@ class StudioActivity : AppCompatActivity() {
         hero.addView(TextView(this).apply {
             text = L.t("פרימיום", "Premium")
             textSize = 13f
-            setTextColor(DS.onPhoto(context, 0.75f))
+            setTextColor(DS.primary(context))
         })
         hero.addView(TextView(this).apply {
             text = L.t("סרט מצויר בתלת-ממד", "3D animated film")
             textSize = 26f
             typeface = Fonts.display
-            setTextColor(ContextCompat.getColor(this@StudioActivity, R.color.white))
+            setTextColor(ContextCompat.getColor(this@StudioActivity, R.color.ink))
             setPadding(0, ui.dp(6), 0, 0)
         })
         hero.addView(TextView(this).apply {
@@ -149,7 +149,7 @@ class StudioActivity : AppCompatActivity() {
                 "Pick a moment and we redraw it as 3D animated characters, Pixar-movie style, cut into a short film with music.")
             textSize = 15f
             setLineSpacing(ui.dp(3).toFloat(), 1f)
-            setTextColor(DS.onPhoto(context, 0.87f))
+            setTextColor(DS.inkSoft(context))
             setPadding(0, ui.dp(8), 0, ui.dp(16))
         })
         hero.addView(TextView(this).apply {
@@ -157,8 +157,8 @@ class StudioActivity : AppCompatActivity() {
             textSize = 16f
             gravity = Gravity.CENTER
             typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@StudioActivity, R.color.ink))
-            background = DS.buttonBackground(this@StudioActivity, primary = false)
+            setTextColor(ContextCompat.getColor(this@StudioActivity, R.color.ds_on_button))
+            background = DS.buttonBackground(this@StudioActivity, primary = true)
             setPadding(ui.dp(16), ui.dp(13), ui.dp(16), ui.dp(13))
             setOnClickListener { makeFilm(this@StudioActivity) }
         })

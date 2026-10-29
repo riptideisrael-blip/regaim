@@ -656,19 +656,19 @@ class HomeActivity : AppCompatActivity() {
         card.addView(TextView(this).apply {
             text = if (imported) L.t("השבוע בזיכרונות שלנו", "This week in our memories") else L.t("השבוע שלנו", "Our week")
             textSize = 14f
-            setTextColor(DS.onPhoto(this@HomeActivity, 0.75f))
+            setTextColor(DS.primary(this@HomeActivity))
         })
         card.addView(TextView(this).apply {
             text = if (week.size == 1) L.t("רגע אחד נשמר", "1 moment saved") else L.t("${week.size} רגעים נשמרו", "${week.size} moments saved")
             textSize = 30f
             typeface = Fonts.display
-            setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.white))
+            setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink))
             setPadding(0, mv.dp(8), 0, 0)
         })
         card.addView(TextView(this).apply {
             text = L.t("אפשר לראות את הסיפור של השבוע, או לשלוח אותו כסרטון.", "Watch the story of the week, or send it as a video.")
             textSize = 15f
-            setTextColor(DS.onPhoto(this@HomeActivity, 0.85f))
+            setTextColor(DS.inkSoft(this@HomeActivity))
             setPadding(0, mv.dp(6), 0, mv.dp(16))
         })
         val thumbs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -678,7 +678,7 @@ class HomeActivity : AppCompatActivity() {
                 scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.OVAL
-                    setColor(DS.primary(this@HomeActivity)); setStroke(mv.dp(2), DS.cardAlt(this@HomeActivity))
+                    setColor(DS.cardAlt(this@HomeActivity)); setStroke(mv.dp(2), DS.card(this@HomeActivity))
                 }
                 clipToOutline = true
                 Covers.load(this, m)
@@ -707,7 +707,7 @@ class HomeActivity : AppCompatActivity() {
             card.addView(TextView(this).apply {
                 text = L.t("הסרטון ששמרתם מהשבוע ›", "Your saved video from this week ›")
                 textSize = 14f
-                setTextColor(DS.onPhoto(this@HomeActivity, 0.85f))
+                setTextColor(DS.inkSoft(this@HomeActivity))
                 setPadding(0, mv.dp(14), 0, 0)
                 setOnClickListener { playUri(last.first) }
             })

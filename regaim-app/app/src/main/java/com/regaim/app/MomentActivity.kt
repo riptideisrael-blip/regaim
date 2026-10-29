@@ -643,12 +643,12 @@ class MomentActivity : AppCompatActivity() {
             text = L.t("יוצרים מהרגע הזה", "Make something from this moment")
             textSize = 17f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.white))
+            setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.ink))
         })
         card.addView(TextView(this).apply {
             text = L.t("סרט אנימציה מצויר בתלת-ממד (בסגנון פיקסאר).", "A 3D animated film (Pixar style).")
             textSize = 13f
-            setTextColor(0xCCFFFFFF.toInt())
+            setTextColor(DS.inkSoft(this@MomentActivity))
             setPadding(0, mv.dp(4), 0, mv.dp(10))
         })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -657,8 +657,8 @@ class MomentActivity : AppCompatActivity() {
             textSize = 14f
             gravity = android.view.Gravity.CENTER
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.ink))
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = mv.dp(22).toFloat(); setColor(ContextCompat.getColor(this@MomentActivity, R.color.surface)) }
+            setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.ds_on_button))
+            background = DS.buttonBackground(this@MomentActivity, primary = true)
             setPadding(mv.dp(10), mv.dp(11), mv.dp(10), mv.dp(11))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight).apply { marginEnd = mv.dp(8) }
             setOnClickListener { go() }

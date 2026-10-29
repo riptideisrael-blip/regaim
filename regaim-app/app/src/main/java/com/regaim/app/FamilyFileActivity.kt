@@ -34,7 +34,7 @@ class FamilyFileActivity : AppCompatActivity() {
             "equipment" to (0xFFE9E5DF.toInt() to 0xFF5C534B.toInt()),
             "gifts" to (0xFFF5E1E8.toInt() to 0xFF8E3B5C.toInt()),
             "home" to (0xFFE1ECE9.toInt() to 0xFF35645A.toInt()),
-            "other" to (0xFFEDE5DC.toInt() to 0xFF675C54.toInt()),
+            "other" to (0xFFEEF3F9.toInt() to 0xFF5B687A.toInt()),
         )
         private val KIND_TINTS = mapOf(
             FamilyItems.Kind.COUPON to (0xFFF4E9D6.toInt() to 0xFF8A6420.toInt()),
@@ -44,7 +44,7 @@ class FamilyFileActivity : AppCompatActivity() {
             FamilyItems.Kind.WARRANTY to (0xFFDDEBF0.toInt() to 0xFF2F5F73.toInt()),
             FamilyItems.Kind.EXCHANGE to (0xFFE8E4F1.toInt() to 0xFF5A4B80.toInt()),
             FamilyItems.Kind.DOCUMENT to (0xFFE9E5DF.toInt() to 0xFF5C534B.toInt()),
-            FamilyItems.Kind.RECEIPT to (0xFFEDE5DC.toInt() to 0xFF675C54.toInt()),
+            FamilyItems.Kind.RECEIPT to (0xFFEEF3F9.toInt() to 0xFF5B687A.toInt()),
         )
     }
 
@@ -115,7 +115,7 @@ class FamilyFileActivity : AppCompatActivity() {
         Circle.cachedPartnerMoments(this).firstOrNull()?.author?.takeIf { it.isNotBlank() } ?: L.t("ההורה השני", "the other parent")
 
     private fun tint(i: FamilyItems.Item): Pair<Int, Int> =
-        FamilyItems.Category.of(i.category)?.let { TINTS[it.id] } ?: KIND_TINTS[i.kind] ?: (0xFFEDE5DC.toInt() to 0xFF675C54.toInt())
+        FamilyItems.Category.of(i.category)?.let { TINTS[it.id] } ?: KIND_TINTS[i.kind] ?: (0xFFEEF3F9.toInt() to 0xFF5B687A.toInt())
 
     private fun render() {
         content.removeAllViews()
@@ -316,7 +316,7 @@ class FamilyFileActivity : AppCompatActivity() {
         card.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(4))
         items.forEachIndexed { n, i ->
             if (n > 0) card.addView(View(this).apply {
-                setBackgroundColor(0xFFE8DED3.toInt())
+                setBackgroundColor(0xFFE4E9F0.toInt())
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply { marginStart = ui.dp(52) }
             })
             card.addView(row(i, names, today))
@@ -395,17 +395,16 @@ class FamilyFileActivity : AppCompatActivity() {
         // The headline: what the family can still use.
         content.addView(ui.card(top = 8).apply {
             setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
-            background = DS.rounded(0xFF6F4E37.toInt(), ui.dp(22).toFloat())
             addView(TextView(this@FamilyFileActivity).apply {
-                text = L.t("שווי שאפשר לממש", "Value you can still use"); textSize = 13f; setTextColor(0xCCFFFFFF.toInt())
+                text = L.t("שווי שאפשר לממש", "Value you can still use"); textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity))
             })
-            addView(amount(FamilyItems.money(total), 30f, 0xFFFFFFFF.toInt()).apply { setPadding(0, ui.dp(2), 0, 0) })
+            addView(amount(FamilyItems.money(total), 30f, DS.ink(this@FamilyFileActivity)).apply { setPadding(0, ui.dp(2), 0, 0) })
             addView(TextView(this@FamilyFileActivity).apply {
                 text = listOfNotNull(
                     L.t("$count שוברים וקופונים · ${chains.size} רשתות", "$count vouchers and coupons · ${chains.size} chains"),
                     if (soon > 0) L.t("⏳ $soon פגים בחודשיים הקרובים", "⏳ $soon expire in the next two months") else null,
                 ).joinToString("\n")
-                textSize = 13f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(6), 0, 0)
+                textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity)); setPadding(0, ui.dp(6), 0, 0)
             })
         })
 
@@ -473,7 +472,7 @@ class FamilyFileActivity : AppCompatActivity() {
     }
 
     private fun divider(start: Int) = View(this).apply {
-        setBackgroundColor(0xFFE8DED3.toInt())
+        setBackgroundColor(0xFFE4E9F0.toInt())
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply { marginStart = ui.dp(start) }
     }
 
@@ -547,9 +546,9 @@ class FamilyFileActivity : AppCompatActivity() {
                 row.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12)); minimumHeight = ui.dp(88)
-                    background = DS.rounded(if (on) 0xFF6F4E37.toInt() else DS.card(this@FamilyFileActivity), ui.dp(18).toFloat())
-                    val ink = if (on) 0xFFFFFFFF.toInt() else DS.ink(this@FamilyFileActivity)
-                    val soft = if (on) 0xE6FFFFFF.toInt() else DS.inkSoft(this@FamilyFileActivity)
+                    background = DS.rounded(if (on) DS.selected(this@FamilyFileActivity) else DS.card(this@FamilyFileActivity), ui.dp(16).toFloat(), ui.dp(1), if (on) DS.primary(this@FamilyFileActivity) else DS.line(this@FamilyFileActivity))
+                    val ink = if (on) DS.primary(this@FamilyFileActivity) else DS.ink(this@FamilyFileActivity)
+                    val soft = if (on) DS.primary(this@FamilyFileActivity) else DS.inkSoft(this@FamilyFileActivity)
                     addView(TextView(this@FamilyFileActivity).apply { text = t.label; textSize = 14f; setTextColor(soft); typeface = DS.emphasis })
                     addView(amount(big, 22f, ink).apply { setPadding(0, ui.dp(4), 0, 0) })
                     addView(TextView(this@FamilyFileActivity).apply { text = small; textSize = 12.5f; setTextColor(soft) })
@@ -633,11 +632,11 @@ class FamilyFileActivity : AppCompatActivity() {
         )
         acts.forEachIndexed { n, (icon, label, go) ->
             val main = n == 0
-            val ink = if (main) DS.onButton(this) else DS.primary(this)
+            val ink = DS.primary(this)
             row.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                 setPadding(ui.dp(6), ui.dp(12), ui.dp(6), ui.dp(12)); minimumHeight = ui.dp(76)
-                background = DS.pressable(this@FamilyFileActivity, DS.rounded(if (main) DS.primary(this@FamilyFileActivity) else DS.card(this@FamilyFileActivity), ui.dp(18).toFloat()), onDark = main)
+                background = DS.pressable(this@FamilyFileActivity, if (main) DS.rounded(DS.selected(this@FamilyFileActivity), ui.dp(14).toFloat()) else DS.rounded(DS.card(this@FamilyFileActivity), ui.dp(14).toFloat(), ui.dp(1), DS.line(this@FamilyFileActivity)))
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (n < 2) marginEnd = ui.dp(8) }
                 addView(android.widget.ImageView(this@FamilyFileActivity).apply {
                     setImageResource(icon); setColorFilter(ink)
@@ -657,22 +656,22 @@ class FamilyFileActivity : AppCompatActivity() {
     private fun savingsCard(total: Double, monthly: Double): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14))
-        background = DS.pressable(this@FamilyFileActivity, DS.rounded(0xFF6F4E37.toInt(), ui.dp(20).toFloat()), onDark = true)
+        background = DS.pressable(this@FamilyFileActivity, DS.rounded(DS.card(this@FamilyFileActivity), DS.radiusCard(this@FamilyFileActivity), ui.dp(1), DS.line(this@FamilyFileActivity)))
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(4) }
         addView(android.widget.ImageView(this@FamilyFileActivity).apply {
-            setImageResource(R.drawable.ic_savings); setColorFilter(0xFFFFFFFF.toInt())
-            setPadding(ui.dp(9), ui.dp(9), ui.dp(9), ui.dp(9)); background = DS.oval(0x33FFFFFF)
+            setImageResource(R.drawable.ic_savings); setColorFilter(DS.primary(this@FamilyFileActivity))
+            setPadding(ui.dp(9), ui.dp(9), ui.dp(9), ui.dp(9)); background = DS.oval(DS.selected(this@FamilyFileActivity))
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)).apply { marginEnd = ui.dp(12) }
         })
         addView(LinearLayout(this@FamilyFileActivity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            addView(TextView(this@FamilyFileActivity).apply { text = L.t("חיסכון והשקעות", "Savings and investments"); textSize = 13f; setTextColor(0xE6FFFFFF.toInt()) })
-            addView(amount(FamilyItems.money(Math.rint(total)), 22f, 0xFFFFFFFF.toInt()).apply { setPadding(0, ui.dp(2), 0, 0) })
-            if (monthly > 0) addView(TextView(this@FamilyFileActivity).apply { text = L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month"); textSize = 12f; setTextColor(0xCCFFFFFF.toInt()) })
+            addView(TextView(this@FamilyFileActivity).apply { text = L.t("חיסכון והשקעות", "Savings and investments"); textSize = 13f; setTextColor(DS.inkSoft(this@FamilyFileActivity)) })
+            addView(amount(FamilyItems.money(Math.rint(total)), 22f, DS.ink(this@FamilyFileActivity)).apply { setPadding(0, ui.dp(2), 0, 0) })
+            if (monthly > 0) addView(TextView(this@FamilyFileActivity).apply { text = L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month"); textSize = 12f; setTextColor(DS.inkSoft(this@FamilyFileActivity)) })
         })
-        addView(TextView(this@FamilyFileActivity).apply { text = "›"; textSize = 24f; setTextColor(0xCCFFFFFF.toInt()); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+        addView(TextView(this@FamilyFileActivity).apply { text = "›"; textSize = 24f; setTextColor(DS.inkSoft(this@FamilyFileActivity)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
         contentDescription = L.t("חיסכון והשקעות, ${FamilyItems.money(Math.rint(total))}", "Savings and investments, ${FamilyItems.money(Math.rint(total))}")
         A11y.button(this)
         setOnClickListener { SavingsActivity.open(this@FamilyFileActivity, child) }

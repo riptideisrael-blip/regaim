@@ -45,7 +45,7 @@ object PublishSheet {
         top.gravity = Gravity.CENTER_VERTICAL
         val thumb = ImageView(a).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { cornerRadius = ui.dp(12).toFloat(); setColor(0xFFF0E6DC.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = ui.dp(12).toFloat(); setColor(0xFFEEF3F9.toInt()) }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(ui.dp(64), ui.dp(80))
         }
@@ -68,7 +68,7 @@ object PublishSheet {
             maxLines = 5
             gravity = Gravity.TOP or Gravity.START
             setPadding(ui.dp(14), ui.dp(10), ui.dp(14), ui.dp(10))
-            background = GradientDrawable().apply { cornerRadius = ui.dp(16).toFloat(); setColor(0xFFF0E6DC.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = ui.dp(16).toFloat(); setColor(0xFFEEF3F9.toInt()) }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
         }
         if (startCaption.isNotEmpty()) caption.setText(startCaption)
@@ -107,8 +107,8 @@ object PublishSheet {
                     setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
                     background = GradientDrawable().apply {
                         cornerRadius = ui.dp(16).toFloat()
-                        setColor(if (on) 0xFFF0E6DC.toInt() else 0xFFFFFFFF.toInt())
-                        setStroke(ui.dp(if (on) 2 else 1), if (on) ContextCompat.getColor(a, R.color.accent) else 0xFFF0E6DC.toInt())
+                        setColor(if (on) 0xFFEEF3F9.toInt() else 0xFFFFFFFF.toInt())
+                        setStroke(ui.dp(if (on) 2 else 1), if (on) ContextCompat.getColor(a, R.color.accent) else 0xFFEEF3F9.toInt())
                     }
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(8) }
                     setOnClickListener { if (!busy) { audience = o.id; refresh() } }

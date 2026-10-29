@@ -89,9 +89,9 @@ object DS {
     /** A pill / circle fill. */
     fun oval(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
 
-    /** A card: warm beige, large rounded corners, a whisper of shadow. */
+    /** A card: white, rounded, a hairline border instead of a shadow (Sky Clean). */
     fun cardBackground(v: View, color: Int = card(v.context)) {
-        v.background = rounded(color, radiusCard(v.context))
+        v.background = rounded(color, radiusCard(v.context), (v.context.resources.displayMetrics.density).toInt().coerceAtLeast(1), line(v.context))
         v.elevation = elevationCard(v.context)
         v.outlineAmbientShadowColorCompat(col(v.context, R.color.ds_shadow))
     }

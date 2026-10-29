@@ -24,7 +24,7 @@
         <item name="colorControlNormal">@color/ds_ink_soft</item>
         <item name="colorAccent">@color/ds_primary</item>
         <item name="android:statusBarColor">@color/ds_bg</item>
-        <item name="android:navigationBarColor">@color/ds_bg</item>
+        <item name="android:navigationBarColor">@color/ds_card</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@drawable/bg_gradient</item>

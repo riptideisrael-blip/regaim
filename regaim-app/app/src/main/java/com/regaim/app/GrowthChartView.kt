@@ -13,9 +13,9 @@ import android.view.View
 class GrowthChartView(ctx: Context) : View(ctx) {
     var points: List<Savings.YearPoint> = emptyList()
         set(v) { field = v; invalidate() }
-    var deposits: Int = 0xFFE3D5C6.toInt()
-    var growth: Int = 0xFF6F4E37.toInt()
-    var soft: Int = 0xFF675C54.toInt()
+    var deposits: Int = 0xFFD6E4F5.toInt()
+    var growth: Int = 0xFF1A6FCC.toInt()
+    var soft: Int = 0xFF5B687A.toInt()
     var startLabel = ""
     var endLabel = ""
 
