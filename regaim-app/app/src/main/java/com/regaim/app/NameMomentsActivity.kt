@@ -95,7 +95,8 @@ class NameMomentsActivity : AppCompatActivity() {
         if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, fresh.copy(extraPeople = names.filter { it !in faces }.joinToString(", "))) }) return
         val app = applicationContext
         Thread {
-            try { PeopleStore.learnFromMoment(app, m.id, emptyList(), names.filter { it !in faces }) } catch (_: Exception) { }
+            // Faces learn only with the parent's yes to face recognition.
+            if (PeopleStore.faceConsent(app)) try { PeopleStore.learnFromMoment(app, m.id, emptyList(), names.filter { it !in faces }) } catch (_: Exception) { }
             try { MemoryStore.analyzePending(app) } catch (_: Exception) { }
         }.start()
     }

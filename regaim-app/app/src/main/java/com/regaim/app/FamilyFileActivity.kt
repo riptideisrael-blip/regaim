@@ -108,8 +108,27 @@ class FamilyFileActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         render()
+        askUpdatedConsent()
         // The other parent's items (when both share the file): shown as soon as they arrive.
         FamilyFileSync.kick(this) { runOnUiThread { if (!isDestroyed) render() } }
+    }
+
+    private var consentAsked = false
+
+    /**
+     * What the file does changed (sharing, savings reports, backup): a parent who agreed to the earlier words reads
+     * the new ones once. Until they agree, sharing and reminders wait; the items stay on the phone as they are.
+     */
+    private fun askUpdatedConsent() {
+        if (consentAsked || FamilyFile.consented(this)) return
+        if (FamilyFile.all(this).isEmpty() && !FamilyFileSync.on(this)) return
+        consentAsked = true
+        AlertDialog.Builder(this)
+            .setTitle(L.t("עדכנו את ההסבר על התיק", "We updated what the file says"))
+            .setMessage(FamilyFile.consentText())
+            .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
+            .setNegativeButton(L.t("לא עכשיו", "Not now"), null)
+            .show()
     }
 
     /** The other parent's name (from what they shared), for "from Michal". */

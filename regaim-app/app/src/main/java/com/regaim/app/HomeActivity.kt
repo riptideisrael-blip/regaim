@@ -107,6 +107,7 @@ class HomeActivity : AppCompatActivity() {
         // A notification when the other parent shares something (checked in the background).
         PartnerNotify.schedule(this)
         DriveBackup.schedule(this)
+        askFaceConsent()
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {
@@ -576,6 +577,21 @@ class HomeActivity : AppCompatActivity() {
         row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putLong("name_moments_later", System.currentTimeMillis()).apply(); render() })
         card.addView(row)
         content.addView(card)
+    }
+
+    private var faceAsked = false
+
+    /** Face recognition waits for the parent's yes (biometric data, children's too): asked once, here. */
+    private fun askFaceConsent() {
+        if (faceAsked || PeopleStore.faceConsentAsked(this) || MemoryStore.kept(this).isEmpty()) return
+        faceAsked = true
+        AlertDialog.Builder(this)
+            .setTitle(L.t("לזהות מי מופיע ברגעים?", "Recognize who's in your moments?"))
+            .setMessage(PeopleStore.faceConsentText())
+            .setPositiveButton(L.t("כן, לזהות", "Yes, recognize")) { _, _ -> PeopleStore.setFaceConsent(this, true); FaceScan.kick(this) }
+            .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> PeopleStore.setFaceConsent(this, false) }
+            .setCancelable(false)
+            .show()
     }
 
     /** In the family circle but not connected with the other parent yet: one card to the one-step connection. */

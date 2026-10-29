@@ -19,7 +19,12 @@ object PartnerShare {
         PartnerNotify.schedule(ctx)
     }
 
-    fun turnOff(ctx: Context) { p(ctx).edit().remove("partner_id").remove("partner_since").apply() }
+    /** Off on this phone; what was marked as already sent is forgotten (turning it on again sends it again). */
+    fun turnOff(ctx: Context) {
+        val e = p(ctx).edit().remove("partner_id").remove("partner_since")
+        p(ctx).all.keys.filter { it.startsWith("partner_shared_") || it.startsWith("partner_pitzki_") || it == "partner_family_sent" }.forEach { e.remove(it) }
+        e.apply()
+    }
 
     private fun doneKey(id: String) = "partner_shared_$id"
 

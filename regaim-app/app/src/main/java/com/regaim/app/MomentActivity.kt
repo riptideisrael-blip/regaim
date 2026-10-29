@@ -636,7 +636,7 @@ class MomentActivity : AppCompatActivity() {
         // The face recognition learns from the fix too (on the phone): a removed name isn't this face, an added one is.
         val removed = faces.filter { it !in names }
         val added = names.filter { it !in faces }
-        if (removed.isNotEmpty() || added.isNotEmpty()) {
+        if ((removed.isNotEmpty() || added.isNotEmpty()) && PeopleStore.faceConsent(this)) {
             val id = memory.id
             Thread {
                 try { PeopleStore.learnFromMoment(applicationContext, id, removed, added) } catch (_: Exception) { }

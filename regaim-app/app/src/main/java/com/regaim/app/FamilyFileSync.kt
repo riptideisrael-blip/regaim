@@ -19,12 +19,12 @@ object FamilyFileSync {
 
     fun shareConsentText(partner: String): String = L.t(
         "שיתוף תיק המשפחה עם $partner:\n\n" +
-            "• הפריטים שלך (קבלות, מסמכים, אחריות ושוברים, כולל קודים, מספרי כרטיס ו-CVV) והקבצים שלהם נשלחים לשרת של המשפחה, ונשמרים שם.\n" +
+            "• הפריטים שלך (קבלות, מסמכים, אחריות ושוברים, כולל קודים ומספרי כרטיס) והקבצים שלהם נשלחים לשרת של המשפחה, ונשמרים שם. קוד CVV לא נשלח: הוא נשאר רק בטלפון הזה.\n" +
             "• רק את/ה ו$partner יכולים לראות אותם. הגישה מוגנת בהרשאות החשבון. ההגנה היא בהרשאות ולא בהצפנה מקצה לקצה, כך שמי שמנהל את השרת יכול טכנית לגשת אליהם.\n" +
             "• הפריטים של $partner יופיעו אצלך רק אם גם $partner יאשר בטלפון שלו/ה.\n" +
             "• כיבוי השיתוף מוחק מהשרת את כל מה שנשלח מהטלפון הזה.",
         "Sharing the family file with $partner:\n\n" +
-            "• Your items (receipts, documents, warranties and vouchers, including codes, card numbers and CVVs) and their files are sent to the family's server and kept there.\n" +
+            "• Your items (receipts, documents, warranties and vouchers, including codes and card numbers) and their files are sent to the family's server and kept there. A CVV isn't sent: it stays on this phone only.\n" +
             "• Only you and $partner can see them. Access is protected by account permissions, not end-to-end encryption, so whoever runs the server could technically reach them.\n" +
             "• $partner's items appear here only if $partner agrees on their phone too.\n" +
             "• Turning sharing off deletes from the server everything this phone sent.",

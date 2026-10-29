@@ -306,6 +306,7 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
     }
     // The order: the two PDFs the phone uploaded to the "print" storage (only this account's folder) go to Lulu.
     if (action === "print_order") {
+      await removeOldPrintFiles(admin, uid);
       const interior = String(body.interior ?? ""), cover = String(body.cover ?? "");
       if (!interior.startsWith(uid + "/") || !cover.startsWith(uid + "/") || interior.includes("..") || cover.includes("..")) return json({ error: "קבצים לא תקינים." }, 400);
       const sign = async (p: string) => (await admin.storage.from("print").createSignedUrl(p, 60 * 60 * 24 * 14)).data?.signedUrl ?? "";
@@ -328,6 +329,7 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
       return json({ ok: true, id: r.j.id, status: r.j.status?.name ?? "" });
     }
     if (action === "print_status") {
+      await removeOldPrintFiles(admin, uid);
       const id = String(body.id ?? "");
       if (!/^\d{1,12}$/.test(id)) return json({ error: "מזהה לא תקין." }, 400);
       const r = await lulu("GET", `/print-jobs/${id}/`);
@@ -351,7 +353,8 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
 
 /** Every file under [prefix] in [bucket] (folders are opened, a few levels deep). */
 async function listFiles(admin: any, bucket: string, prefix: string, depth = 0): Promise<string[]> {
-  if (depth > 3) return [];
+  // Deep enough for every folder we make (e.g. circle/user/p/partner/pitzki/<film>/file is 6 levels).
+  if (depth > 8) return [];
   const out: string[] = [];
   for (let offset = 0; offset < 10_000; offset += 1000) {
     const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000, offset });
@@ -363,6 +366,25 @@ async function listFiles(admin: any, bucket: string, prefix: string, depth = 0):
     if (data.length < 1000) break;
   }
   return out;
+}
+
+/** This account's print files older than [days] (the order was made long ago; Lulu already printed it). */
+async function removeOldPrintFiles(admin: any, uid: string, days = 45) {
+  try {
+    const cutoff = Date.now() - days * 86_400_000;
+    const old: string[] = [];
+    const walk = async (prefix: string, depth: number) => {
+      if (depth > 4) return;
+      const { data } = await admin.storage.from("print").list(prefix, { limit: 1000 });
+      for (const e of data ?? []) {
+        const path = `${prefix}/${e.name}`;
+        if (!e.id) await walk(path, depth + 1);
+        else if (Date.parse(e.created_at ?? "") < cutoff) old.push(path);
+      }
+    };
+    await walk(uid, 0);
+    await removeFiles(admin, "print", old);
+  } catch (_) { /* next time */ }
 }
 
 async function removeFiles(admin: any, bucket: string, paths: string[]) {
@@ -415,6 +437,9 @@ async function deleteAccount(admin: any, uid: string): Promise<{ ok: boolean; er
     await removeFiles(admin, "community", await listFiles(admin, "community", uid));
     await removeFiles(admin, "print", await listFiles(admin, "print", uid));
     await admin.from("ai_usage").delete().eq("budget_key", `user:${uid}`);
+    // Technical records tied to the account: crash reports and the cost log go too.
+    await admin.from("crash_reports").delete().eq("user_id", uid);
+    await admin.from("ai_costs").delete().eq("user_id", uid);
     // The account itself; the rest (memberships, community rows, credits, purchases, receipts, votes) goes with it.
     const { error } = await admin.auth.admin.deleteUser(uid);
     if (error) {

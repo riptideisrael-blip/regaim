@@ -46,9 +46,15 @@ object CrashLog {
     }
 
     /** Background thread. Sends what's waiting (at most 5 at a time); a sent one is removed. */
+    /** Sending crash reports (what broke, the screen, app version, phone model, the account id): on unless turned off. */
+    fun on(ctx: Context) = Settings.prefs(ctx).getBoolean("crash_reports_on", true)
+    fun setOn(ctx: Context, v: Boolean) = Settings.prefs(ctx).edit().putBoolean("crash_reports_on", v).apply()
+
     fun send(ctx: Context) {
         val files = dir(ctx).listFiles()?.filter { it.name.endsWith(".json") }?.sortedBy { it.name }.orEmpty()
         if (files.isEmpty()) return
+        // Turned off in Settings → Privacy: nothing is sent, and what waited is removed.
+        if (!on(ctx)) { files.forEach { it.delete() }; return }
         // Too old to matter (a month): just removed.
         files.filter { System.currentTimeMillis() - it.lastModified() > 30L * 24 * 3600 * 1000 }.forEach { it.delete() }
         for (f in files.filter { it.exists() }.take(5)) {

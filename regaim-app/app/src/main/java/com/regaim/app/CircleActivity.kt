@@ -348,11 +348,26 @@ class CircleActivity : AppCompatActivity() {
                     })
                 }
                 if (chosen != null) actions.addView(ui.action(L.t("לכבות", "Turn off"), R.color.ink_soft) {
-                    Thread {
-                        try { Circle.setPartner(app, null) } catch (_: Exception) { }
-                        PartnerShare.turnOff(app)
-                        runOnUiThread { if (!isDestroyed) render() }
-                    }.start()
+                    // Off means off: what this phone shared with them leaves the server (said before it happens).
+                    AlertDialog.Builder(this)
+                        .setTitle(L.t("לכבות את הגלריה המשותפת?", "Turn the shared gallery off?"))
+                        .setMessage(L.t("כל מה שהטלפון הזה שיתף עם ${chosen.name} (רגעים, תמונות הילדים, הסרטים של פיצקי) יימחק מהשרת. מה ש${chosen.name} שיתף/ה איתך נשאר אצלך. תיק המשפחה נכבה בנפרד, בתחתית התיק.",
+                            "Everything this phone shared with ${chosen.name} (moments, the children's pictures, Pitzki's films) is deleted from the server. What ${chosen.name} shared with you stays. The family file is turned off separately, at its bottom."))
+                        .setPositiveButton(L.t("לכבות ולמחוק", "Turn off and delete")) { _, _ ->
+                            toast(L.t("מוחקים מהשרת…", "Deleting from the server…"))
+                            Thread {
+                                val n = try { Circle.removePartnerShares(app, chosen.userId) } catch (_: Exception) { -1 }
+                                try { Circle.setPartner(app, null) } catch (_: Exception) { }
+                                PartnerShare.turnOff(app)
+                                runOnUiThread {
+                                    if (isDestroyed) return@runOnUiThread
+                                    toast(if (n >= 0) L.t("כבוי. נמחקו מהשרת $n קבצים.", "Off. $n files deleted from the server.") else L.t("כבוי, אבל המחיקה מהשרת לא הושלמה. נסו שוב מאוחר יותר.", "Off, but deleting from the server didn't finish. Try again later."))
+                                    render()
+                                }
+                            }.start()
+                        }
+                        .setNegativeButton(L.t("ביטול", "Cancel"), null)
+                        .show()
                 })
             }
         }.start()
@@ -375,7 +390,7 @@ class CircleActivity : AppCompatActivity() {
             box.addView(this)
             box.addView(ui.hint(sub, top = 0))
         }
-        val old = check(L.t("גם כל הרגעים הישנים", "All the older moments too"), L.t("עוברים ברקע, כמה בכל פעם. אחרת רק מה שיישמר מעכשיו.", "In the background, a few at a time. Otherwise only what's kept from now on."), true)
+        val old = check(L.t("גם כל הרגעים הישנים", "All the older moments too"), L.t("עוברים ברקע, כמה בכל פעם. אחרת רק מה שיישמר מעכשיו.", "In the background, a few at a time. Otherwise only what's kept from now on."), false)
         val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), true)
         box.addView(ui.action(L.t("מה בדיוק עובר בתיק ›", "What exactly the file shares ›")) {
             AlertDialog.Builder(this).setMessage(FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
