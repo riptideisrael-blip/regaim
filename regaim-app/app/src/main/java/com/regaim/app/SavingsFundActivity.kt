@@ -216,7 +216,7 @@ class SavingsFundActivity : AppCompatActivity() {
         } else {
             fTrack = field(L.t("מסלול (למשל: מניות, כללי, הלכה)", "Track (e.g. stocks, general)"), fund.track)
             // Without the track the fund can't be found at Gemel-Net: no return, only the balance plus the deposits.
-            if (Savings.needsTrack(fund)) content.addView(ui.text(L.t("⚠️ חסר מסלול. בלעדיו לא נמצא את הקופה בגמל נט ולא נחשב תשואה. המסלול כתוב בדוח "פירוט מסלולי השקעה" או באתר הקופה (אפשר להעלות את הדוח הזה, והמסלול יתמלא).",
+            if (Savings.needsTrack(fund)) content.addView(ui.text(L.t("⚠️ חסר מסלול. בלעדיו לא נמצא את הקופה בגמל נט ולא נחשב תשואה. המסלול כתוב בדוח \"פירוט מסלולי השקעה\" או באתר הקופה (אפשר להעלות את הדוח הזה, והמסלול יתמלא).",
                 "⚠️ The track is missing. Without it the fund can't be found at Gemel-Net and there's no return. It's in the tracks report or on the fund's site (upload that report and it's filled in)."), 13f, R.color.ink, top = 4))
             fName = field(L.t("שם הקופה או התוכנית (אם יש)", "Fund or plan name (if any)"), fund.name)
             if (fund.kind == Savings.Kind.CHILD_SAVINGS) {
