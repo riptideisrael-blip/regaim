@@ -349,6 +349,8 @@ class StoryActivity : AppCompatActivity() {
             video.visibility = View.VISIBLE
             val uri = if (m.uri.startsWith("content://")) Uri.parse(m.uri) else Uri.parse("file://" + m.uri)
             video.setOnPreparedListener { mp ->
+                // Fill the screen like a story (no black bars).
+                (video.parent as? View)?.let { VideoCover.apply(video, it, mp.videoWidth, mp.videoHeight) }
                 try { mp.setVolume(0.15f, 0.15f) } catch (_: Exception) {}
                 mp.setOnInfoListener { _, what, _ ->
                     if (what == android.media.MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
