@@ -112,4 +112,15 @@ class SavingsTest {
         assertNull(Savings.pickGemel(kids, "הראל", ""))          // several tracks, none said: don't guess
         assertNull(Savings.pickGemel(kids, "מיטב", "סיכון מוגבר")) // not in the list
     }
+
+    @Test fun yearReturnsForThePortfolio() {
+        val o = Savings.Official(mapOf(202601 to -1.62, 202602 to 0.11, 202603 to -4.22, 202604 to 3.23, 202605 to 0.44,
+            202606 to 4.72, 202607 to 2.18, 202608 to 0.9, 202609 to 2.07, 202512 to 1.0, 202511 to 1.0, 202510 to 1.0))
+        assertEquals(7.79, Savings.yearToDate(o, 2026)!!, 0.03) // the September report said 7.79%
+        assertNull(Savings.yearToDate(o, 2024))
+        assertEquals(true, Savings.lastYear(o)!! > 7.79)
+        assertNull(Savings.lastYear(Savings.Official(mapOf(202609 to 1.0))))
+        assertEquals(6.0, Savings.weighted(listOf(3000.0 to 8.0, 1500.0 to 2.0, 500.0 to null))!!, 0.0001)
+        assertNull(Savings.weighted(listOf(100.0 to null)))
+    }
 }

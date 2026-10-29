@@ -222,4 +222,25 @@ object Savings {
         estimateOfficial(f, today, o) ?: f.lastReport?.let { r ->
             val m = monthsSince(r.date, today); Estimate(r.balance + m * f.perMonth, r.balance, m * f.perMonth, m, r.date, 0.0, null, r.returnPct)
         }
+
+    /** The year's return so far from the official months (compounded), or null when none of the year is published. */
+    fun yearToDate(o: Official?, year: Int): Double? {
+        val months = o?.yields?.filterKeys { it / 100 == year }?.values ?: return null
+        if (months.isEmpty()) return null
+        return (months.fold(1.0) { acc, y -> acc * (1 + y / 100.0) } - 1) * 100
+    }
+
+    /** The last 12 published months' return (compounded), or null with fewer than 12. */
+    fun lastYear(o: Official?): Double? {
+        val ys = o?.yields?.entries?.sortedByDescending { it.key }?.take(12) ?: return null
+        if (ys.size < 12) return null
+        return (ys.fold(1.0) { acc, e -> acc * (1 + e.value / 100.0) } - 1) * 100
+    }
+
+    /** A return over several funds, each weighted by how much it holds; funds without the number are left out. */
+    fun weighted(parts: List<Pair<Double, Double?>>): Double? {
+        val known = parts.filter { it.second != null && it.first > 0 }
+        val w = known.sumOf { it.first }
+        return if (w <= 0) null else known.sumOf { it.first * it.second!! } / w
+    }
 }

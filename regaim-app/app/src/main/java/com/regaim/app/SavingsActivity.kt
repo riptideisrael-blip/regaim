@@ -80,26 +80,8 @@ class SavingsActivity : AppCompatActivity() {
             content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
         }
 
-        // The headline: how much there is now (an estimate, said so).
-        val total = funds.sumOf { Savings.estimate(it, today, off(it))?.total ?: 0.0 }
-        content.addView(ui.card(top = 12).apply {
-            setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
-            background = DS.rounded(DS.primary(this@SavingsActivity), ui.dp(22).toFloat())
-            addView(TextView(this@SavingsActivity).apply { text = L.t("יש היום בחיסכון (הערכה)", "In savings today (estimate)"); textSize = 13f; setTextColor(0xCCFFFFFF.toInt()) })
-            addView(amount(FamilyItems.money(total), 30f, 0xFFFFFFFF.toInt()).apply { setPadding(0, ui.dp(2), 0, 0) })
-            val monthly = funds.sumOf { it.perMonth }
-            addView(TextView(this@SavingsActivity).apply {
-                text = listOfNotNull(
-                    if (monthly > 0) L.t("נכנסים ${FamilyItems.money(monthly)} בחודש", "${FamilyItems.money(monthly)} goes in each month") else null,
-                    funds.mapNotNull { Savings.estimate(it, today, off(it)) }.sumOf { it.growth }.takeIf { it != 0.0 }?.let { g ->
-                        L.t("רווח/הפסד משוער מאז הדוחות: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}", "Estimated gain/loss since the reports: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}")
-                    },
-                    L.t("הערכה: היתרה בדוח האחרון, לפי התשואות החודשיות הרשמיות של הקופה (גמל נט, משרד האוצר) מאז, ועוד ההפקדות. חודש שעוד לא פורסם מוסיף רק את ההפקדה.",
-                        "Estimate: the last report's balance at the fund's official monthly returns since (Gemel-Net, Ministry of Finance), plus the deposits. A month not yet published adds only the deposit."),
-                ).joinToString("\n")
-                textSize = 12.5f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(6), 0, 0)
-            })
-        })
+        // The portfolio at a glance: a ring of what it's made of, and the three numbers that matter.
+        content.addView(portfolio(funds, shownKids, today))
 
         content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח רבעוני", "📄 Upload a quarterly report"), primary = true, top = 14) {
             if (!busy) picker.launch(arrayOf("application/pdf", "image/*"))
@@ -197,5 +179,83 @@ class SavingsActivity : AppCompatActivity() {
                 SavingsFundActivity.fromReport(this, reading, doc.id, child)
             }
         }
+    }
+
+    private val PALETTE = listOf(0xFF6F4E37.toInt(), 0xFFC0784A.toInt(), 0xFF7E9A7A.toInt(), 0xFF5B7A99.toInt(), 0xFFB58B3A.toInt(), 0xFF8E5A7A.toInt())
+    private val UP = 0xFF3E7D4F.toInt()
+    private val DOWN = 0xFFA4442F.toInt()
+
+    /**
+     * The portfolio card: a ring (by child for the whole family, by fund for one child) with the total in the middle
+     * and a legend beside it; under it what's there, the year's return so far (official months, weighted by size)
+     * and what goes in each month.
+     */
+    private fun portfolio(funds: List<Savings.Fund>, kids: List<FamilyMember>, today: String): View {
+        val year = today.take(4).toIntOrNull() ?: 0
+        val est = funds.associateWith { Savings.estimate(it, today, off(it)) }
+        val total = est.values.sumOf { it?.total ?: 0.0 }
+        val monthly = funds.sumOf { it.perMonth }
+        val ytd = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to Savings.yearToDate(off(it), year) })
+        val last12 = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to Savings.lastYear(off(it)) })
+        val byChild = child.isEmpty() && kids.size > 1
+        val parts: List<Pair<String, Double>> = if (byChild) kids.map { k -> k.name to funds.filter { it.child == k.id }.sumOf { est[it]?.total ?: 0.0 } }.filter { it.second > 0 }
+            else funds.map { it.title to (est[it]?.total ?: 0.0) }.filter { it.second > 0 }
+
+        val card = ui.card(top = 12)
+        card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
+        card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של הילדים", "The children's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true))
+
+        // The ring and its legend.
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) } }
+        row.addView(DonutView(this).apply {
+            slices = parts.mapIndexed { i, p -> p.second to PALETTE[i % PALETTE.size] }
+            center = if (total > 0) FamilyItems.money(total) else "—"
+            caption = L.t("יש היום (הערכה)", "today (estimate)")
+            track = DS.cardAlt(this@SavingsActivity); ink = DS.ink(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
+            contentDescription = L.t("יש היום ${FamilyItems.money(total)}", "Today ${FamilyItems.money(total)}") + ", " + parts.joinToString(", ") { "${it.first} ${FamilyItems.money(it.second)}" }
+            layoutParams = LinearLayout.LayoutParams(ui.dp(150), ui.dp(150)).apply { marginEnd = ui.dp(14) }
+        })
+        val legend = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+        if (parts.isEmpty()) legend.addView(ui.hint(L.t("מעלים דוח רבעוני, והתיק יופיע כאן.", "Upload a quarterly report and the portfolio shows here."), top = 0))
+        parts.forEachIndexed { i, (name, v) ->
+            legend.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, ui.dp(4), 0, ui.dp(4))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                addView(View(this@SavingsActivity).apply { background = DS.rounded(PALETTE[i % PALETTE.size], ui.dp(5).toFloat()); layoutParams = LinearLayout.LayoutParams(ui.dp(10), ui.dp(10)).apply { marginEnd = ui.dp(8) } })
+                addView(LinearLayout(this@SavingsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    addView(TextView(this@SavingsActivity).apply { text = name; textSize = 13f; setTextColor(DS.ink(this@SavingsActivity)); maxLines = 2; ellipsize = TextUtils.TruncateAt.END; textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
+                    addView(TextView(this@SavingsActivity).apply {
+                        text = "\u2068${FamilyItems.money(v)}\u2069 · ${Math.round(v / total * 100)}%"; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity))
+                    })
+                })
+            })
+        }
+        row.addView(legend)
+        card.addView(row)
+
+        // The three numbers.
+        val stats = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) } }
+        fun stat(label: String, value: String, color: Int, sub: String, n: Int) = stats.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10))
+            background = DS.rounded(DS.cardAlt(this@SavingsActivity), ui.dp(14).toFloat())
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (n < 2) marginEnd = ui.dp(8) }
+            addView(TextView(this@SavingsActivity).apply { text = label; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity)) })
+            addView(amount(value, 17f, color).apply { setPadding(0, ui.dp(4), 0, 0) })
+            if (sub.isNotEmpty()) addView(TextView(this@SavingsActivity).apply { text = sub; textSize = 11f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0) })
+            contentDescription = listOf(label, value, sub).filter { it.isNotBlank() }.joinToString(", ")
+        })
+        stat(L.t("יש בתיק", "In the portfolio"), FamilyItems.money(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
+        stat(L.t("תשואה השנה", "Return this year"), ytd?.let { pct(it) } ?: "—", ytd?.let { if (it >= 0) UP else DOWN } ?: DS.inkSoft(this),
+            last12?.let { L.t("12 חודשים: ${pct(it)}", "12 months: ${pct(it)}") } ?: L.t("גמל נט", "Gemel-Net"), 1)
+        stat(L.t("הפקדה חודשית", "Each month"), FamilyItems.money(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
+        card.addView(stats)
+
+        card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר) ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
+            "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance) plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
+        return card
     }
 }
