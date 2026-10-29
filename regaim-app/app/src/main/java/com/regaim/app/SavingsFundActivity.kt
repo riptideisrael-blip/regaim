@@ -248,7 +248,13 @@ class SavingsFundActivity : AppCompatActivity() {
         val o = GemelNet.cached(this, fund.gemelId)
         if (fund.kind == Savings.Kind.CRYPTO) content.addView(ui.hint(L.t("כמה יש היום = היחידות מהדוח במחיר של היום, ועוד הקניות החודשיות מאז (כל אחת לפי המחיר ביום הקנייה, בשווי של היום). מחירים: CoinGecko, בשקלים. הערכה, לא המלצה.",
             "Today = the statement's units at today's price, plus the monthly buys since (each at its day's price, valued today). Prices: CoinGecko, in shekels. An estimate, not advice."), top = 10))
-        else content.addView(ui.hint(if (fund.gemelId > 0) L.t("תשואות רשמיות: ${fund.gemelName} (קופה ${fund.gemelId}, גמל נט${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " עד $it" }}). כמה יש היום = היתרה בדוח האחרון לפי התשואות האלה, ועוד ההפקדות. הערכה, לא המלצה.",
+        else if (!isNew) {
+            // Which Gemel-Net fund this is: found by company and track, or chosen here.
+            content.addView(ui.row(if (fund.gemelId > 0) L.t("גמל נט: ${fund.gemelName}", "Gemel-Net: ${fund.gemelName}") else L.t("גמל נט: לא נמצאה · בחירה מהרשימה", "Gemel-Net: not found · choose from the list"),
+                L.t("שינוי ›", "Change ›"), top = 12) { chooseGemel() })
+            GemelNet.lastError(this).takeIf { it.isNotEmpty() && fund.gemelId == 0 }?.let { content.addView(ui.hint(L.t("החיבור לגמל נט נכשל בפעם האחרונה: $it", "Gemel-Net couldn't be reached last time: $it"), top = 2)) }
+        }
+        if (fund.kind != Savings.Kind.CRYPTO) content.addView(ui.hint(if (fund.gemelId > 0) L.t("תשואות רשמיות: ${fund.gemelName} (קופה ${fund.gemelId}, גמל נט${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " עד $it" }}). כמה יש היום = היתרה בדוח האחרון לפי התשואות האלה, ועוד ההפקדות. הערכה, לא המלצה.",
                 "Official returns: ${fund.gemelName} (fund ${fund.gemelId}, Gemel-Net${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " to $it" }}). Today = the last report's balance at these returns, plus the deposits. An estimate, not advice.")
             else L.t("הקופה עוד לא זוהתה בגמל נט (לפי החברה והמסלול). עד אז: כמה יש היום = היתרה בדוח האחרון ועוד ההפקדות, בלי ניחוש תשואה.",
                 "Not found at Gemel-Net yet (by company and track). Until then: today = the last report's balance plus the deposits, no guessed return."), top = 10))
@@ -295,6 +301,39 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         Toast.makeText(this, L.t("נשמר ✓", "Saved ✓"), Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    /** The Gemel-Net list for this kind of fund, this company's first; the parent picks the one that's theirs. */
+    private fun chooseGemel() {
+        fromFields()
+        Toast.makeText(this, L.t("טוענים את רשימת הקופות מגמל נט…", "Loading the funds from Gemel-Net…"), Toast.LENGTH_SHORT).show()
+        Thread {
+            val list = try { Result.success(GemelNet.choices(fund.kind)) } catch (e: Exception) { Result.failure(e) }
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                val all = list.getOrNull()
+                if (all.isNullOrEmpty()) {
+                    Toast.makeText(this, L.t("לא הצלחנו להגיע לגמל נט: ", "Couldn't reach Gemel-Net: ") + (list.exceptionOrNull()?.message ?: L.t("רשימה ריקה", "empty list")), Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                val co = fund.provider.trim().split(' ').firstOrNull().orEmpty()
+                val sorted = all.sortedBy { if (co.isNotEmpty() && it.second.contains(co)) 0 else 1 }
+                AlertDialog.Builder(this).setTitle(L.t("איזו קופה בגמל נט?", "Which Gemel-Net fund?"))
+                    .setItems(sorted.map { Savings.isolateLatin(it.second) }.toTypedArray()) { _, i ->
+                        val (id, name) = sorted[i]
+                        Thread {
+                            val r = try { GemelNet.link(applicationContext, fund, id, name) } catch (_: Exception) { null }
+                            runOnUiThread {
+                                if (isDestroyed) return@runOnUiThread
+                                if (r != null) fund = fund.copy(gemelId = r.gemelId, gemelName = r.gemelName, updated = r.updated)
+                                fresh = true; render()
+                                FamilyFileSync.kick(this, force = true)
+                            }
+                        }.start()
+                    }
+                    .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
+            }
+        }.start()
     }
 
     private fun coinName(sym: String) = when (sym) {

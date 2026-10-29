@@ -584,7 +584,8 @@ object ClaudeClient {
         if (!pdfBase64.isNullOrEmpty()) content.put(JSONObject().put("type", "document")
             .put("source", JSONObject().put("type", "base64").put("media_type", "application/pdf").put("data", pdfBase64)))
         content.put(JSONObject().put("type", "text").put("text", "Read this report."))
-        val body = JSONObject().put("model", CHAT_MODEL).put("max_tokens", 500).put("system", system)
+        // The stronger reader: Hebrew statements with tables, dollars and several coins (the small model failed on them).
+        val body = JSONObject().put("model", VISION_MODEL).put("max_tokens", 1200).put("system", system)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
         TestMode.guard()
         val answer = AiGate.claude(ctx, body, "family_file", if (jpegBase64.isNullOrEmpty()) 0 else 1, consentedNow = true)

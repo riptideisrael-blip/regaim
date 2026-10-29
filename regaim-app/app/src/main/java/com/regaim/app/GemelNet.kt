@@ -57,6 +57,20 @@ object GemelNet {
     private fun latestPeriod(): Int = get(mapOf("fields" to "REPORT_PERIOD", "sort" to "REPORT_PERIOD desc", "limit" to "1"))
         .getJSONArray("records").getJSONObject(0).optInt("REPORT_PERIOD")
 
+    /** Every fund of that kind's list at Gemel-Net (number, name), for the parent to choose from. Background thread. */
+    fun choices(kind: Savings.Kind): List<Pair<Int, String>> = candidates(Savings.classification(kind)).sortedBy { it.second }
+
+    /** Links a fund to a Gemel-Net fund the parent chose, and fetches its months. Background thread. */
+    fun link(ctx: Context, f: Savings.Fund, id: Int, name: String): Savings.Fund {
+        val saved = FamilyFile.saveFund(ctx, f.copy(gemelId = id, gemelName = name, updated = System.currentTimeMillis()))
+        fetchYields(ctx, id)
+        return saved
+    }
+
+    /** What went wrong the last time Gemel-Net was asked (shown on the fund's screen), or "" when it worked. */
+    fun lastError(ctx: Context): String = Settings.prefs(ctx).getString("gemelnet_error", "").orEmpty()
+    private fun setError(ctx: Context, e: Throwable?) = Settings.prefs(ctx).edit().putString("gemelnet_error", e?.let { (it.javaClass.simpleName + ": " + it.message.orEmpty()).take(160) } ?: "").apply()
+
     /** The funds in a list at Gemel-Net in its latest month (number and name). */
     private fun candidates(classification: String): List<Pair<Int, String>> {
         val latest = latestPeriod()
@@ -101,14 +115,14 @@ object GemelNet {
             if (fund.kind == Savings.Kind.CRYPTO) continue // not at Gemel-Net: priced by CryptoPrices
             if (fund.gemelId == 0 && fund.provider.isNotBlank()) {
                 val cls = Savings.classification(fund.kind)
-                val found = try { Savings.pickGemel(lists.getOrPut(cls) { candidates(cls) }, fund.provider, fund.track) } catch (_: Exception) { null }
+                val found = try { Savings.pickGemel(lists.getOrPut(cls) { candidates(cls) }, fund.provider, fund.track).also { setError(ctx, null) } } catch (e: Exception) { setError(ctx, e); null }
                 if (found != null) {
                     fund = FamilyFile.saveFund(ctx, fund.copy(gemelId = found.first, gemelName = found.second, updated = System.currentTimeMillis()))
                     changed = true
                 }
             }
             if (fund.gemelId > 0 && System.currentTimeMillis() - fetchedAt(ctx, fund.gemelId) > 12 * 3600_000L) {
-                try { fetchYields(ctx, fund.gemelId); changed = true } catch (_: Exception) { }
+                try { fetchYields(ctx, fund.gemelId); changed = true; setError(ctx, null) } catch (e: Exception) { setError(ctx, e) }
             }
             // The other funds of its list, to show it next to its track (public numbers only).
             val cls = Savings.classification(fund.kind)
