@@ -145,8 +145,12 @@ class SavingsFundActivity : AppCompatActivity() {
             }
             content.addView(card)
         }
-        content.addView(ui.hint(L.t("כמה יש היום (הערכה) = היתרה בדוח האחרון, עם התשואה שהדוח הראה בתקופה שלו, ועוד ההפקדות מאז. זו לא תחזית ולא המלצה: הדוח הבא מביא את המספר האמיתי.",
-            "Today (estimate) = the last report's balance at the return that report showed for its period, plus the deposits since. Not a forecast or advice: the next report brings the real number."), top = 10))
+        // Where today's amount comes from.
+        val o = GemelNet.cached(this, fund.gemelId)
+        content.addView(ui.hint(if (fund.gemelId > 0) L.t("תשואות רשמיות: ${fund.gemelName} (קופה ${fund.gemelId}, גמל נט${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " עד $it" }}). כמה יש היום = היתרה בדוח האחרון לפי התשואות האלה, ועוד ההפקדות. הערכה, לא המלצה.",
+                "Official returns: ${fund.gemelName} (fund ${fund.gemelId}, Gemel-Net${GemelNet.latestLabel(o).let { if (it.isEmpty()) "" else " to $it" }}). Today = the last report's balance at these returns, plus the deposits. An estimate, not advice.")
+            else L.t("הקופה עוד לא זוהתה בגמל נט (לפי החברה והמסלול). עד אז: כמה יש היום = היתרה בדוח האחרון ועוד ההפקדות, בלי ניחוש תשואה.",
+                "Not found at Gemel-Net yet (by company and track). Until then: today = the last report's balance plus the deposits, no guessed return."), top = 10))
 
         content.addView(ui.button(L.t("שמירה", "Save"), primary = true, top = 18) { save() })
         if (!isNew) content.addView(ui.action(L.t("מחיקת הקופה", "Delete the fund"), R.color.ds_error) {
@@ -170,6 +174,9 @@ class SavingsFundActivity : AppCompatActivity() {
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {
             Toast.makeText(this, L.t("חסרים תאריך או יתרה בדוח (תאריך: יום.חודש.שנה)", "The report's date or balance is missing (date: day.month.year)"), Toast.LENGTH_LONG).show(); return
         }
+        // A different company, track or kind: found again at Gemel-Net.
+        val before = FamilyFile.savings(this).firstOrNull { it.id == fund.id }
+        if (before != null && (before.provider != fund.provider || before.track != fund.track || before.kind != fund.kind)) fund = fund.copy(gemelId = 0, gemelName = "")
         val saved = FamilyFile.saveFund(this, (if (p != null) Savings.withReport(fund, p) else fund).copy(updated = System.currentTimeMillis()))
         FamilyFileSync.kick(this, force = true)
         // The report document: now filed under the child, with a clear title.

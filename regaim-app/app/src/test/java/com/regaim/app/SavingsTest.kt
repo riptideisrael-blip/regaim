@@ -58,17 +58,13 @@ class SavingsTest {
         assertEquals(listOf(f), Savings.listFromJson(Savings.listToJson(listOf(f))))
     }
 
-    @Test fun estimateGrowsAtTheReportsReturn() {
-        // A quarter's +3% ≈ 0.99% a month; one month since, plus 100 ₪ deposited.
-        val f = Fund("1", "uri", monthly = 100.0, reports = listOf(Report("2026-09-30", 10000.0, returnPct = 3.0, months = 3)))
+    @Test fun noGuessedReturnWithoutOfficialData() {
+        // A bad quarter (-5.66%) isn't carried forward: without official returns, only the deposits are added.
+        val f = Fund("1", "uri", monthly = 100.0, reports = listOf(Report("2026-09-30", 10000.0, returnPct = -5.66, months = 3)))
         val e = Savings.estimate(f, today)!!
-        val g = Math.pow(1.03, 1.0 / 3) - 1
-        assertEquals(10000 * (1 + g) + 100, e.total, 0.01)
-        assertEquals(10000 * g, e.growth, 0.01)
-        assertEquals(g * 100, e.ratePct!!, 0.0001)
-        assertEquals(3.0, e.periodReturnPct!!, 0.0)
-        // A loss the same way.
-        assertEquals(true, Savings.estimate(f.copy(reports = listOf(Report("2026-09-30", 10000.0, returnPct = -1.5))), today)!!.growth < 0)
+        assertEquals(10100.0, e.total, 0.001)
+        assertNull(e.ratePct)
+        assertEquals(-5.66, e.periodReturnPct!!, 0.0)
     }
 
     @Test fun bothParentsReportsJoin() {
@@ -85,5 +81,35 @@ class SavingsTest {
         // Monthly from the period's deposits when the report doesn't say it.
         val r = Savings.reading(JSONObject("""{"deposits_in_period":342,"period_months":3}"""))
         assertEquals(114.0, r.perMonth!!, 0.001)
+    }
+
+    /** A real case: the Q1 report (31.3.2026, 4,344 ₪, 200 ₪ a month, fee 0.70%) and the Q3 report said 6,217 ₪. */
+    @Test fun officialReturnsMatchTheNextReport() {
+        val q1 = Fund("1", "uri", Savings.Kind.PRIVATE, "הראל", track = "עוקב מדד S&P 500", monthly = 200.0,
+            reports = listOf(Report("2026-03-31", 4344.0, 600.0, -5.66, 0.70, months = 3)))
+        val gemel = Savings.Official(mapOf(202601 to -1.62, 202602 to 0.11, 202603 to -4.22, 202604 to 3.23, 202605 to 0.44,
+            202606 to 4.72, 202607 to 2.18, 202608 to 0.9, 202609 to 2.07))
+        val e = Savings.estimateOfficial(q1, "2026-09-30", gemel)!!
+        assertEquals(6217.0, e.total, 10.0) // the September report said 6,217 ₪
+        // October isn't published yet: only its deposit is added.
+        assertEquals(e.total + 200, Savings.estimateOfficial(q1, "2026-10-29", gemel)!!.total, 0.01)
+        // The quarter's months compound to the report's own -5.66%.
+        assertEquals(-5.66, ((1 - 0.0162) * (1 + 0.0011) * (1 - 0.0422) - 1) * 100, 0.02)
+        // Not found there: the last balance and the deposits, no guessed return.
+        assertEquals(4344.0 + 7 * 200, Savings.best(q1, "2026-10-29", null)!!.total, 0.01)
+    }
+
+    @Test fun findsTheFundAtGemelNet() {
+        val sp = listOf(7958 to "מור גמל להשקעה - עוקב מדד S&P500", 13414 to "הראל גמל להשקעה עוקב מדד s&p 500",
+            13563 to "מגדל גמל להשקעה עוקב מדד s&p500", 14865 to "אלטשולר שחם חיסכון פלוס עוקב מדד S&P 500")
+        assertEquals(13414, Savings.pickGemel(sp, "הראל גמל להשקעה", "עוקב מדד S&P 500")?.first)
+        assertEquals(14865, Savings.pickGemel(sp, "אלטשולר שחם", "S&P500")?.first)
+        val kids = listOf(11375 to "הראל חיסכון לילד - חוסכים המעדיפים סיכון מועט", 11376 to "הראל חיסכון לילד - חוסכים המעדיפים סיכון בינוני",
+            11377 to "הראל חיסכון לילד - חוסכים המעדיפים סיכון מוגבר", 9555 to "הראל חיסכון לילד - הלכה", 9420 to "מור חיסכון לילד - חוסכים המעדיפים סיכון מוגבר")
+        assertEquals(11377, Savings.pickGemel(kids, "הראל", "סיכון מוגבר")?.first)
+        assertEquals(9555, Savings.pickGemel(kids, "הראל", "הלכה")?.first)
+        assertEquals(9420, Savings.pickGemel(kids, "מור בית השקעות", "חוסכים המעדיפים סיכון מוגבר")?.first)
+        assertNull(Savings.pickGemel(kids, "הראל", ""))          // several tracks, none said: don't guess
+        assertNull(Savings.pickGemel(kids, "מיטב", "סיכון מוגבר")) // not in the list
     }
 }

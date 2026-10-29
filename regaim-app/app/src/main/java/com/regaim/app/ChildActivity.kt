@@ -154,7 +154,7 @@ class ChildActivity : AppCompatActivity() {
         content.addView(ui.section(L.t("החיסכון של ${kid.name}", "${kid.name}'s savings")))
         val sc = ui.card(top = 8)
         val today = java.time.LocalDate.now().toString()
-        val saved = Savings.childTotal(funds, kid.id, today)
+        val saved = Savings.childTotal(funds, kid.id, today) { GemelNet.cached(this, it.gemelId) }
         val monthly = funds.sumOf { it.perMonth }
         sc.addView(ui.row(
             if (funds.isEmpty()) L.t("מוסיפים קופה או מעלים דוח רבעוני", "Add a fund or upload a quarterly report")

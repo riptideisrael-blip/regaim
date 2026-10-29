@@ -40,6 +40,9 @@ object Savings {
         val note: String = "",
         /** When it was last changed (either parent): the newer details win when both phones changed it. */
         val updated: Long = 0L,
+        /** The fund's number in Gemel-Net (the Ministry of Finance's monthly returns), and its name there; 0 = not found. */
+        val gemelId: Int = 0,
+        val gemelName: String = "",
     ) {
         val lastReport: Report? get() = reports.maxByOrNull { it.date }
         val perMonth: Double get() = monthly + stateMonthly
@@ -59,37 +62,18 @@ object Savings {
     data class Estimate(val total: Double, val reported: Double, val depositedSince: Double, val months: Int, val asOf: String,
                         val growth: Double = 0.0, val ratePct: Double? = null, val periodReturnPct: Double? = null)
 
-    /** The report's return spread evenly over its months (a quarter's 4.2% → about 1.38% a month), or null. */
-    fun monthlyRate(f: Fund): Double? {
-        val r = f.lastReport ?: return null
-        val pct = r.returnPct ?: return null
-        val period = (r.months ?: f.reports.sortedBy { it.date }.let { rs ->
-            val i = rs.indexOf(r); if (i > 0) monthsSince(rs[i - 1].date, r.date).takeIf { it in 1..12 } else null
-        } ?: 3).coerceIn(1, 12)
-        return Math.pow(1 + pct / 100.0, 1.0 / period) - 1
-    }
-
     /**
-     * The fund now: the last report's balance, grown at the report's own return (when it said one), plus the
-     * deposits since (each growing from its month). An estimate: the next report brings the real number.
+     * The fund now: from the official monthly returns when the fund was found at Gemel-Net ([estimateOfficial]);
+     * otherwise the last report's balance plus the deposits since (no guessed return). Null before the first report.
      */
-    fun estimate(f: Fund, today: String): Estimate? {
-        val r = f.lastReport ?: return null
-        val m = monthsSince(r.date, today)
-        val g = monthlyRate(f)
-        val rate = g ?: 0.0
-        var total = r.balance * Math.pow(1 + rate, m.toDouble())
-        for (i in 1..m) total += f.perMonth * Math.pow(1 + rate, (m - i).toDouble())
-        val added = m * f.perMonth
-        return Estimate(total, r.balance, added, m, r.date, total - r.balance - added,
-            g?.let { (Math.pow(1 + it, m.toDouble()) - 1) * 100 }, r.returnPct)
-    }
+    fun estimate(f: Fund, today: String, o: Official? = null): Estimate? = best(f, today, o)
 
     /** A child's total now (estimated), over the funds that have a report. */
-    fun childTotal(funds: List<Fund>, child: String, today: String): Double =
-        funds.filter { it.child == child }.sumOf { estimate(it, today)?.total ?: 0.0 }
+    fun childTotal(funds: List<Fund>, child: String, today: String, official: (Fund) -> Official? = { null }): Double =
+        funds.filter { it.child == child }.sumOf { estimate(it, today, official(it))?.total ?: 0.0 }
 
-    fun familyTotal(funds: List<Fund>, today: String): Double = funds.sumOf { estimate(it, today)?.total ?: 0.0 }
+    fun familyTotal(funds: List<Fund>, today: String, official: (Fund) -> Official? = { null }): Double =
+        funds.sumOf { estimate(it, today, official(it))?.total ?: 0.0 }
 
     /** The fund a new report belongs to: same child, same company and (when known) same track; else null (a new fund). */
     fun match(funds: List<Fund>, child: String, provider: String, track: String): Fund? {
@@ -123,6 +107,7 @@ object Savings {
 
     fun toJson(f: Fund): JSONObject = JSONObject().put("id", f.id).put("child", f.child).put("kind", f.kind.id).put("provider", f.provider)
         .put("name", f.name).put("track", f.track).put("monthly", f.monthly).put("stateMonthly", f.stateMonthly).put("note", f.note).put("updated", f.updated)
+        .put("gemelId", f.gemelId).put("gemelName", f.gemelName)
         .put("reports", JSONArray().apply {
             f.reports.forEach { r ->
                 put(JSONObject().put("date", r.date).put("balance", r.balance).put("deposits", r.deposits ?: JSONObject.NULL)
@@ -134,7 +119,7 @@ object Savings {
     fun fromJson(o: JSONObject): Fund = Fund(
         id = o.optString("id"), child = o.optString("child"), kind = Kind.of(o.optString("kind")), provider = o.optString("provider"),
         name = o.optString("name"), track = o.optString("track"), monthly = num(o, "monthly") ?: 0.0, stateMonthly = num(o, "stateMonthly") ?: 0.0,
-        note = o.optString("note"), updated = o.optLong("updated"),
+        note = o.optString("note"), updated = o.optLong("updated"), gemelId = o.optInt("gemelId"), gemelName = o.optString("gemelName"),
         reports = (o.optJSONArray("reports") ?: JSONArray()).let { a ->
             (0 until a.length()).mapNotNull { a.optJSONObject(it) }.mapNotNull { r ->
                 val d = FamilyItems.cleanDate(r.optString("date")); val b = num(r, "balance")
@@ -167,4 +152,74 @@ object Savings {
             when (s("kind")) { "child_savings" -> Kind.CHILD_SAVINGS; "private" -> Kind.PRIVATE; else -> null }, s("child_name"),
             if (o.isNull("period_months")) null else o.optInt("period_months").takeIf { it in 1..12 })
     }
+
+    // ---- Official monthly returns (Gemel-Net, data.gov.il) ----
+
+    /** A month as yyyymm (e.g. 202609). */
+    fun ym(date: String): Int = try { LocalDate.parse(date).let { it.year * 100 + it.monthValue } } catch (_: Exception) { 0 }
+    private fun nextYm(m: Int) = if (m % 100 == 12) (m / 100 + 1) * 100 + 1 else m + 1
+
+    /** Which list a kind of savings is in, at Gemel-Net. */
+    fun classification(k: Kind) = if (k == Kind.CHILD_SAVINGS) "קופת גמל להשקעה - חסכון לילד" else "קופת גמל להשקעה"
+
+    private val COMPANIES = listOf("הראל", "מור", "מגדל", "הפניקס", "מנורה", "אלטשולר", "מיטב", "ילין", "אנליסט", "אינפיניטי", "כלל", "איילון", "פסגות", "אקסלנס")
+
+    private fun norm(s: String) = s.lowercase().replace("&", "").replace(Regex("""[^\p{L}\p{N}]+"""), " ").replace(Regex("""\bs\s*p\s*500\b"""), "sp500").replace(Regex("""\bsp\s+500\b"""), "sp500").trim()
+
+    /**
+     * The Gemel-Net fund that is this fund: the same company, and the track's words in its name ("עוקב מדד S&P 500",
+     * "סיכון מוגבר", "הלכה"). Null when it isn't clear (then the parent sees no official returns, never a wrong one).
+     */
+    fun pickGemel(candidates: List<Pair<Int, String>>, provider: String, track: String): Pair<Int, String>? {
+        val company = COMPANIES.firstOrNull { norm(provider).contains(norm(it)) } ?: norm(provider).split(' ').firstOrNull { it.length >= 2 } ?: return null
+        val mine = candidates.filter { norm(it.second).contains(norm(company)) }
+        if (mine.isEmpty()) return null
+        val words = norm(track).split(' ').filter { it.length >= 2 && it !in setOf("מסלול", "עוקב", "מדד", "חוסכים", "המעדיפים", "לחוסכים") }
+        if (words.isEmpty()) return mine.singleOrNull()
+        val scored = mine.map { c -> c to words.count { w -> norm(c.second).split(' ').any { it == w || it.startsWith(w) } } }
+        val best = scored.maxOf { it.second }
+        if (best < words.size) return null // every word of the track must be there
+        return scored.filter { it.second == best }.singleOrNull()?.first
+    }
+
+    /** The months published at Gemel-Net for a fund: yyyymm → that month's return in percent. */
+    data class Official(val yields: Map<Int, Double>) {
+        val latest: Int get() = yields.keys.maxOrNull() ?: 0
+    }
+
+    /**
+     * The fund now from the official returns: from the month after the report, each published month grows the
+     * balance by that month's return (less the management fee, a twelfth of the yearly rate) and adds that month's
+     * deposit (with about half the month's return); months not published yet add only the deposit. Checked on a real
+     * case: from the March report to September it came to 6,220 ₪, and the September report said 6,217 ₪.
+     */
+    fun estimateOfficial(f: Fund, today: String, o: Official?): Estimate? {
+        val r = f.lastReport ?: return null
+        if (o == null || o.yields.isEmpty()) return null
+        val end = ym(today)
+        var m = nextYm(ym(r.date))
+        var total = r.balance
+        var months = 0; var grownMonths = 0; var growthFactor = 1.0
+        val fee = (r.feesPct ?: 0.0) / 100.0 / 12.0
+        while (m <= end) {
+            val y = o.yields[m]
+            if (y != null) {
+                val g = (1 + y / 100.0) * (1 - fee)
+                // The deposit comes in during the month (around the 10th): it gets about half of the month's return.
+                total = total * g + f.perMonth * (1 + (g - 1) / 2)
+                growthFactor *= g; grownMonths++
+            } else total += f.perMonth
+            months++
+            m = nextYm(m)
+        }
+        val added = months * f.perMonth
+        return Estimate(total, r.balance, added, months, r.date, total - r.balance - added,
+            if (grownMonths > 0) (growthFactor - 1) * 100 else null, r.returnPct)
+    }
+
+    /** The best estimate: official returns when the fund was found there; else the last balance plus the deposits since. */
+    fun best(f: Fund, today: String, o: Official?): Estimate? =
+        estimateOfficial(f, today, o) ?: f.lastReport?.let { r ->
+            val m = monthsSince(r.date, today); Estimate(r.balance + m * f.perMonth, r.balance, m * f.perMonth, m, r.date, 0.0, null, r.returnPct)
+        }
 }

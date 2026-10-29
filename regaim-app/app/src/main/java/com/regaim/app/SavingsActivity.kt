@@ -56,6 +56,8 @@ class SavingsActivity : AppCompatActivity() {
         if (!FamilyFile.consented(this)) return
         render()
         FamilyFileSync.kick(this) { runOnUiThread { if (!isDestroyed) render() } }
+        // The official monthly returns (public data, nothing about the family is sent).
+        worker.execute { val got = try { GemelNet.refresh(applicationContext) } catch (_: Exception) { false }; if (got) runOnUiThread { if (!isDestroyed) render() } }
     }
     override fun onDestroy() { worker.shutdownNow(); super.onDestroy() }
 
@@ -79,7 +81,7 @@ class SavingsActivity : AppCompatActivity() {
         }
 
         // The headline: how much there is now (an estimate, said so).
-        val total = funds.sumOf { Savings.estimate(it, today)?.total ?: 0.0 }
+        val total = funds.sumOf { Savings.estimate(it, today, off(it))?.total ?: 0.0 }
         content.addView(ui.card(top = 12).apply {
             setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
             background = DS.rounded(DS.primary(this@SavingsActivity), ui.dp(22).toFloat())
@@ -89,10 +91,11 @@ class SavingsActivity : AppCompatActivity() {
             addView(TextView(this@SavingsActivity).apply {
                 text = listOfNotNull(
                     if (monthly > 0) L.t("נכנסים ${FamilyItems.money(monthly)} בחודש", "${FamilyItems.money(monthly)} goes in each month") else null,
-                    funds.mapNotNull { Savings.estimate(it, today) }.sumOf { it.growth }.takeIf { it != 0.0 }?.let { g ->
+                    funds.mapNotNull { Savings.estimate(it, today, off(it)) }.sumOf { it.growth }.takeIf { it != 0.0 }?.let { g ->
                         L.t("רווח/הפסד משוער מאז הדוחות: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}", "Estimated gain/loss since the reports: ${sign(g)}${FamilyItems.money(kotlin.math.abs(g))}")
                     },
-                    L.t("הערכה: היתרה בדוח האחרון של כל קופה, עם התשואה שהדוח הראה, ועוד ההפקדות מאז. הדוח הבא מביא את המספר האמיתי.", "Estimate: each fund's last balance at the return its report showed, plus the deposits since. The next report brings the real number."),
+                    L.t("הערכה: היתרה בדוח האחרון, לפי התשואות החודשיות הרשמיות של הקופה (גמל נט, משרד האוצר) מאז, ועוד ההפקדות. חודש שעוד לא פורסם מוסיף רק את ההפקדה.",
+                        "Estimate: the last report's balance at the fund's official monthly returns since (Gemel-Net, Ministry of Finance), plus the deposits. A month not yet published adds only the deposit."),
                 ).joinToString("\n")
                 textSize = 12.5f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(6), 0, 0)
             })
@@ -105,7 +108,7 @@ class SavingsActivity : AppCompatActivity() {
 
         for (k in shownKids) {
             val mine = funds.filter { it.child == k.id }
-            val sum = mine.sumOf { Savings.estimate(it, today)?.total ?: 0.0 }
+            val sum = mine.sumOf { Savings.estimate(it, today, off(it))?.total ?: 0.0 }
             content.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(24) }
@@ -130,15 +133,19 @@ class SavingsActivity : AppCompatActivity() {
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
     }
 
+    /** The fund's official months (Gemel-Net), kept on the phone. */
+    private fun off(f: Savings.Fund) = GemelNet.cached(this, f.gemelId)
+
     private fun sign(v: Double) = if (v >= 0) "+" else "−"
     private fun pct(v: Double) = sign(v) + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(v)) + "%"
 
     private fun fundRow(f: Savings.Fund, today: String): View {
-        val e = Savings.estimate(f, today)
+        val e = Savings.estimate(f, today, off(f))
         val meta = listOfNotNull(
             f.kind.label,
             e?.periodReturnPct?.let { L.t("תשואה בדוח: ${pct(it)}", "Report's return: ${pct(it)}") },
-            e?.ratePct?.takeIf { e.months > 0 }?.let { L.t("מאז (משוער): ${pct(it)}", "Since (est.): ${pct(it)}") },
+            e?.ratePct?.let { L.t("מאז הדוח: ${pct(it)} (גמל נט עד ${GemelNet.latestLabel(off(f))})", "Since the report: ${pct(it)} (Gemel-Net to ${GemelNet.latestLabel(off(f))})") }
+                ?: if (f.lastReport != null && f.gemelId == 0) L.t("לא נמצאה בגמל נט: יתרה + הפקדות", "Not found at Gemel-Net: balance + deposits") else null,
             f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${FamilyItems.money(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
             if (f.perMonth > 0) L.t("+${FamilyItems.money(f.perMonth)} בחודש", "+${FamilyItems.money(f.perMonth)} a month") else null,
