@@ -58,7 +58,7 @@ class MemoriesActivity : AppCompatActivity() {
     /** The other parent's moments (the shared gallery), kept from last time and refreshed in the background. */
     private var partner: List<Circle.Post> = emptyList()
     private var partnerBusy = false
-    private val covers = Executors.newFixedThreadPool(2)
+    private val covers = Executors.newFixedThreadPool(4)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -351,7 +351,8 @@ class MemoriesActivity : AppCompatActivity() {
             runOnUiThread {
                 partnerBusy = false
                 if (isFinishing || got == null) return@runOnUiThread
-                val changed = got.map { it.id } != partner.map { it.id }
+                // New links too (they expire after an hour): pictures that failed with an old link load now.
+                val changed = got.map { it.id to it.cover } != partner.map { it.id to it.cover }
                 partner = got
                 if (changed) reload()
             }
