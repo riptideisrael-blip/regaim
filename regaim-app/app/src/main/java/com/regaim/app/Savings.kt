@@ -357,6 +357,15 @@ object Savings {
     /** Dollars to ₪ at the day's rate; null without a rate. */
     fun usdToIls(usd: Double, date: String, p: Prices?): Double? = usdRate(date, p)?.let { usd * it }
 
+    /** A crypto fund split by coin: each coin's share of its worth at today's prices (empty without prices). */
+    fun coinShares(f: Fund, p: Prices?): Map<String, Double> {
+        if (p == null) return emptyMap()
+        val units = (f.lastReport?.coins ?: emptyMap()).ifEmpty { f.coins.associate { it.symbol to it.units } }
+        val worth = units.mapNotNull { (s, u) -> p.now[s]?.let { s to u * it } }.toMap().filterValues { it > 0 }
+        val sum = worth.values.sum()
+        return if (sum <= 0) emptyMap() else worth.mapValues { it.value / sum }
+    }
+
     /** Coins' worth in ₪ on a day (each at that day's price, or the closest before it); null without a price for every coin. */
     fun valueOn(units: Map<String, Double>, date: String, p: Prices?): Double? {
         if (p == null || units.isEmpty() || date.isEmpty()) return null

@@ -80,10 +80,12 @@ class SavingsActivity : AppCompatActivity() {
         val shownKids = if (child.isEmpty()) kids else kids.filter { it.id == child }
         val funds = if (child.isEmpty()) all else all.filter { it.child == child }
 
-        if (kids.size > 1) {
-            val labels = listOf(L.t("כולם", "Everyone")) + kids.map { it.name }
-            val sel = kids.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
-            content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
+        // Who to show: the children, and a parent once they have a fund.
+        val choosable = kids.filter { p -> p.isChild || all.any { it.child == p.id } || p.id == child }
+        if (choosable.size > 1) {
+            val labels = listOf(L.t("כולם", "Everyone")) + choosable.map { it.name }
+            val sel = choosable.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
+            content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else choosable[i - 1].id; render() })
         }
 
         // The portfolio at a glance: a ring of what it's made of, and the three numbers that matter.
@@ -287,12 +289,22 @@ class SavingsActivity : AppCompatActivity() {
         }
         val byChild = child.isEmpty() && kids.size > 1
         val parts: List<Pair<String, Double>> = if (byChild) kids.map { k -> k.name to funds.filter { it.child == k.id }.sumOf { est[it]?.total ?: 0.0 } }.filter { it.second > 0 }
-            else funds.map { it.title to (est[it]?.total ?: 0.0) }.filter { it.second > 0 }
+            else funds.flatMap { f ->
+                val v = est[f]?.total ?: 0.0
+                val shares = if (f.kind == Savings.Kind.CRYPTO) Savings.coinShares(f, CryptoPrices.cached(this)) else emptyMap()
+                if (shares.size > 1) shares.entries.sortedByDescending { it.value }.map { (sym, s) -> coinLabel(sym) to v * s }
+                else listOf(legendName(f) to v)
+            }.filter { it.second > 0 }
 
         val card = ui.card(top = 12)
         card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
         card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של המשפחה", "The family's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true))
 
+        // One part only: the amount, big (a ring of one colour says nothing).
+        if (parts.size <= 1) {
+            card.addView(amount(if (total > 0) ils(total) else "—", 34f, DS.ink(this)).apply { setPadding(0, ui.dp(8), 0, 0) })
+            card.addView(ui.hint(listOfNotNull(L.t("יש היום (הערכה)", "today (estimate)"), parts.firstOrNull()?.first?.replace("\n", " · ")).joinToString(" · "), top = 2))
+        }
         // The ring and its legend.
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) } }
         row.addView(DonutView(this).apply {
@@ -324,7 +336,7 @@ class SavingsActivity : AppCompatActivity() {
             })
         }
         row.addView(legend)
-        card.addView(row)
+        if (parts.size > 1) card.addView(row)
 
         // The three numbers.
         val stats = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) } }
@@ -341,7 +353,12 @@ class SavingsActivity : AppCompatActivity() {
         stat(L.t("יש בתיק", "In the portfolio"), ils(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
         stat(L.t("תשואה השנה", "Return this year"), ytd?.let { pct(it) } ?: "—", ytd?.let { if (it >= 0) UP else DOWN } ?: DS.inkSoft(this),
             ytdSub, 1)
-        stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
+        val who = listOfNotNull(
+            if (funds.any { it.monthly > 0 }) L.t("הורים", "parents") else null,
+            if (funds.any { it.stateMonthly > 0 }) L.t("מדינה", "state") else null,
+            if (funds.any { f -> f.coins.any { it.monthly > 0 } }) L.t("קניית קריפטו", "crypto buys") else null,
+        ).joinToString(" + ")
+        stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), who, 2)
         card.addView(stats)
 
         // What the total is made of: the balances in the reports, what was deposited since, and the gain or loss since.
@@ -349,8 +366,15 @@ class SavingsActivity : AppCompatActivity() {
         if (b.total > 0) card.addView(breakdownBar(b))
         sources(funds)?.let { card.addView(ui.text(it, 12f, R.color.ink_soft, top = 10)) }
 
-        card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר), מטבעות דיגיטליים לפי המחיר של היום, ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
-            "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance), crypto at today's price, plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
+        val hasGemel = funds.any { it.kind != Savings.Kind.CRYPTO && it.gemelId > 0 }
+        val hasPlain = funds.any { it.kind != Savings.Kind.CRYPTO && it.gemelId == 0 && it.lastReport != null }
+        val hasCrypto = funds.any { it.kind == Savings.Kind.CRYPTO }
+        val how = listOfNotNull(
+            if (hasGemel) L.t("היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר) ועוד ההפקדות", "the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance) plus the deposits") else null,
+            if (hasPlain) L.t("קופה שלא נמצאה בגמל נט: היתרה בדוח ועוד ההפקדות, בלי תשואה", "a fund not at Gemel-Net: the report's balance plus the deposits, no return") else null,
+            if (hasCrypto) L.t("מטבעות דיגיטליים: היחידות לפי המחיר של היום", "crypto: the units at today's price") else null,
+        )
+        if (how.isNotEmpty()) card.addView(ui.hint(L.t("הערכה: ", "Estimate: ") + how.joinToString("; ") + L.t(". תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.", ". Past returns don't promise future ones. Information only, not advice."), top = 12))
         return card
     }
 
@@ -394,7 +418,7 @@ class SavingsActivity : AppCompatActivity() {
         line(DS.primary(this@SavingsActivity), L.t("היתרות בדוחות האחרונים", "Balances in the last reports"), ils(b.reported))
         if (b.depositedSince > 0) line(DEPOSITED, L.t("הופקד מאז", "Deposited since"), ils(b.depositedSince))
         if (Math.rint(b.growth) != 0.0) line(if (b.growth >= 0) UP else DOWN, if (b.growth >= 0) L.t("רווח מאז (הערכה)", "Gain since (estimate)") else L.t("הפסד מאז (הערכה)", "Loss since (estimate)"),
-            sign(b.growth) + ils(kotlin.math.abs(b.growth)), if (b.growth >= 0) UP else DOWN)
+            sign(b.growth) + ils(kotlin.math.abs(b.growth)) + ((b.reported + b.depositedSince).takeIf { it > 0 }?.let { " (" + pct(b.growth / it * 100) + ")" } ?: ""), if (b.growth >= 0) UP else DOWN)
     }
 
     /** Where the numbers come from: the last report, Gemel-Net's last month, and when the coin prices were taken. */
@@ -506,6 +530,16 @@ class SavingsActivity : AppCompatActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, L.t("לא הצלחנו להכין את הסיכום", "Couldn't make the summary"), Toast.LENGTH_LONG).show()
         }
+    }
+
+    /** A fund in the ring's legend: the company, and the track on its own line (so "S&P 500" isn't split). */
+    private fun legendName(f: Savings.Fund): String {
+        val second = f.track.ifBlank { f.name }.ifBlank { f.kind.label }
+        return if (f.provider.isBlank()) Savings.isolateLatin(second) else f.provider + "\n" + Savings.isolateLatin(second)
+    }
+
+    private fun coinLabel(sym: String) = when (sym) {
+        "BTC" -> L.t("ביטקוין", "Bitcoin"); "ETH" -> L.t("אתריום", "Ethereum"); "SOL" -> L.t("סולנה", "Solana"); else -> sym
     }
 
     /** Savings in whole shekels (an estimate isn't precise to the agora). */

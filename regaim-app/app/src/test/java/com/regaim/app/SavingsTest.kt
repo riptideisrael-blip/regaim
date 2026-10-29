@@ -268,4 +268,13 @@ class SavingsTest {
         assertNull(Savings.reading(JSONObject().put("fund_number", JSONObject.NULL)).fundNumber)
         assertNull(Savings.reading(JSONObject().put("fund_number", "7")).fundNumber) // too short to be one
     }
+
+    @Test fun cryptoSplitByCoinAtTodaysPrices() {
+        val f = Fund("c", "u", Savings.Kind.CRYPTO, reports = listOf(Report("2026-09-30", 1.0, coins = mapOf("BTC" to 0.01, "ETH" to 0.1))))
+        val p = Savings.Prices(mapOf("BTC" to 300000.0, "ETH" to 10000.0))
+        val s = Savings.coinShares(f, p)
+        assertEquals(0.75, s.getValue("BTC"), 0.0001) // 3,000 of 4,000
+        assertEquals(0.25, s.getValue("ETH"), 0.0001)
+        assertEquals(emptyMap<String, Double>(), Savings.coinShares(f, null))
+    }
 }
