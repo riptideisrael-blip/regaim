@@ -130,7 +130,7 @@ object Savings {
 
     fun fromJson(o: JSONObject): Fund = Fund(
         id = o.optString("id"), child = o.optString("child"), kind = Kind.of(o.optString("kind")), provider = o.optString("provider"),
-        name = o.optString("name"), track = o.optString("track"), monthly = num(o, "monthly") ?: 0.0, stateMonthly = num(o, "stateMonthly") ?: 0.0,
+        name = fixTicker(o.optString("name")), track = fixTicker(o.optString("track")), monthly = num(o, "monthly") ?: 0.0, stateMonthly = num(o, "stateMonthly") ?: 0.0,
         note = o.optString("note"), updated = o.optLong("updated"), gemelId = o.optInt("gemelId"), gemelName = o.optString("gemelName"),
         coins = (o.optJSONArray("coins") ?: JSONArray()).let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { c ->
             Coin(c.optString("symbol").uppercase(), num(c, "units") ?: 0.0, num(c, "monthly") ?: 0.0) }.filter { it.symbol.isNotBlank() } },
@@ -165,7 +165,7 @@ object Savings {
     fun reading(o: JSONObject): Reading {
         fun s(k: String) = o.optString(k).takeIf { !o.isNull(k) && it != "null" }.orEmpty().trim()
         fun d(k: String) = if (o.isNull(k)) null else FamilyItems.cleanAmount(o.opt(k))
-        return Reading(s("provider"), s("fund_name"), s("track"), FamilyItems.cleanDate(s("report_date")), d("balance"), d("deposits_in_period"),
+        return Reading(fixTicker(s("provider")), fixTicker(s("fund_name")), fixTicker(s("track")), FamilyItems.cleanDate(s("report_date")), d("balance"), d("deposits_in_period"),
             d("parent_monthly_deposit"), d("state_monthly_deposit"), if (o.isNull("return_pct")) null else o.optDouble("return_pct").takeIf { !it.isNaN() },
             if (o.isNull("fees_pct")) null else o.optDouble("fees_pct").takeIf { !it.isNaN() },
             when (s("kind")) { "child_savings" -> Kind.CHILD_SAVINGS; "private" -> Kind.PRIVATE; "crypto" -> Kind.CRYPTO; else -> null }, s("child_name"),
@@ -187,7 +187,7 @@ object Savings {
 
     private val COMPANIES = listOf("הראל", "מור", "מגדל", "הפניקס", "מנורה", "אלטשולר", "מיטב", "ילין", "אנליסט", "אינפיניטי", "כלל", "איילון", "פסגות", "אקסלנס")
 
-    private fun norm(s: String) = s.lowercase().replace("&", "").replace(Regex("""[^\p{L}\p{N}]+"""), " ").replace(Regex("""\bs\s*p\s*500\b"""), "sp500").replace(Regex("""\bsp\s+500\b"""), "sp500").trim()
+    private fun norm(s: String) = fixTicker(s).lowercase().replace("&", "").replace(Regex("""[^\p{L}\p{N}]+"""), " ").replace(Regex("""\bs\s*p\s*500\b"""), "sp500").replace(Regex("""\bsp\s+500\b"""), "sp500").trim()
 
     /**
      * The Gemel-Net fund that is this fund: the same company, and the track's words in its name ("עוקב מדד S&P 500",
@@ -393,7 +393,8 @@ object Savings {
     fun history(funds: List<Fund>, today: String, todayTotal: Double): List<Pair<String, Double>> {
         val dates = funds.flatMap { f -> f.reports.map { it.date } }.filter { it <= today }.distinct().sorted()
         val pts = dates.map { d -> d to funds.sumOf { f -> f.reports.filter { it.date <= d }.maxByOrNull { it.date }?.balance ?: 0.0 } }.toMutableList()
-        if (todayTotal > 0 && (pts.isEmpty() || pts.last().first < today)) pts += today to todayTotal
+        // Today's estimate last (it replaces a report dated today: the estimate already includes it).
+        if (todayTotal > 0) { if (pts.isNotEmpty() && pts.last().first == today) pts[pts.size - 1] = today to todayTotal else pts += today to todayTotal }
         return if (pts.size < 2) emptyList() else pts
     }
 
@@ -444,6 +445,12 @@ object Savings {
         val at18 = b.plusYears(18)
         if (!at18.isAfter(t)) 0.0 else java.time.temporal.ChronoUnit.MONTHS.between(t, at18) / 12.0
     } catch (_: Exception) { null }
+
+    /**
+     * A ticker read backwards from a Hebrew PDF (its text kept in visual order): "P&S 500" is "S&P 500".
+     * Applied to what's read and to what's kept, so the fund is found at Gemel-Net and shown right.
+     */
+    fun fixTicker(s: String): String = s.replace(Regex("""(?i)\bP\s*&\s*S\b"""), "S&P")
 
     /** English inside Hebrew ("עוקב מדד S&P 500") kept in its own order, so it isn't shown as "P&S 500". */
     fun isolateLatin(s: String): String = Regex("""[A-Za-z][A-Za-z0-9&.'\- ]*[A-Za-z0-9]|[A-Za-z]""").replace(s) { "\u2066" + it.value + "\u2069" }

@@ -273,8 +273,18 @@ class SavingsActivity : AppCompatActivity() {
         val est = funds.associateWith { est(it, today) }
         val total = est.values.sumOf { it?.total ?: 0.0 }
         val monthly = funds.sumOf { it.perMonth }
-        val ytd = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to (if (it.kind == Savings.Kind.CRYPTO) Savings.yearToDateCrypto(it, CryptoPrices.cached(this), year) else Savings.yearToDate(off(it), year)) })
-        val last12 = Savings.weighted(funds.map { (est[it]?.total ?: 0.0) to Savings.lastYear(off(it)) })
+        val ytdParts = funds.map { it to (if (it.kind == Savings.Kind.CRYPTO) Savings.yearToDateCrypto(it, CryptoPrices.cached(this), year) else Savings.yearToDate(off(it), year)) }
+        val ytd = Savings.weighted(ytdParts.map { (est[it.first]?.total ?: 0.0) to it.second })
+        // Which funds the year's return is about (a fund without official months isn't in it).
+        val counted = ytdParts.filter { it.second != null && (est[it.first]?.total ?: 0.0) > 0 }.map { it.first }
+        val withValue = funds.count { (est[it]?.total ?: 0.0) > 0 }
+        val ytdSub = when {
+            counted.isEmpty() -> L.t("אין עדיין נתונים", "no data yet")
+            counted.size < withValue -> L.t("${counted.size} מתוך $withValue קופות", "${counted.size} of $withValue funds")
+            counted.all { it.kind == Savings.Kind.CRYPTO } -> L.t("קריפטו", "crypto")
+            counted.any { it.kind == Savings.Kind.CRYPTO } -> L.t("גמל נט + קריפטו", "Gemel-Net + crypto")
+            else -> L.t("גמל נט", "Gemel-Net")
+        }
         val byChild = child.isEmpty() && kids.size > 1
         val parts: List<Pair<String, Double>> = if (byChild) kids.map { k -> k.name to funds.filter { it.child == k.id }.sumOf { est[it]?.total ?: 0.0 } }.filter { it.second > 0 }
             else funds.map { it.title to (est[it]?.total ?: 0.0) }.filter { it.second > 0 }
@@ -330,7 +340,7 @@ class SavingsActivity : AppCompatActivity() {
         })
         stat(L.t("יש בתיק", "In the portfolio"), ils(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
         stat(L.t("תשואה השנה", "Return this year"), ytd?.let { pct(it) } ?: "—", ytd?.let { if (it >= 0) UP else DOWN } ?: DS.inkSoft(this),
-            last12?.let { L.t("12 חודשים: ${pct(it)}", "12 months: ${pct(it)}") } ?: L.t("גמל נט", "Gemel-Net"), 1)
+            ytdSub, 1)
         stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
         card.addView(stats)
 
@@ -399,7 +409,8 @@ class SavingsActivity : AppCompatActivity() {
             parts += L.t("מחירי קריפטו מ-$text", "crypto prices from $text")
         }
         val plain = funds.count { it.kind != Savings.Kind.CRYPTO && it.lastReport != null && it.gemelId == 0 }
-        if (plain > 0) parts += L.t("$plain לא נמצאו בגמל נט (יתרה + הפקדות)", "$plain not at Gemel-Net (balance + deposits)")
+        if (plain > 0) parts += if (plain == 1) L.t("קופה אחת לא נמצאה בגמל נט (יתרה + הפקדות)", "one fund not at Gemel-Net (balance + deposits)")
+            else L.t("$plain קופות לא נמצאו בגמל נט (יתרה + הפקדות)", "$plain funds not at Gemel-Net (balance + deposits)")
         return if (parts.isEmpty()) null else L.t("מקורות: ", "Sources: ") + parts.joinToString(" · ") { "⁨$it⁩" }
     }
 

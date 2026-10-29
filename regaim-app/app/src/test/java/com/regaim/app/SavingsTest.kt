@@ -245,4 +245,20 @@ class SavingsTest {
         val f = Fund("c", "u", Savings.Kind.CRYPTO, reports = listOf(Report("2026-09-30", 16790.0, usd = 4600.0)))
         assertEquals(4600.0, Savings.fromJson(Savings.toJson(f)).reports.single().usd!!, 0.001)
     }
+
+    @Test fun tickerReadBackwardsIsFixedAndFound() {
+        assertEquals("עוקב מדד S&P 500", Savings.fixTicker("עוקב מדד P&S 500"))
+        assertEquals("S&P 500", Savings.fixTicker("S&P 500"))
+        val c = listOf(13414 to "הראל גמל להשקעה עוקב מדד s&p 500", 13415 to "הראל גמל להשקעה כללי")
+        assertEquals(13414, Savings.pickGemel(c, "הראל", "עוקב מדד P&S 500")?.first)
+        // A fund kept with the backwards name is fixed when it's read back.
+        val f = Fund("h", "u", provider = "הראל", track = "עוקב מדד P&S 500")
+        assertEquals("עוקב מדד S&P 500", Savings.fromJson(Savings.toJson(f)).track)
+    }
+
+    @Test fun todaysEstimateReplacesAReportDatedToday() {
+        val a = Fund("a", "u", reports = listOf(Report("2026-03-31", 4344.0)))
+        val b = Fund("b", "u", Savings.Kind.CRYPTO, reports = listOf(Report(today, 1171.0)))
+        assertEquals(listOf("2026-03-31" to 4344.0, today to 7338.0), Savings.history(listOf(a, b), today, 7338.0))
+    }
 }
