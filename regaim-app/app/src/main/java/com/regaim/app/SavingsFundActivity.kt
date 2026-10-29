@@ -60,7 +60,7 @@ class SavingsFundActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         content = findViewById(R.id.screenContent)
         ui = Ui(this)
-        val kids = Profile.members(this).filter { it.isChild }
+        val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
         val funds = FamilyFile.savings(this)
         intent.getStringExtra(EXTRA_ID)?.let { id ->
             fund = funds.firstOrNull { it.id == id } ?: run { finish(); return }
@@ -120,7 +120,7 @@ class SavingsFundActivity : AppCompatActivity() {
         if (fProvider != null) fromFields()
         content.removeAllViews()
         findViewById<TextView>(R.id.screenTitle).text = if (isNew) L.t("קופת חיסכון", "Savings fund") else fund.title
-        val kids = Profile.members(this).filter { it.isChild }
+        val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
 
         if (matchedExisting) content.addView(ui.card(top = 12).apply {
             addView(ui.text(L.t("הדוח נוסף לקופה שכבר קיימת", "The report goes to an existing fund"), 15f, bold = true))
@@ -206,7 +206,7 @@ class SavingsFundActivity : AppCompatActivity() {
 
     private fun save() {
         fromFields()
-        if (fund.child.isEmpty()) { Toast.makeText(this, L.t("בחרו של איזה ילד הקופה", "Choose which child the fund is for"), Toast.LENGTH_SHORT).show(); return }
+        if (fund.child.isEmpty()) { Toast.makeText(this, L.t("בחרו של מי הקופה", "Choose whose fund it is"), Toast.LENGTH_SHORT).show(); return }
         if (fund.provider.isBlank() && fund.name.isBlank()) { Toast.makeText(this, L.t("כתבו את שם החברה או הקופה", "Write the company or fund name"), Toast.LENGTH_SHORT).show(); return }
         // A crypto statement without a shekel balance: worked out from the coins' prices on its date.
         pending?.let { pr ->

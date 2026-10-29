@@ -39,7 +39,7 @@ class SavingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_screen)
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
-        findViewById<TextView>(R.id.screenTitle).text = L.t("חיסכון לילדים", "Children's savings")
+        findViewById<TextView>(R.id.screenTitle).text = L.t("חיסכון והשקעות", "Savings and investments")
         content = findViewById(R.id.screenContent)
         ui = Ui(this)
         child = intent.getStringExtra(EXTRA_CHILD).orEmpty()
@@ -75,7 +75,7 @@ class SavingsActivity : AppCompatActivity() {
     private fun render() {
         content.removeAllViews()
         val today = java.time.LocalDate.now().toString()
-        val kids = Profile.members(this).filter { it.isChild }
+        val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
         val all = FamilyFile.savings(this)
         val shownKids = if (child.isEmpty()) kids else kids.filter { it.id == child }
         val funds = if (child.isEmpty()) all else all.filter { it.child == child }
@@ -88,13 +88,15 @@ class SavingsActivity : AppCompatActivity() {
 
         // The portfolio at a glance: a ring of what it's made of, and the three numbers that matter.
         content.addView(portfolio(funds, shownKids, today))
+        content.addView(calculator(funds, shownKids, today))
 
         content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח רבעוני", "📄 Upload a quarterly report"), primary = true, top = 14) {
             if (!busy) picker.launch(arrayOf("application/pdf", "image/*"))
         }.apply { isEnabled = !busy })
         content.addView(ui.hint(L.t("הקופה, המסלול והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "The fund, track and balance are read from the report; you check them before saving."), top = 4))
 
-        for (k in shownKids) {
+        // Children always; a parent once they have a fund (adding one: from the fund screen, "whose").
+        for (k in shownKids.filter { p -> p.isChild || funds.any { it.child == p.id } || child == p.id }) {
             val mine = funds.filter { it.child == k.id }
             val sum = mine.sumOf { est(it, today)?.total ?: 0.0 }
             content.addView(LinearLayout(this).apply {
@@ -117,7 +119,7 @@ class SavingsActivity : AppCompatActivity() {
         if (PartnerShare.partner(this).isNotEmpty() && !FamilyFileSync.on(this)) content.addView(ui.hint(
             L.t("כדי שגם ההורה השני יראה את החיסכון ויוכל להעלות את הדוח הבא: מפעילים \"שיתוף התיק\" בתחתית תיק המשפחה (אצל שניכם).",
                 "So the other parent sees the savings and can upload the next report: turn on \"Share the file\" at the bottom of the family file (on both phones)."), top = 16))
-        if (kids.isEmpty()) content.addView(ui.hint(L.t("כדי לעקוב אחרי חיסכון מוסיפים קודם ילדים בפרופיל המשפחה.", "To follow savings, first add children in the family profile."), top = 16))
+        if (kids.isEmpty()) content.addView(ui.hint(L.t("כדי לעקוב אחרי חיסכון מוסיפים קודם את בני המשפחה בפרופיל.", "To follow savings, first add children in the family profile."), top = 16))
         content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
     }
 
@@ -173,7 +175,7 @@ class SavingsActivity : AppCompatActivity() {
             if (b == null || b.size > 20 * 1024 * 1024) { runOnUiThread { busy = false; render(); Toast.makeText(this, L.t("לא הצלחנו לקרוא את הקובץ (עד 20MB)", "Couldn't read the file (up to 20 MB)"), Toast.LENGTH_LONG).show() }; return@execute }
             val pdf = type == "application/pdf" || (b.size > 4 && String(b, 0, 4) == "%PDF")
             val mime = if (pdf) "application/pdf" else "image/jpeg"
-            val kids = Profile.members(applicationContext).filter { it.isChild }
+            val kids = Profile.members(applicationContext).filter { !it.isPet } /* parents too, not only the children */
             // The report is kept in the family file (a document of that child, once known).
             val doc = FamilyFile.save(applicationContext, FamilyItems.Item("", FamilyItems.Kind.DOCUMENT, child = child, title = L.t("דוח חיסכון", "Savings report"),
                 date = java.time.LocalDate.now().toString(), mime = mime, hash = FamilyFile.hash(b), source = "savings"), b, if (pdf) "pdf" else "jpg")
@@ -193,6 +195,75 @@ class SavingsActivity : AppCompatActivity() {
             }
         }
     }
+
+    // The calculator's choices (kept while the screen is open).
+    private var calcRate = 8.0
+    private var calcYears: Double? = null // null = until 18 (one child), else 18 years
+    private var calcMonthly: Double? = null // null = what goes in today
+
+    /**
+     * "How much could there be": today's amount and the monthly deposits growing at a chosen yearly return, until the
+     * child is 18 or for a chosen number of years. A calculator, said so: a fixed return, no fees, tax or inflation.
+     */
+    private fun calculator(funds: List<Savings.Fund>, people: List<FamilyMember>, today: String): View {
+        val start = funds.sumOf { est(it, today)?.total ?: 0.0 }
+        val person = if (child.isNotEmpty()) people.firstOrNull { it.id == child } else null
+        val to18 = person?.let { Savings.yearsTo18(it.birth, today) }?.takeIf { it > 0 }
+        val years = calcYears ?: to18 ?: 18.0
+        val card = ui.card(top = 12)
+        card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
+        card.addView(ui.text(L.t("מחשבון: כמה יהיה בקופה", "Calculator: how much there could be"), 16f, bold = true))
+
+        card.addView(ui.text(L.t("תשואה שנתית", "Yearly return"), 13f, R.color.ink_soft, bold = true, top = 10))
+        val rates = listOf(4.0, 6.0, 8.0, 10.0)
+        card.addView(ui.chips(rates.map { "${it.toInt()}%" }, rates.indexOf(calcRate), top = 4) { i -> calcRate = rates[i]; render() })
+        card.addView(ui.text(L.t("לכמה זמן", "For how long"), 13f, R.color.ink_soft, bold = true, top = 10))
+        val spans: List<Pair<String, Double?>> = listOfNotNull(
+            to18?.let { L.t("עד גיל 18", "Until 18") to null },
+            L.t("5 שנים", "5 years") to 5.0, L.t("10 שנים", "10 years") to 10.0, L.t("18 שנים", "18 years") to 18.0, L.t("25 שנים", "25 years") to 25.0,
+        )
+        val selected = spans.indexOfFirst { it.second == calcYears }.let { if (it < 0) 0 else it }
+        card.addView(ui.chips(spans.map { it.first }, selected, top = 4) { i -> calcYears = spans[i].second; render() })
+
+        val monthlyNow = funds.sumOf { it.perMonth }
+        card.addView(ui.text(L.t("הפקדה חודשית ב-₪", "Each month in ₪"), 13f, R.color.ink_soft, bold = true, top = 10))
+        val monthlyField = ui.field(L.t("הפקדה חודשית", "Each month"), FamilyItems.money(calcMonthly ?: monthlyNow).removeSuffix(" ₪"), top = 4).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+        card.addView(monthlyField)
+
+        val result = amount("", 28f, DS.ink(this)).apply { setPadding(0, ui.dp(14), 0, 0) }
+        val split = ui.hint("", top = 2)
+        val chart = GrowthChartView(this).apply {
+            deposits = 0xFFE3D5C6.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
+        }
+        val legend = ui.hint(L.t("בהיר: מה שהופקד · כהה: התשואה", "Light: deposited · dark: growth"), top = 4)
+        card.addView(result); card.addView(split); card.addView(chart); card.addView(legend)
+
+        fun update() {
+            val monthly = FamilyItems.cleanAmount(monthlyField.text.toString()) ?: 0.0
+            val pts = Savings.project(start, monthly, calcRate, years)
+            val end = pts.last()
+            val whenText = if (calcYears == null && to18 != null) L.t("בגיל 18", "at 18") else L.t("בעוד ${trim(years)} שנים", "in ${trim(years)} years")
+            result.text = FamilyItems.money(end.total)
+            split.text = L.t("$whenText · הופקדו ${FamilyItems.money(end.deposited)} · תשואה ${FamilyItems.money(end.total - end.deposited)}",
+                "$whenText · deposited ${FamilyItems.money(end.deposited)} · growth ${FamilyItems.money(end.total - end.deposited)}")
+            chart.startLabel = L.t("היום", "today"); chart.endLabel = whenText; chart.points = pts
+            result.contentDescription = L.t("יכול להיות $whenText: ${FamilyItems.money(end.total)}", "Could be $whenText: ${FamilyItems.money(end.total)}")
+        }
+        monthlyField.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(e: android.text.Editable?) { calcMonthly = FamilyItems.cleanAmount(e?.toString()); update() }
+        })
+        update()
+        card.addView(ui.hint(L.t("חישוב בלבד, לא תחזית ולא המלצה: מניח תשואה קבועה של ${calcRate.toInt()}% בשנה, בלי דמי ניהול, מס ואינפלציה. התשואה בפועל משתנה ואינה מובטחת.",
+            "A calculation only, not a forecast or advice: a fixed ${calcRate.toInt()}% a year, no fees, tax or inflation. Real returns vary and aren't guaranteed."), top = 10))
+        return card
+    }
+
+    private fun trim(y: Double) = if (y % 1.0 == 0.0) y.toInt().toString() else String.format(java.util.Locale.US, "%.1f", y)
 
     private val PALETTE = listOf(0xFF6F4E37.toInt(), 0xFFC0784A.toInt(), 0xFF7E9A7A.toInt(), 0xFF5B7A99.toInt(), 0xFFB58B3A.toInt(), 0xFF8E5A7A.toInt())
     private val UP = 0xFF3E7D4F.toInt()
@@ -216,7 +287,7 @@ class SavingsActivity : AppCompatActivity() {
 
         val card = ui.card(top = 12)
         card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
-        card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של הילדים", "The children's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true))
+        card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של המשפחה", "The family's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true))
 
         // The ring and its legend.
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) } }

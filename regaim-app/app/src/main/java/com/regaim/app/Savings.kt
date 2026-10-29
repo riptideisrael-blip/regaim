@@ -320,4 +320,32 @@ object Savings {
         }
         return weighted(parts.map { it.first to it.second })
     }
+
+    // ---- What it could be: a simple projection (a calculator, not a forecast) ----
+
+    data class YearPoint(val year: Int, val total: Double, val deposited: Double)
+
+    /**
+     * [start] today, [monthly] deposited every month, growing at [annualPct] a year (compounded monthly) for [years]:
+     * the total and what was deposited at the end of each year. No fees, taxes or inflation: said on the screen.
+     */
+    fun project(start: Double, monthly: Double, annualPct: Double, years: Double): List<YearPoint> {
+        val r = Math.pow(1 + annualPct / 100.0, 1.0 / 12) - 1
+        val months = Math.round(years * 12).toInt().coerceIn(0, 12 * 60)
+        val out = mutableListOf(YearPoint(0, start, start))
+        var total = start; var deposited = start
+        for (m in 1..months) {
+            total = total * (1 + r) + monthly
+            deposited += monthly
+            if (m % 12 == 0 || m == months) out += YearPoint(Math.ceil(m / 12.0).toInt(), total, deposited)
+        }
+        return out.distinctBy { it.year }
+    }
+
+    /** Years from [today] until [birth]'s 18th birthday (0 when already 18, null without a birth date). */
+    fun yearsTo18(birth: String, today: String): Double? = try {
+        val b = LocalDate.parse(FamilyItems.cleanDate(birth).ifEmpty { birth }); val t = LocalDate.parse(today)
+        val at18 = b.plusYears(18)
+        if (!at18.isAfter(t)) 0.0 else java.time.temporal.ChronoUnit.MONTHS.between(t, at18) / 12.0
+    } catch (_: Exception) { null }
 }

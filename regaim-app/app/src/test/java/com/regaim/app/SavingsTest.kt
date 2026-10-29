@@ -151,4 +151,18 @@ class SavingsTest {
         assertEquals(300.0, r.perMonth!!, 0.0)
         assertEquals(1171.82, r.valueUsd!!, 0.0)
     }
+
+    @Test fun projectionCalculator() {
+        // 10,000 ₪ today and 500 ₪ a month at 8% a year for 18 years.
+        val p = Savings.project(10000.0, 500.0, 8.0, 18.0)
+        val r = Math.pow(1.08, 1.0 / 12) - 1
+        val fv = 10000 * Math.pow(1.08, 18.0) + 500 * (Math.pow(1 + r, 216.0) - 1) / r
+        assertEquals(fv, p.last().total, 0.5)
+        assertEquals(10000.0 + 500 * 216, p.last().deposited, 0.001)
+        assertEquals(19, p.size) // today and each of the 18 years
+        assertEquals(10000.0 + 6000, Savings.project(10000.0, 500.0, 0.0, 1.0).last().total, 0.001)
+        assertEquals(173 / 12.0, Savings.yearsTo18("2023-04-20", "2026-10-29")!!, 0.001) // 18 on 20.4.2041: 14 years and 5 months
+        assertEquals(0.0, Savings.yearsTo18("1990-01-01", today)!!, 0.0)
+        assertNull(Savings.yearsTo18("", today))
+    }
 }
