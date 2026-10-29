@@ -345,6 +345,14 @@ object Savings {
         return weighted(parts.map { it.first to it.second })
     }
 
+    /** Coins' worth in ₪ on a day (each at that day's price, or the closest before it); null without a price for every coin. */
+    fun valueOn(units: Map<String, Double>, date: String, p: Prices?): Double? {
+        if (p == null || units.isEmpty() || date.isEmpty()) return null
+        var v = 0.0
+        for ((sym, u) in units) v += u * (p.on(sym, date) ?: return null)
+        return v
+    }
+
     /** A crypto fund's change since yesterday's price (its coins by today's weight), or null without the prices. */
     fun dailyChangeCrypto(f: Fund, p: Prices?, today: String): Double? {
         if (p == null) return null

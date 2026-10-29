@@ -227,4 +227,12 @@ class SavingsTest {
         assertNull(Savings.compare(rows, 4)) // alone in its track
         assertNull(Savings.compare(rows, 9)) // not there
     }
+
+    @Test fun cryptoStatementValuedOnItsDate() {
+        val p = Savings.Prices(emptyMap(), mapOf("BTC" to mapOf("2026-09-28" to 400000.0), "ETH" to mapOf("2026-09-30" to 15000.0)))
+        // BTC: the closest day before (two days earlier); ETH: that day.
+        assertEquals(0.01 * 400000.0 + 0.1 * 15000.0, Savings.valueOn(mapOf("BTC" to 0.01, "ETH" to 0.1), "2026-09-30", p)!!, 0.001)
+        assertNull(Savings.valueOn(mapOf("SOL" to 1.0), "2026-09-30", p)) // no price for a coin: no guess
+        assertNull(Savings.valueOn(mapOf("BTC" to 1.0), "", p))
+    }
 }

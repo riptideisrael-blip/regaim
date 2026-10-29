@@ -93,10 +93,10 @@ class SavingsActivity : AppCompatActivity() {
         if (hist.isNotEmpty()) content.addView(historyCard(hist))
         content.addView(calculator(funds, shownKids, today))
 
-        content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח רבעוני", "📄 Upload a quarterly report"), primary = true, top = 14) {
-            if (!busy) picker.launch(arrayOf("application/pdf", "image/*"))
+        content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח (קופה או קריפטו)", "📄 Upload a report (fund or crypto)"), primary = true, top = 14) {
+            if (!busy) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !busy })
-        content.addView(ui.hint(L.t("הקופה, המסלול והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "The fund, track and balance are read from the report; you check them before saving."), top = 4))
+        content.addView(ui.hint(L.t("דוח רבעוני או דף חשבון של קריפטו: הקופה, המטבעות והיתרה נקראים מהדוח, ואתם בודקים לפני שמירה.", "A quarterly report or a crypto statement: the fund, coins and balance are read from it; you check before saving."), top = 4))
 
         // Children always; a parent once they have a fund (adding one: from the fund screen, "whose").
         for (k in shownKids.filter { p -> p.isChild || funds.any { it.child == p.id } || child == p.id }) {
@@ -183,30 +183,9 @@ class SavingsActivity : AppCompatActivity() {
     /** A report: read on request (signed in), then the fund screen opens with what was read, for the parent to check. */
     private fun readReport(uri: android.net.Uri) {
         busy = true; render()
-        worker.execute {
-            val type = try { contentResolver.getType(uri) } catch (_: Exception) { null }.orEmpty()
-            val b = try { contentResolver.openInputStream(uri)?.use { it.readBytes() } } catch (_: Exception) { null }
-            if (b == null || b.size > 20 * 1024 * 1024) { runOnUiThread { busy = false; render(); Toast.makeText(this, L.t("לא הצלחנו לקרוא את הקובץ (עד 20MB)", "Couldn't read the file (up to 20 MB)"), Toast.LENGTH_LONG).show() }; return@execute }
-            val pdf = type == "application/pdf" || (b.size > 4 && String(b, 0, 4) == "%PDF")
-            val mime = if (pdf) "application/pdf" else "image/jpeg"
-            val kids = Profile.members(applicationContext).filter { !it.isPet } /* parents too, not only the children */
-            // The report is kept in the family file (a document of that child, once known).
-            val doc = FamilyFile.save(applicationContext, FamilyItems.Item("", FamilyItems.Kind.DOCUMENT, child = child, title = L.t("דוח חיסכון", "Savings report"),
-                date = java.time.LocalDate.now().toString(), mime = mime, hash = FamilyFile.hash(b), source = "savings"), b, if (pdf) "pdf" else "jpg")
-            val reading = if (!Account.signedIn(applicationContext)) null else try {
-                val pic = if (pdf) null else FamilyFile.picture(applicationContext, b, mime)?.let { FamilyFile.jpegBase64(it) }
-                val pdfB64 = if (pdf && b.size < 8 * 1024 * 1024) android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP) else null
-                Savings.reading(ClaudeClient.readSavingsReport(applicationContext, pic, pdfB64, kids.map { it.name }, java.time.LocalDate.now().toString()))
-            } catch (_: Exception) { null }
-            // A crypto statement: the coins' prices (to value it in shekels on its date).
-            if (reading?.kind == Savings.Kind.CRYPTO && reading.coins.isNotEmpty()) try { CryptoPrices.refresh(applicationContext, reading.coins.map { it.symbol }.toSet()) } catch (_: Exception) { }
-            runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                busy = false; render()
-                if (reading == null) Toast.makeText(this, if (!Account.signedIn(this)) L.t("קריאה אוטומטית דורשת התחברות. ממלאים ידנית.", "Reading needs you to sign in. Fill it in by hand.")
-                    else L.t("לא הצלחנו לקרוא את הדוח. ממלאים ידנית.", "Couldn't read the report. Fill it in by hand."), Toast.LENGTH_LONG).show()
-                SavingsFundActivity.fromReport(this, reading, doc.id, child)
-            }
+        SavingsReports.read(this, uri, child) { reading, docId ->
+            busy = false; render()
+            SavingsFundActivity.fromReport(this, reading, docId, child)
         }
     }
 
