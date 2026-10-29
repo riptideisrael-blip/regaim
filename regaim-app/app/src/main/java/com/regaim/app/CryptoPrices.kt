@@ -35,6 +35,7 @@ object CryptoPrices {
         return Savings.Prices(
             now.keys().asSequence().associateWith { now.getDouble(it) },
             daily.keys().asSequence().associateWith { sym -> daily.getJSONObject(sym).let { d -> d.keys().asSequence().associateWith { d.getDouble(it) } } },
+            o.optLong("nowAt"),
         )
     }
 

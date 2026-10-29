@@ -237,6 +237,28 @@ object Savings {
             if (grownMonths > 0) (growthFactor - 1) * 100 else null, r.returnPct)
     }
 
+    /** A fund at Gemel-Net in its latest month: its track (sub-specialization) and the published numbers. */
+    data class Peer(val id: Int, val sub: String, val ytd: Double?, val avg3y: Double?, val fee: Double?, val period: Int = 0)
+
+    /** This fund next to the other funds of the same track (same list at Gemel-Net): facts, not a judgement. */
+    data class PeerCompare(val sub: String, val count: Int, val period: Int,
+                           val ytd: Double?, val avgYtd: Double?, val rankYtd: Int?,
+                           val avg3y: Double?, val avgAvg3y: Double?,
+                           val fee: Double?, val avgFee: Double?)
+
+    /** Null when the fund isn't in [rows] or is alone in its track. Averages are simple (each fund counts once). */
+    fun compare(rows: List<Peer>, fundId: Int): PeerCompare? {
+        val me = rows.firstOrNull { it.id == fundId } ?: return null
+        val same = rows.filter { it.sub.trim() == me.sub.trim() }.distinctBy { it.id }
+        if (same.size < 2) return null
+        fun avg(v: List<Double>) = if (v.isEmpty()) null else v.average()
+        val byYtd = same.mapNotNull { it.ytd?.let { y -> it.id to y } }.sortedByDescending { it.second }
+        return PeerCompare(me.sub.trim(), same.size, me.period,
+            me.ytd, avg(same.mapNotNull { it.ytd }), byYtd.indexOfFirst { it.first == fundId }.takeIf { it >= 0 && me.ytd != null }?.plus(1),
+            me.avg3y, avg(same.mapNotNull { it.avg3y }),
+            me.fee, avg(same.mapNotNull { it.fee }))
+    }
+
     /** The best estimate: official returns when the fund was found there; else the last balance plus the deposits since. */
     fun best(f: Fund, today: String, o: Official?): Estimate? =
         estimateOfficial(f, today, o) ?: f.lastReport?.let { r ->
@@ -271,7 +293,9 @@ object Savings {
         "LTC" to "litecoin", "BNB" to "binancecoin", "USDT" to "tether", "USDC" to "usd-coin", "DOT" to "polkadot", "AVAX" to "avalanche-2", "LINK" to "chainlink")
 
     /** Prices in ₪: now per symbol, and each day's price per symbol (yyyy-MM-dd). */
-    data class Prices(val now: Map<String, Double>, val daily: Map<String, Map<String, Double>> = emptyMap()) {
+    data class Prices(val now: Map<String, Double>, val daily: Map<String, Map<String, Double>> = emptyMap(),
+                      /** When today's prices were fetched (ms), 0 = unknown. */
+                      val at: Long = 0L) {
         /** The price on a day, or the closest day before it (up to a week). */
         fun on(symbol: String, date: String): Double? {
             val days = daily[symbol] ?: return null
@@ -320,6 +344,61 @@ object Savings {
         }
         return weighted(parts.map { it.first to it.second })
     }
+
+    /** A crypto fund's change since yesterday's price (its coins by today's weight), or null without the prices. */
+    fun dailyChangeCrypto(f: Fund, p: Prices?, today: String): Double? {
+        if (p == null) return null
+        val yesterday = try { LocalDate.parse(today).minusDays(1).toString() } catch (_: Exception) { return null }
+        val units = (f.lastReport?.coins ?: emptyMap()).ifEmpty { f.coins.associate { it.symbol to it.units } }
+        val parts = units.mapNotNull { (sym, u) ->
+            val now = p.now[sym] ?: return@mapNotNull null
+            val then = p.daily[sym]?.get(yesterday) ?: return@mapNotNull null
+            (u * now) to (now / then - 1) * 100
+        }
+        return weighted(parts)
+    }
+
+    // ---- What the portfolio is made of, and how it got here ----
+
+    /** Over the funds' estimates: the balances in the last reports, what was deposited since, and the gain or loss since. */
+    data class Breakdown(val reported: Double, val depositedSince: Double, val growth: Double) {
+        val total: Double get() = reported + depositedSince + growth
+    }
+
+    fun breakdown(est: List<Estimate?>): Breakdown = est.filterNotNull().let { e ->
+        Breakdown(e.sumOf { it.reported }, e.sumOf { it.depositedSince }, e.sumOf { it.total - it.reported - it.depositedSince })
+    }
+
+    /**
+     * The total over time: one point per report date (each fund at its latest report on or before that date; a fund
+     * with no report yet counts 0), and today's estimate last. Empty with fewer than two points.
+     */
+    fun history(funds: List<Fund>, today: String, todayTotal: Double): List<Pair<String, Double>> {
+        val dates = funds.flatMap { f -> f.reports.map { it.date } }.filter { it <= today }.distinct().sorted()
+        val pts = dates.map { d -> d to funds.sumOf { f -> f.reports.filter { it.date <= d }.maxByOrNull { it.date }?.balance ?: 0.0 } }.toMutableList()
+        if (todayTotal > 0 && (pts.isEmpty() || pts.last().first < today)) pts += today to todayTotal
+        return if (pts.size < 2) emptyList() else pts
+    }
+
+    /**
+     * A newer quarterly report should be out: the quarter after the last report's ended more than [graceDays] ago.
+     * Returns that quarter's end date (the reminder's key), or null. Not for crypto (a statement any day) or a fund with no report.
+     */
+    fun reportDue(f: Fund, today: String, graceDays: Long = 30): String? {
+        if (f.kind == Kind.CRYPTO) return null
+        val r = f.lastReport ?: return null
+        return try {
+            val d = LocalDate.parse(r.date); val t = LocalDate.parse(today)
+            // The end of the quarter after the report's quarter.
+            val qEndMonth = ((d.monthValue - 1) / 3 + 1) * 3
+            val thisQEnd = LocalDate.of(d.year, qEndMonth, 1).plusMonths(1).minusDays(1)
+            val next = if (d >= thisQEnd.minusDays(3)) thisQEnd.plusDays(1).plusMonths(3).minusDays(1) else thisQEnd
+            if (!t.isBefore(next.plusDays(graceDays))) next.toString() else null
+        } catch (_: Exception) { null }
+    }
+
+    /** How far toward a goal (0..1), or null without a goal. */
+    fun progress(total: Double, goal: Double): Double? = if (goal <= 0) null else (total / goal).coerceIn(0.0, 1.0)
 
     // ---- What it could be: a simple projection (a calculator, not a forecast) ----
 
