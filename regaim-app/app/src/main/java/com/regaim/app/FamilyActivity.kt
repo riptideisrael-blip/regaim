@@ -287,7 +287,7 @@ class FamilyActivity : AppCompatActivity() {
                 if (joined) FamilyChatActivity.open(this) else CircleActivity.open(this)
             },
             Triple(R.drawable.ic_tab_file, L.t("תיק המשפחה", "Family file") to (if (items > 0) L.t("$items פריטים", "$items items") else L.t("קבלות, שוברים, אחריות", "Receipts, vouchers, warranties"))) { FamilyFileActivity.open(this) },
-            Triple(R.drawable.ic_savings, L.t("חיסכון והשקעות", "Savings") to (if (saved > 0) FamilyItems.money(saved) else L.t("קופות הילדים", "The children's funds"))) { SavingsActivity.open(this) },
+            Triple(R.drawable.ic_savings, L.t("חיסכון והשקעות", "Savings") to (if (saved > 0) FamilyItems.money(Math.rint(saved)) else L.t("קופות הילדים", "The children's funds"))) { SavingsActivity.open(this) },
         )
         val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) } }
         list.chunked(2).forEach { pair ->

@@ -54,7 +54,7 @@ object Savings {
     ) {
         val lastReport: Report? get() = reports.maxByOrNull { it.date }
         val perMonth: Double get() = monthly + stateMonthly + coins.sumOf { it.monthly }
-        val title: String get() = listOf(provider, track).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { name.ifBlank { kind.label } }
+        val title: String get() = isolateLatin(listOf(provider, track).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { name.ifBlank { kind.label } })
     }
 
     /** Months whose deposit came after the report: a report at the end of September, today 29 October → 1. */
@@ -348,4 +348,7 @@ object Savings {
         val at18 = b.plusYears(18)
         if (!at18.isAfter(t)) 0.0 else java.time.temporal.ChronoUnit.MONTHS.between(t, at18) / 12.0
     } catch (_: Exception) { null }
+
+    /** English inside Hebrew ("עוקב מדד S&P 500") kept in its own order, so it isn't shown as "P&S 500". */
+    fun isolateLatin(s: String): String = Regex("""[A-Za-z][A-Za-z0-9&.'\- ]*[A-Za-z0-9]|[A-Za-z]""").replace(s) { "\u2066" + it.value + "\u2069" }
 }

@@ -158,7 +158,7 @@ class ChildActivity : AppCompatActivity() {
         val monthly = funds.sumOf { it.perMonth }
         sc.addView(ui.row(
             if (funds.isEmpty()) L.t("מוסיפים קופה או מעלים דוח רבעוני", "Add a fund or upload a quarterly report")
-            else L.t("${FamilyItems.money(saved)} היום (הערכה)", "${FamilyItems.money(saved)} today (estimate)"),
+            else L.t("${FamilyItems.money(Math.rint(saved))} היום (הערכה)", "${FamilyItems.money(Math.rint(saved))} today (estimate)"),
             if (monthly > 0) L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month") else "", top = 0,
         ) { SavingsActivity.open(this, kid.id) })
         content.addView(sc)

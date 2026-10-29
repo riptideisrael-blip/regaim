@@ -165,4 +165,9 @@ class SavingsTest {
         assertEquals(0.0, Savings.yearsTo18("1990-01-01", today)!!, 0.0)
         assertNull(Savings.yearsTo18("", today))
     }
+
+    @Test fun englishInsideHebrewKeepsItsOrder() {
+        assertEquals("הראל · עוקב מדד \u2066S&P 500\u2069", Fund("1", "u", provider = "הראל", track = "עוקב מדד S&P 500").title)
+        assertEquals("מור · מניות", Fund("1", "u", provider = "מור", track = "מניות").title)
+    }
 }
