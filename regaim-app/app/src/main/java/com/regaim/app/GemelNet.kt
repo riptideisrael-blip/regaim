@@ -121,6 +121,20 @@ object GemelNet {
                     changed = true
                 }
             }
+            // A number taken from the report: kept only if it's in the list (its name filled in), else matched as usual.
+            if (fund.gemelId > 0 && fund.gemelName.isBlank()) {
+                val cls = Savings.classification(fund.kind)
+                val list = try { lists.getOrPut(cls) { candidates(cls) } } catch (e: Exception) { setError(ctx, e); null }
+                if (list != null) {
+                    val hit = list.firstOrNull { it.first == fund.gemelId }
+                    val otherCls = Savings.classification(if (fund.kind == Savings.Kind.CHILD_SAVINGS) Savings.Kind.PRIVATE else Savings.Kind.CHILD_SAVINGS)
+                    val otherList: List<Pair<Int, String>> = if (hit == null) (try { lists.getOrPut(otherCls) { candidates(otherCls) } } catch (_: Exception) { emptyList() }) else emptyList()
+                    val other = otherList.firstOrNull { it.first == fund.gemelId }
+                    val found = hit ?: other ?: Savings.pickGemel(list, fund.provider, fund.track)
+                    fund = FamilyFile.saveFund(ctx, fund.copy(gemelId = found?.first ?: 0, gemelName = found?.second.orEmpty(), updated = System.currentTimeMillis()))
+                    changed = true
+                }
+            }
             if (fund.gemelId > 0 && System.currentTimeMillis() - fetchedAt(ctx, fund.gemelId) > 12 * 3600_000L) {
                 try { fetchYields(ctx, fund.gemelId); changed = true; setError(ctx, null) } catch (e: Exception) { setError(ctx, e) }
             }

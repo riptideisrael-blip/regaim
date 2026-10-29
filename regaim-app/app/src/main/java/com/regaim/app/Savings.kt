@@ -155,7 +155,9 @@ object Savings {
                        val monthly: Double?, val stateMonthly: Double?, val returnPct: Double?, val feesPct: Double?, val kind: Kind?, val childName: String,
                        val months: Int? = null,
                        /** Crypto: units per coin, what's bought each month per coin (₪), and the value in dollars. */
-                       val coins: List<Coin> = emptyList(), val valueUsd: Double? = null) {
+                       val coins: List<Coin> = emptyList(), val valueUsd: Double? = null,
+                       /** The fund's number at the Ministry of Finance, as printed (the same number as at Gemel-Net). */
+                       val fundNumber: Int? = null) {
         /** What goes in each month: as written, or the period's deposits spread over its months. */
         val perMonth: Double? get() = if (coins.any { it.monthly > 0 }) coins.sumOf { it.monthly }
             else if (monthly != null || stateMonthly != null) (monthly ?: 0.0) + (stateMonthly ?: 0.0)
@@ -173,7 +175,8 @@ object Savings {
             (o.optJSONArray("coins") ?: JSONArray()).let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.mapNotNull { c ->
                 val sym = c.optString("symbol").uppercase().trim()
                 if (sym.isEmpty()) null else Coin(sym, FamilyItems.cleanAmount(c.opt("units")) ?: 0.0, FamilyItems.cleanAmount(c.opt("monthly_ils")) ?: 0.0) } },
-            d("value_usd"))
+            d("value_usd"),
+            if (o.isNull("fund_number")) null else o.optString("fund_number").filter { it.isDigit() }.toIntOrNull()?.takeIf { it in 100..999999 })
     }
 
     // ---- Official monthly returns (Gemel-Net, data.gov.il) ----
@@ -353,6 +356,15 @@ object Savings {
 
     /** Dollars to ₪ at the day's rate; null without a rate. */
     fun usdToIls(usd: Double, date: String, p: Prices?): Double? = usdRate(date, p)?.let { usd * it }
+
+    /** A crypto fund split by coin: each coin's share of its worth at today's prices (empty without prices). */
+    fun coinShares(f: Fund, p: Prices?): Map<String, Double> {
+        if (p == null) return emptyMap()
+        val units = (f.lastReport?.coins ?: emptyMap()).ifEmpty { f.coins.associate { it.symbol to it.units } }
+        val worth = units.mapNotNull { (s, u) -> p.now[s]?.let { s to u * it } }.toMap().filterValues { it > 0 }
+        val sum = worth.values.sum()
+        return if (sum <= 0) emptyMap() else worth.mapValues { it.value / sum }
+    }
 
     /** Coins' worth in ₪ on a day (each at that day's price, or the closest before it); null without a price for every coin. */
     fun valueOn(units: Map<String, Double>, date: String, p: Prices?): Double? {
