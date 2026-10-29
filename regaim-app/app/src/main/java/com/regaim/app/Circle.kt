@@ -184,6 +184,18 @@ object Circle {
         try { renewInvite(ctx) } catch (_: Exception) { }
     }
 
+    /**
+     * The key the backup is encrypted with: 32 random bytes kept in this parent's account on the server (made the
+     * first time, server/backup-keys.sql). The backup's files are in their Google Drive, so neither place alone can
+     * read it. Background thread only.
+     */
+    fun backupKey(ctx: Context): ByteArray {
+        val raw = rpcRaw(ctx, "backup_key", JSONObject()).trim().trim('"')
+        val b = android.util.Base64.decode(raw, android.util.Base64.DEFAULT)
+        if (b.size != 32) throw IllegalStateException(L.t("מפתח הגיבוי לא תקין בשרת.", "The backup key on the server isn't valid."))
+        return b
+    }
+
     /** An RPC whose answer may be a plain value (true/false) or nothing. */
     private fun rpcRaw(ctx: Context, name: String, body: JSONObject): String {
         val conn = open(ctx, "POST", "/rest/v1/rpc/$name")

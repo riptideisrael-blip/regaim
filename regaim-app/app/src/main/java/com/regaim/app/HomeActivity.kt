@@ -100,6 +100,7 @@ class HomeActivity : AppCompatActivity() {
         FamilyFileSync.kick(this)
         // A notification when the other parent shares something (checked in the background).
         PartnerNotify.schedule(this)
+        DriveBackup.schedule(this)
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {
@@ -286,12 +287,16 @@ class HomeActivity : AppCompatActivity() {
      */
     private fun backupTip(hasMoments: Boolean) {
         val prefs = Settings.prefs(this)
-        if (!Wording.showBackupTip(hasMoments, ClipSaver.toGallery(this), prefs.getBoolean("backup_tip_answered", false))) return
+        if (DriveBackup.on(this) || !Wording.showBackupTip(hasMoments, ClipSaver.toGallery(this), prefs.getBoolean("backup_tip_answered", false))) return
         val card = ui.card(top = 16)
         card.addView(ui.text(L.t("💾 הרגעים שמורים רק בטלפון הזה", "💾 Your moments are only on this phone"), 17f, bold = true))
         card.addView(ui.hint(L.t("אין להם גיבוי: אם הטלפון יאבד או שהאפליקציה תימחק, הם יימחקו איתה. אפשר לשמור מעכשיו עותק של כל רגע חדש גם בגלריה של הטלפון, ואז גם הגיבוי של הטלפון (למשל Google Photos, אם הוא מופעל אצלכם) ישמור אותו. מצד שני, הרגעים יופיעו גם בגלריה.",
             "They have no backup: if the phone is lost or the app is removed, they go with it. From now on, a copy of each new moment can also go to the phone's gallery, so the phone's own backup (e.g. Google Photos, if you use it) keeps it too. On the other hand, the moments will also show in the gallery."), top = 6))
-        card.addView(ui.button(L.t("לשמור עותק בגלריה", "Keep a copy in the gallery"), primary = true, top = 12) {
+        card.addView(ui.button(L.t("גיבוי מוצפן לגוגל דרייב שלי", "Encrypted backup to my Google Drive"), primary = true, top = 12) {
+            prefs.edit().putBoolean("backup_tip_answered", true).apply()
+            BackupActivity.open(this)
+        })
+        card.addView(ui.button(L.t("לשמור עותק בגלריה", "Keep a copy in the gallery"), top = 8) {
             ClipSaver.setToGallery(this, true)
             prefs.edit().putBoolean("backup_tip_answered", true).apply()
             Toast.makeText(this, L.t("מעכשיו כל רגע חדש נשמר גם בגלריה. אפשר לשנות בהגדרות ← פרטיות.", "From now on each new moment is also saved to the gallery. You can change this in Settings → Privacy."), Toast.LENGTH_LONG).show()

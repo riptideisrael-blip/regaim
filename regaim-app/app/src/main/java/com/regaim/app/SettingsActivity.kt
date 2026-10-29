@@ -952,6 +952,8 @@ open class SettingsActivity : AppCompatActivity() {
         val card = ui.card()
         val clips = MemoryStore.kept(this)
         card.addView(ui.text(L.t("הזיכרונות נשמרים בטלפון. שיתוף עם המשפחה מעלה רק את התוכן שבחרתם למעגל שאליו הצטרפתם.", "Memories are saved on your phone. Sharing with family uploads only what you choose, to the circle you joined."), 14f, top = 0))
+        // The backup to the parent's own Google Drive (encrypted; the key is in their Moments account).
+        card.addView(ui.row("💾 " + L.t("גיבוי לגוגל דרייב", "Backup to Google Drive"), if (DriveBackup.on(this)) L.t("פועל", "On") else L.t("כבוי", "Off"), top = 10) { BackupActivity.open(this) })
         // Private by default: the moments stay inside Moments (not in the phone's gallery, so not backed up to Google Photos).
         card.addView(ui.switch(L.t("לשמור עותק גם בגלריה של הטלפון", "Also keep a copy in the phone's gallery"), ClipSaver.toGallery(this), top = 10) { on ->
             ClipSaver.setToGallery(this, on)
