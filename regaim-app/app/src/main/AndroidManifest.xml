@@ -181,6 +181,14 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".BackupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".NameMomentsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".SavingsFundActivity"
             android:exported="false"
             android:screenOrientation="portrait"

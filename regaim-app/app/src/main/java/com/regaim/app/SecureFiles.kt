@@ -84,6 +84,11 @@ object SecureFiles {
         }
     }
 
+    /** Whether [f] is encrypted with this phone's key (so a backup carries its contents, not the phone-only seal). */
+    fun sealedFile(f: File): Boolean = try {
+        f.inputStream().use { i -> val h = ByteArray(MAGIC.size); i.read(h) == MAGIC.size && h.contentEquals(MAGIC) } && f.length() > MAGIC.size + IV_LEN
+    } catch (_: Exception) { false }
+
     /** The decrypted bytes of a file written by [writeBytes], or null if it doesn't exist. Throws if it can't be opened. */
     fun readBytes(f: File): ByteArray? {
         if (!f.exists()) return null

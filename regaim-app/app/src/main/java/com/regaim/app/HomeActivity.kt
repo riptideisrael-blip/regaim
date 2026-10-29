@@ -100,6 +100,7 @@ class HomeActivity : AppCompatActivity() {
         FamilyFileSync.kick(this)
         // A notification when the other parent shares something (checked in the background).
         PartnerNotify.schedule(this)
+        DriveBackup.schedule(this)
         // A newer version on our server: asks whether to install it.
         UpdatePrompt.maybeAsk(this)
         worker.execute {
@@ -247,6 +248,8 @@ class HomeActivity : AppCompatActivity() {
         updateFab()
         filmInProgress()
         pitzkiWaiting()
+        connectCard()
+        nameMomentsCard()
         peopleStrip(all)
         queueCard(waiting)
         backupTip(all.isNotEmpty())
@@ -267,8 +270,8 @@ class HomeActivity : AppCompatActivity() {
             heroSection(all)
             storySection(all)
             weekSection(all)
-            digestCard()
-            if (all.isNotEmpty()) studioCard()
+            // (The grandparents' digest and the studio card were here: both are in the Studio tab, and the week card
+            // already makes the week's video. Fewer cards, one clear "this week".)
             if (all.isEmpty()) filter = "הכל" else filtersRow(all)
             recentSection(all)
         }
@@ -284,12 +287,16 @@ class HomeActivity : AppCompatActivity() {
      */
     private fun backupTip(hasMoments: Boolean) {
         val prefs = Settings.prefs(this)
-        if (!Wording.showBackupTip(hasMoments, ClipSaver.toGallery(this), prefs.getBoolean("backup_tip_answered", false))) return
+        if (DriveBackup.on(this) || !Wording.showBackupTip(hasMoments, ClipSaver.toGallery(this), prefs.getBoolean("backup_tip_answered", false))) return
         val card = ui.card(top = 16)
         card.addView(ui.text(L.t("💾 הרגעים שמורים רק בטלפון הזה", "💾 Your moments are only on this phone"), 17f, bold = true))
         card.addView(ui.hint(L.t("אין להם גיבוי: אם הטלפון יאבד או שהאפליקציה תימחק, הם יימחקו איתה. אפשר לשמור מעכשיו עותק של כל רגע חדש גם בגלריה של הטלפון, ואז גם הגיבוי של הטלפון (למשל Google Photos, אם הוא מופעל אצלכם) ישמור אותו. מצד שני, הרגעים יופיעו גם בגלריה.",
             "They have no backup: if the phone is lost or the app is removed, they go with it. From now on, a copy of each new moment can also go to the phone's gallery, so the phone's own backup (e.g. Google Photos, if you use it) keeps it too. On the other hand, the moments will also show in the gallery."), top = 6))
-        card.addView(ui.button(L.t("לשמור עותק בגלריה", "Keep a copy in the gallery"), primary = true, top = 12) {
+        card.addView(ui.button(L.t("גיבוי מוצפן לגוגל דרייב שלי", "Encrypted backup to my Google Drive"), primary = true, top = 12) {
+            prefs.edit().putBoolean("backup_tip_answered", true).apply()
+            BackupActivity.open(this)
+        })
+        card.addView(ui.button(L.t("לשמור עותק בגלריה", "Keep a copy in the gallery"), top = 8) {
             ClipSaver.setToGallery(this, true)
             prefs.edit().putBoolean("backup_tip_answered", true).apply()
             Toast.makeText(this, L.t("מעכשיו כל רגע חדש נשמר גם בגלריה. אפשר לשנות בהגדרות ← פרטיות.", "From now on each new moment is also saved to the gallery. You can change this in Settings → Privacy."), Toast.LENGTH_LONG).show()
@@ -322,18 +329,6 @@ class HomeActivity : AppCompatActivity() {
         row.addView(texts)
         card.addView(row)
         card.setOnClickListener { ReviewActivity.open(this) }
-        content.addView(card)
-    }
-
-    /** Thursday to Saturday: the week's digest for the grandparents, one tap away. */
-    private fun digestCard() {
-        val day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-        if (day != Calendar.THURSDAY && day != Calendar.FRIDAY && day != Calendar.SATURDAY) return
-        val week = Digest.moments(this)
-        if (week.size < 2) return
-        val card = ui.card(top = 16)
-        card.addView(ui.row(L.t("סיכום השבוע לסבא וסבתא", "This week's digest for the grandparents"), L.t("${week.size} רגעים", "${week.size} moments"), top = 0) { DigestActivity.open(this) })
-        card.addView(ui.hint(L.t("סרטון או קולאז׳ של השבוע, מוכן לשליחה בוואטסאפ.", "A video or collage of the week, ready for WhatsApp."), top = 0))
         content.addView(card)
     }
 
@@ -559,6 +554,39 @@ class HomeActivity : AppCompatActivity() {
     }
 
     /**
+     * Moments where nobody was recognized get no words: a card when a few are waiting, to mark who's in them in one
+     * go (they're then described with the names). Hidden for a week after "Not now".
+     */
+    private fun nameMomentsCard() {
+        val prefs = Settings.prefs(this)
+        if (System.currentTimeMillis() - prefs.getLong("name_moments_later", 0L) < 7 * DateUtils.DAY_IN_MILLIS) return
+        val n = NameMomentsActivity.waiting(this).size
+        if (n < 3) return
+        val card = ui.card(top = 16)
+        card.addView(ui.text(L.t("👤 מי ב-$n רגעים?", "👤 Who's in $n moments?"), 16f, bold = true))
+        card.addView(ui.hint(L.t("לא זיהינו אף אחד בהם, אז אין להם תיאור. מסמנים מי שם, והם מקבלים תיאור עם השמות.", "Nobody was recognized in them, so they have no words. Mark who's there and they're described with the names."), top = 4))
+        val row = ui.horizontal(top = 6)
+        row.addView(ui.action(L.t("לסמן ›", "Mark ›")) { NameMomentsActivity.open(this) })
+        row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putLong("name_moments_later", System.currentTimeMillis()).apply(); render() })
+        card.addView(row)
+        content.addView(card)
+    }
+
+    /** In the family circle but not connected with the other parent yet: one card to the one-step connection. */
+    private fun connectCard() {
+        val prefs = Settings.prefs(this)
+        if (!Account.signedIn(this) || !Circle.joined(this) || PartnerShare.partner(this).isNotEmpty() || prefs.getBoolean("connect_card_closed", false)) return
+        val card = ui.card(top = 16)
+        card.addView(ui.text(L.t("💞 לחבר את בן/בת הזוג", "💞 Connect your partner"), 16f, bold = true))
+        card.addView(ui.hint(L.t("בצעד אחד: הרגעים עוברים ביניכם, תיק המשפחה משותף, והתראה כשמשהו חדש מגיע.", "In one step: moments go between you, the family file is shared, and you're notified when something new arrives."), top = 4))
+        val row = ui.horizontal(top = 6)
+        row.addView(ui.action(L.t("לחבר ›", "Connect ›")) { startActivity(Intent(this, CircleActivity::class.java)) })
+        row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putBoolean("connect_card_closed", true).apply(); render() })
+        card.addView(row)
+        content.addView(card)
+    }
+
+    /**
      * Something in a child's Pitzki film waits for the parent (a new character, the first scene, new scenes to go
      * over): a card here too, so it doesn't look as if the scenes are gone. A tap goes to that child's film.
      */
@@ -571,45 +599,6 @@ class HomeActivity : AppCompatActivity() {
             card.setOnClickListener { PitzkiActivity.openFilm(this, c.memberId) }
             content.addView(card)
         }
-    }
-
-    /** The way in to everything you can make: a 3D animated film first, then comics and videos. */
-    private fun studioCard() {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.card_white)
-            elevation = 0f
-            setPadding(mv.dp(20), mv.dp(18), mv.dp(20), mv.dp(18))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = mv.dp(18) }
-            setOnClickListener { StudioActivity.open(this@HomeActivity) }
-        }
-        card.addView(TextView(this).apply {
-            text = L.t("סטודיו", "Studio")
-            textSize = 13f
-            typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.accent_dark))
-        })
-        card.addView(ui.text(L.t("הפכו רגע לסרט מצויר בתלת-ממד", "Turn a moment into a 3D animated film"), 20f, bold = true, top = 4))
-        card.addView(ui.hint(L.t("דמויות אנימציה בסגנון סרטי פיקסאר, עם מוזיקה. וגם: סרטונים מהשבוע.", "Pixar-style animated characters, with music. Also: videos of your week."), top = 4))
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = mv.dp(14) }
-        }
-        fun pill(label: String, primary: Boolean, weight: Float, go: () -> Unit) = TextView(this).apply {
-            text = label
-            textSize = 14f
-            gravity = Gravity.CENTER
-            typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@HomeActivity, if (primary) R.color.white else R.color.ink))
-            background = DS.buttonBackground(this@HomeActivity, primary)
-            setPadding(mv.dp(10), mv.dp(11), mv.dp(10), mv.dp(11))
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight).apply { marginEnd = mv.dp(8) }
-            setOnClickListener { go() }
-        }
-        row.addView(pill(L.t("צרו סרט מצויר", "Make a film"), true, 1.3f) { StudioActivity.makeFilm(this) })
-        row.addView(pill(L.t("עוד יצירות ›", "More ›"), false, 1f) { StudioActivity.open(this) })
-        card.addView(row)
-        content.addView(card)
     }
 
     // ---------- on this day ----------
