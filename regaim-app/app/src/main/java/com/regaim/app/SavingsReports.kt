@@ -21,6 +21,7 @@ object SavingsReports {
      * Documents of different people: only the first person's are used, and the parent is told.
      */
     fun readAll(a: Activity, uris: List<Uri>, child: String, done: (Savings.Reading?, String) -> Unit) {
+        dropped = (uris.size - MAX).coerceAtLeast(0)
         Thread {
             val got = uris.take(MAX).map { uri ->
                 val type = try { a.contentResolver.getType(uri) } catch (_: Exception) { null }.orEmpty()
@@ -38,6 +39,16 @@ object SavingsReports {
 
     /** At most this many documents in one go (each is one reading by the AI). */
     const val MAX = 5
+
+    /** Files past [MAX] in the last pick (said on the fund's screen). */
+    @Volatile private var dropped = 0
+
+    /**
+     * What the last reading wants the parent to know (some files unread, another child's files left out, files past
+     * the limit). Shown in the fund's screen itself, where it stays readable (not a toast that disappears); taken once.
+     */
+    @Volatile var lastNote: String? = null
+    fun takeNote(): String? = lastNote.also { lastNote = null }
 
     /** One document: kept in the family file, then read (signed in). Null reading: too big, unreadable or not signed in. */
     private fun one(a: Activity, b: ByteArray?, type: String, child: String): Pair<Savings.Reading?, String> {
@@ -83,7 +94,11 @@ object SavingsReports {
                 read.size < got.size -> L.t("חלק מהקבצים לא נקראו. השאר מולאו, בדקו לפני שמירה.", "Some files couldn't be read. The rest are filled in; check before saving.")
                 else -> null
             }
-            msg?.let { Toast.makeText(a, it, Toast.LENGTH_LONG).show() }
+            val extra = if (dropped > 0) L.t("נקראו רק $MAX הקבצים הראשונים. את השאר מעלים בפעם נוספת.", "Only the first $MAX files were read. Upload the rest again.") else null
+            dropped = 0
+            // Nothing read: a short message here (no fund screen with a note opens). Otherwise the note on the fund's screen.
+            if (reading == null) msg?.let { Toast.makeText(a, it, Toast.LENGTH_LONG).show() }
+            else lastNote = listOfNotNull(msg, extra).joinToString(" ").ifBlank { null }
             done(reading, docId)
         }
     }

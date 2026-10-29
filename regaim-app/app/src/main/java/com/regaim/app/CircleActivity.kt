@@ -272,7 +272,7 @@ class CircleActivity : AppCompatActivity() {
     private fun partnerCard() {
         val card = ui.card(top = 10)
         card.addView(ui.text(L.t("🔒 גלריה משותפת לשני ההורים", "🔒 A shared gallery for both parents"), 17f, bold = true))
-        val line = ui.hint(L.t("בודקים…", "Checking…"), top = 4)
+        val line = ui.hint(L.t("בודקים…", "Checking…"), top = 4).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
         card.addView(line)
         val actions = ui.horizontal(top = 4)
         card.addView(actions)
@@ -385,17 +385,23 @@ class CircleActivity : AppCompatActivity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(22), ui.dp(8), ui.dp(22), 0) }
         box.addView(ui.text(L.t("✓ כל רגע חדש שאחד מכם שומר עובר לשני (קטעים של 10 שניות), רק לשניכם.", "✓ Every new moment one of you keeps goes to the other (10-second clips), only to the two of you."), 14f))
         box.addView(ui.hint(alsoShared, top = 4))
+        // The explanation is part of the box itself: read with it, and tapping it ticks the box.
         fun check(label: String, sub: String, on: Boolean) = android.widget.CheckBox(this).apply {
-            text = label; textSize = 15f; isChecked = on; setPadding(0, ui.dp(6), 0, 0)
+            text = android.text.SpannableStringBuilder(label).append("\n").also { sb ->
+                val from = sb.length
+                sb.append(sub)
+                sb.setSpan(android.text.style.ForegroundColorSpan(DS.inkSoft(this@CircleActivity)), from, sb.length, 0)
+                sb.setSpan(android.text.style.RelativeSizeSpan(0.87f), from, sb.length, 0)
+            }
+            textSize = 15f; isChecked = on; minHeight = ui.dp(48); setPadding(0, ui.dp(6), 0, ui.dp(6))
             box.addView(this)
-            box.addView(ui.hint(sub, top = 0))
         }
         val old = check(L.t("גם כל הרגעים הישנים", "All the older moments too"), L.t("עוברים ברקע, כמה בכל פעם. אחרת רק מה שיישמר מעכשיו.", "In the background, a few at a time. Otherwise only what's kept from now on."), false)
-        val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), true)
+        val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), FamilyFileSync.on(app))
         box.addView(ui.action(L.t("מה בדיוק עובר בתיק ›", "What exactly the file shares ›")) {
             AlertDialog.Builder(this).setMessage(FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
         })
-        val notify = check(L.t("התראה כש$whoName משתף/ת משהו", "Notify me when $whoName shares something"), L.t("רגע חדש או פריט חדש בתיק, תוך כרבע שעה.", "A new moment or file item, within about 15 minutes."), true)
+        val notify = check(L.t("התראה כשמגיע משהו חדש מ$whoName", "Notify me when $whoName shares something"), L.t("רגע חדש או פריט חדש בתיק, תוך כרבע שעה.", "A new moment or file item, within about 15 minutes."), true)
         AlertDialog.Builder(this)
             .setTitle(L.t("חיבור עם $whoName", "Connect with $whoName"))
             .setView(android.widget.ScrollView(this).apply { addView(box) })
@@ -425,12 +431,16 @@ class CircleActivity : AppCompatActivity() {
     private fun connectMissing(app: android.content.Context) = !PartnerShare.sharingOld(app) || !FamilyFileSync.on(app) || !PartnerNotify.on(app)
 
     /** The connection at a glance: ✓ on, ○ off. */
-    private fun connectLines(app: android.content.Context, who: String) = listOf(
-        L.t("✓ רגעים חדשים עוברים ביניכם", "✓ New moments go between you"),
-        (if (PartnerShare.sharingOld(app)) "✓ " else "○ ") + L.t("הרגעים הישנים", "The older moments"),
-        (if (FamilyFileSync.on(app)) "✓ " else "○ ") + L.t("תיק המשפחה משותף", "The family file is shared"),
-        (if (PartnerNotify.on(app)) "✓ " else "○ ") + L.t("התראה כש$who משתף/ת", "Notified when $who shares"),
-    )
+    private fun connectLines(app: android.content.Context, who: String): List<String> {
+        // The state in words too (not only ✓ / ○).
+        fun st(on: Boolean, what: String) = (if (on) "✓ " else "○ ") + what + (if (on) L.t(" (פועל)", " (on)") else L.t(" (כבוי)", " (off)"))
+        return listOf(
+            st(true, L.t("רגעים חדשים עוברים ביניכם", "New moments go between you")),
+            st(PartnerShare.sharingOld(app), L.t("הרגעים הישנים", "The older moments")),
+            st(FamilyFileSync.on(app), L.t("תיק המשפחה משותף", "The family file is shared")),
+            st(PartnerNotify.on(app), L.t("התראה כשמגיע משהו חדש מ$who", "Notified when $who shares")),
+        )
+    }
 
     private fun circleHome() {
         val head = ui.card(top = 14)

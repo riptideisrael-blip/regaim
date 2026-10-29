@@ -57,25 +57,31 @@ class BackupActivity : AppCompatActivity() {
     /** While a backup runs, its progress line updates. */
     private fun tick() {
         if (isFinishing || isDestroyed) return
-        if (DriveBackup.busy) { status?.text = DriveBackup.progress; content.postDelayed({ tick() }, 1000) }
+        // (Only a new step is announced, not every second's count.)
+        if (DriveBackup.busy) {
+            val p = DriveBackup.progress
+            if (p.substringBefore(' ') != status?.text?.toString()?.substringBefore(' ') || p.isEmpty()) status?.text = p
+            content.postDelayed({ tick() }, 3000)
+        }
     }
 
     private fun render() {
         content.removeAllViews()
         val on = DriveBackup.on(this)
-        content.addView(ui.text(if (on) L.t("✓ הגיבוי פועל", "✓ Backup is on") else L.t("הרגעים שמורים רק בטלפון הזה", "Your moments are only on this phone"), 20f, bold = true, top = 12))
+        content.addView(ui.heading(if (on) L.t("הגיבוי פועל", "Backup is on") else L.t("הרגעים שמורים רק בטלפון הזה", "Your moments are only on this phone"), 20f, top = 12))
         content.addView(ui.hint(L.t(
             "מה נשמר: הרגעים, תיק המשפחה, הסצנות של פיצקי, הספרים, זיהוי הפנים והפרופיל של המשפחה.\n" +
                 "איפה: בגוגל דרייב שלך, בתיקייה \"${GDrive.FOLDER}\". Moments רואה רק את הקבצים שהוא עצמו שם, ולא שום דבר אחר בדרייב.\n" +
-                "מי יכול לקרוא: אף אחד בלי החשבון שלך ב-Moments. הקבצים מוצפנים, והמפתח שמור בחשבון שלך, לא ליד הקבצים.\n" +
+                "מי יכול לקרוא: הקבצים מוצפנים, והמפתח שמור בחשבון שלך בשרת של Moments, לא ליד הקבצים. כדי לפתוח את הגיבוי צריך את שניהם. מחיקת החשבון מוחקת את המפתח, ואז אי אפשר לפתוח את הגיבוי.\n" +
                 "מתי: פעם ביום, ב-Wi-Fi כשהטלפון בטעינה, ורק מה שהשתנה.",
             "What's kept: the moments, the family file, Pitzki's scenes, the books, face recognition and the family profile.\n" +
                 "Where: in your Google Drive, in the \"${GDrive.FOLDER}\" folder. Moments sees only the files it put there, nothing else in your Drive.\n" +
-                "Who can read it: nobody without your Moments account. The files are encrypted, and the key is in your account, not next to the files.\n" +
+                "Who can read it: the files are encrypted, and the key is kept in your account on the Moments server, not next to the files. Opening the backup needs both. Deleting the account deletes the key, and then the backup can't be opened.\n" +
                 "When: once a day, on Wi-Fi while charging, only what changed."), top = 8))
 
         if (!Account.signedIn(this)) {
             content.addView(ui.hint(L.t("כדי לגבות צריך להתחבר לחשבון Moments (המפתח שמור שם).", "To back up, sign in to your Moments account (the key is kept there)."), top = 14))
+            content.addView(ui.button(L.t("התחברות", "Sign in"), primary = true, top = 12) { WelcomeActivity.open(this) })
             return
         }
         if (on) {
@@ -91,8 +97,12 @@ class BackupActivity : AppCompatActivity() {
             })
             content.addView(ui.action(L.t("שחזור מהגיבוי לטלפון הזה ›", "Restore the backup onto this phone ›")) { askRestore() })
             content.addView(ui.action(L.t("לכבות את הגיבוי", "Turn the backup off"), R.color.ink_soft) {
-                DriveBackup.setOn(this, false); render()
-                Toast.makeText(this, L.t("כבוי. מה שכבר בדרייב נשאר שם (אפשר למחוק את התיקייה בדרייב).", "Off. What's already in Drive stays there (you can delete the folder in Drive)."), Toast.LENGTH_LONG).show()
+                AlertDialog.Builder(this)
+                    .setTitle(L.t("לכבות את הגיבוי?", "Turn the backup off?"))
+                    .setMessage(L.t("לא יעלה יותר שום דבר לדרייב. מה שכבר שם נשאר, ומוחקים אותו בדרייב עצמו (התיקייה \"${GDrive.FOLDER}\").", "Nothing more goes to Drive. What's already there stays; delete it in Drive itself (the \"${GDrive.FOLDER}\" folder)."))
+                    .setPositiveButton(L.t("לכבות", "Turn off")) { _, _ -> DriveBackup.setOn(this, false); render(); say(L.t("הגיבוי כבוי.", "The backup is off.")) }
+                    .setNegativeButton(L.t("ביטול", "Cancel"), null)
+                    .show()
             })
         } else {
             content.addView(ui.button(L.t("להפעיל גיבוי לגוגל דרייב", "Turn on the Google Drive backup"), primary = true, top = 16) {
@@ -109,7 +119,8 @@ class BackupActivity : AppCompatActivity() {
             })
             content.addView(ui.action(L.t("טלפון חדש? שחזור מגיבוי ›", "New phone? Restore a backup ›")) { askRestore() })
         }
-        status = ui.hint(if (DriveBackup.busy) DriveBackup.progress else "", top = 12)
+        // Announced to screen readers when it changes (a backup's progress and result).
+        status = ui.hint(if (DriveBackup.busy) DriveBackup.progress else "", top = 12).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
         content.addView(status)
     }
 
@@ -126,7 +137,7 @@ class BackupActivity : AppCompatActivity() {
                     catch (_: Exception) { say(L.t("לא הצלחנו לפתוח את חלון ההרשאה.", "Couldn't open the permission window.")) }
                 } else r.accessToken?.let(then) ?: say(L.t("לא התקבלה הרשאה מגוגל.", "Google didn't grant access."))
             }
-            .addOnFailureListener { say(L.t("ההתחברות לגוגל נכשלה. ייתכן שה-API של גוגל דרייב עוד לא הופעל בפרויקט.", "Couldn't connect to Google. The Google Drive API may not be turned on in the project yet.")) }
+            .addOnFailureListener { say(L.t("ההתחברות לגוגל לא הצליחה. נסו שוב מאוחר יותר.", "Couldn't connect to Google. Try again later.")) }
     }
 
     private fun backupNow() {

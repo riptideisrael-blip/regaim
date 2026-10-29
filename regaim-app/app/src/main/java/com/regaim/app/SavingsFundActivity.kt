@@ -56,6 +56,8 @@ class SavingsFundActivity : AppCompatActivity() {
     private var fDate: EditText? = null
     private var fBalance: EditText? = null
     private var reading = false
+    /** A note from the last reading, kept while this screen is open. */
+    private var note: String? = null
     /** The balance is typed (or was read) in dollars; kept in ₪ at the report day's dollar rate. */
     private var usdMode = false
     /** What was just read is newer than the fields on screen: the next render doesn't read them back. */
@@ -177,6 +179,10 @@ class SavingsFundActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.screenTitle).text = if (isNew) L.t("קופת חיסכון", "Savings fund") else fund.title
         val kids = Profile.members(this).filter { !it.isPet } /* parents too, not only the children */
 
+        // What the reading wants said (files left out or unread): here, readable and announced.
+        SavingsReports.takeNote()?.let { note = it }
+        note?.let { content.addView(ui.text("⚠️ $it", 14f, R.color.ink, top = 12).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }) }
+        if (reading) content.addView(ui.text(L.t("קוראים את הדוח… זה לוקח עד דקה", "Reading the report… up to a minute"), 14f, R.color.ink, top = 8).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE })
         if (matchedExisting) content.addView(ui.card(top = 12).apply {
             addView(ui.text(L.t("הדוח נוסף לקופה שכבר קיימת", "The report goes to an existing fund"), 15f, bold = true))
             addView(ui.hint(L.t("זיהינו את הקופה לפי החברה והמסלול. בדקו את התאריך והיתרה ולחצו שמירה.", "Matched by company and track. Check the date and balance, then Save."), top = 2))

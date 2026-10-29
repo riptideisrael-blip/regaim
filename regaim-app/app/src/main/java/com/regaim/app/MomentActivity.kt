@@ -453,7 +453,8 @@ class MomentActivity : AppCompatActivity() {
         val m = memory
         val desc = findViewById<TextView>(R.id.momentDesc)
         mv.stopPulse(desc)
-        desc.setOnClickListener(null)
+        // (setOnClickListener(null) still leaves it clickable: plain words mustn't say "double-tap to activate".)
+        desc.setOnClickListener(null); desc.isClickable = false; desc.contentDescription = null
         findViewById<TextView>(R.id.storySource).apply {
             // Facts first (what was actually observed), then where the words below come from.
             val facts = Facts.line(this@MomentActivity, m)
@@ -503,6 +504,8 @@ class MomentActivity : AppCompatActivity() {
                 desc.text = L.t("לא זיהינו מי ברגע הזה, אז לא כתבנו תיאור. מי זה? ›", "We didn't recognize who's in this moment, so we didn't describe it. Who is it? ›")
                 desc.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
                 desc.setOnClickListener { editPeople() }
+                desc.contentDescription = L.t("לא זיהינו מי ברגע הזה. לחצו כדי לסמן מי זה", "Nobody recognized. Tap to mark who it is")
+                A11y.button(desc)
             }
             m.analyzed -> {
                 desc.text = L.t("אין עדיין תיאור לזיכרון הזה. אפשר להוסיף את הסיפור שלכם.", "No description yet. Add your own story.")

@@ -183,7 +183,8 @@ class Ui(private val a: Activity) {
                     setPadding(dp(16), dp(9), dp(16), dp(9))
                     val on = i == sel
                     typeface = if (on) DS.emphasis else DS.body
-                    setTextColor(if (on) DS.primary(a) else DS.inkSoft(a))
+                    // (The pressed blue on the light-blue pill: 5.98:1; the brand blue was 4.40:1.)
+                    setTextColor(if (on) DS.buttonPressed(a) else DS.inkSoft(a))
                     // A soft gray pill; the chosen one light blue with blue text (no heavy fill).
                     background = DS.rounded(if (on) DS.selected(a) else DS.buttonSecondary(a), DS.radiusChip(a))
                     isSelected = on

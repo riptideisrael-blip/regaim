@@ -429,7 +429,8 @@ class HomeActivity : AppCompatActivity() {
                     gravity = Gravity.CENTER
                     setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink_soft))
                 })
-                // What the ring means, on a long press.
+                // What the ring means, on a long press (named for screen readers).
+                androidx.core.view.ViewCompat.replaceAccessibilityAction(this, androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK, L.t("מה הטבעת אומרת", "What the ring means"), null)
                 setOnLongClickListener {
                     val f = freshCount(n)
                     Toast.makeText(this@HomeActivity, when {
@@ -476,6 +477,8 @@ class HomeActivity : AppCompatActivity() {
                 setPadding(0, mv.dp(6), 0, 0)
             })
             setOnClickListener { startActivity(Intent(this@HomeActivity, ProfileActivity::class.java)) }
+            contentDescription = L.t("הוספת בן משפחה", "Add a family member")
+            A11y.button(this)
         })
         content.addView(ui.scrollRow(strip, top = 22))
     }
@@ -603,7 +606,7 @@ class HomeActivity : AppCompatActivity() {
         card.addView(ui.hint(L.t("בצעד אחד: הרגעים עוברים ביניכם, תיק המשפחה משותף, והתראה כשמשהו חדש מגיע.", "In one step: moments go between you, the family file is shared, and you're notified when something new arrives."), top = 4))
         val row = ui.horizontal(top = 6)
         row.addView(ui.action(L.t("לחבר ›", "Connect ›")) { startActivity(Intent(this, CircleActivity::class.java)) })
-        row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putBoolean("connect_card_closed", true).apply(); render() })
+        row.addView(ui.action(L.t("לא תודה", "No thanks"), R.color.ink_soft) { prefs.edit().putBoolean("connect_card_closed", true).apply(); render() })
         card.addView(row)
         content.addView(card)
     }
