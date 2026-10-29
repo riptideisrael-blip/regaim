@@ -150,7 +150,7 @@ class ComicActivity : AppCompatActivity() {
             val label = TextView(this).apply {
                 text = (if (m.page > 0) L.t("עמ׳ ${m.page + 1}", "Page ${m.page + 1}") else L.t("גרסה ${i + 1}", "Version ${i + 1}")) + if (m.file.absolutePath in saved) " ✓" else ""
                 textSize = 11f
-                setTextColor(0xFFE9D9C8.toInt())
+                setTextColor(0xFFE4ECF6.toInt())
             }
             versionsRow.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL

@@ -438,7 +438,7 @@ class BookActivity : AppCompatActivity() {
                     text = "✓ ${momentSel.indexOf(m.id) + 1}"
                     textSize = 13f
                     setTextColor(android.graphics.Color.WHITE)
-                    setBackgroundColor(0xDD87664F.toInt())
+                    setBackgroundColor(0xDD1A6FCC.toInt())
                     setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(3))
                 }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP or android.view.Gravity.END))
                 cell.setOnClickListener {
@@ -675,7 +675,7 @@ class BookActivity : AppCompatActivity() {
             }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             if (chosen?.id == v.id) cell.addView(TextView(this).apply {
                 text = "✓"; textSize = 14f; setTextColor(android.graphics.Color.WHITE)
-                setBackgroundColor(0xDD87664F.toInt()); setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(3))
+                setBackgroundColor(0xDD1A6FCC.toInt()); setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(3))
             }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP or android.view.Gravity.END))
             cell.setOnClickListener { onPick(v) }
             row.addView(cell)

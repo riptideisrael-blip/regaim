@@ -601,7 +601,7 @@ class PitzkiActivity : AppCompatActivity() {
     private fun endCard(then: () -> Unit) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-            setBackgroundColor(android.graphics.Color.parseColor("#2E2620"))
+            setBackgroundColor(android.graphics.Color.parseColor("#0F1B2D"))
             alpha = 0f
         }
         card.addView(TextView(this).apply { text = "💚"; textSize = 54f; gravity = Gravity.CENTER })

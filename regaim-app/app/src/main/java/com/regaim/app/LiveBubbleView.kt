@@ -54,8 +54,8 @@ class LiveBubbleView @JvmOverloads constructor(
 
     private val density = resources.displayMetrics.density
     private val ringWidth = 10f * density
-    private val accent = Color.parseColor("#87664F")
-    private val accentSoft = Color.parseColor("#F0E6DC")
+    private val accent = Color.parseColor("#1A6FCC")
+    private val accentSoft = Color.parseColor("#EEF3F9")
     private val ink = Color.parseColor("#1F2A26")
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentSoft }
@@ -64,7 +64,7 @@ class LiveBubbleView @JvmOverloads constructor(
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = ringWidth
-        color = Color.parseColor("#F0E6DC")
+        color = Color.parseColor("#EEF3F9")
     }
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE

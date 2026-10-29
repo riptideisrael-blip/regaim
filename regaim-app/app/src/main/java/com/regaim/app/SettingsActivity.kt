@@ -104,7 +104,7 @@ open class SettingsActivity : AppCompatActivity() {
     private fun markSaved() {
         saveBar?.apply {
             text = L.t("✓ הכל שמור", "✓ All saved")
-            backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFF0E6DC.toInt())
+            backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFEEF3F9.toInt())
             setTextColor(ui.color(R.color.accent_dark))
         }
     }

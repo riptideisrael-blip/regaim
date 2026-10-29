@@ -30,7 +30,7 @@
             android:background="?attr/selectableItemBackground"
             android:padding="10dp"
             android:text="@string/close"
-            android:textColor="#E9D9C8"
+            android:textColor="#E4ECF6"
             android:textSize="16sp" />
     </LinearLayout>
 
@@ -55,7 +55,7 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
-            android:textColor="#F0E6DC"
+            android:textColor="#EEF3F9"
             android:textSize="17sp" />
     </FrameLayout>
 

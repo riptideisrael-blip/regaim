@@ -18,9 +18,9 @@ class DonutView(ctx: Context) : View(ctx) {
         set(v) { field = v; invalidate() }
     var caption: String = ""
         set(v) { field = v; invalidate() }
-    var track: Int = 0xFFEDE5DC.toInt()
-    var ink: Int = 0xFF2E2620.toInt()
-    var soft: Int = 0xFF675C54.toInt()
+    var track: Int = 0xFFEEF3F9.toInt()
+    var ink: Int = 0xFF0F1B2D.toInt()
+    var soft: Int = 0xFF5B687A.toInt()
 
     private val d = resources.displayMetrics.density
     private val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.BUTT }

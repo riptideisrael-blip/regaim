@@ -38,10 +38,9 @@ object Nav {
 
     /** [current] null (or ASK / PROFILE) = a screen that isn't a tab: no tab highlighted. */
     fun setup(a: Activity, current: Tab?) {
-        // Design system: active tab dark mocha on a light beige pill, the others warm taupe.
+        // Design system: the active tab blue (icon and word), no pill behind it; the others soft gray.
         val off = DS.inkSoft(a)
         val on = DS.primary(a)
-        val d = a.resources.displayMetrics.density
         for ((tab, id) in ids) {
             val v = a.findViewById<LinearLayout>(id) ?: continue
             val selected = tab == current
@@ -51,9 +50,7 @@ object Nav {
                 setTextColor(color)
                 typeface = if (selected) DS.emphasis else DS.body
             }
-            v.background = if (selected) android.graphics.drawable.InsetDrawable(
-                DS.rounded(DS.selected(a), DS.radiusChip(a)), (8 * d).toInt(), (5 * d).toInt(), (8 * d).toInt(), (5 * d).toInt(),
-            ) else DS.pressable(a, DS.rounded(android.graphics.Color.TRANSPARENT, DS.radiusChip(a)))
+            v.background = DS.pressable(a, DS.rounded(android.graphics.Color.TRANSPARENT, DS.radiusChip(a)))
             v.isSelected = selected
             v.foreground = null
             v.setOnClickListener {

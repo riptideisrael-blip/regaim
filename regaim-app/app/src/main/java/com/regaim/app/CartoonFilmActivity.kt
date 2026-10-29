@@ -344,7 +344,7 @@ private class ProgressRing(ctx: Context, private val picture: android.graphics.B
         color = androidx.core.content.ContextCompat.getColor(ctx, R.color.accent)
     }
     private val shade = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0x66000000 }
-    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF0E6DC.toInt() }
+    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEEF3F9.toInt() }
     private val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = android.graphics.Paint.Align.CENTER; textSize = 30 * d; isFakeBoldText = true
     }

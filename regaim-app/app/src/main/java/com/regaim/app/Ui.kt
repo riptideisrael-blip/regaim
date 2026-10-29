@@ -183,9 +183,9 @@ class Ui(private val a: Activity) {
                     setPadding(dp(16), dp(9), dp(16), dp(9))
                     val on = i == sel
                     typeface = if (on) DS.emphasis else DS.body
-                    setTextColor(if (on) DS.onButton(a) else DS.ink(a))
-                    // Cream pill; the chosen one mocha.
-                    background = DS.rounded(if (on) DS.primary(a) else DS.buttonSecondary(a), DS.radiusChip(a))
+                    setTextColor(if (on) DS.primary(a) else DS.inkSoft(a))
+                    // A soft gray pill; the chosen one light blue with blue text (no heavy fill).
+                    background = DS.rounded(if (on) DS.selected(a) else DS.buttonSecondary(a), DS.radiusChip(a))
                     isSelected = on
                     minHeight = dp(48)
                     androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר", "Selected") else null)

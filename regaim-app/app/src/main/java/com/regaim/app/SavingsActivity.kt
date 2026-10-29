@@ -112,7 +112,7 @@ class SavingsActivity : AppCompatActivity() {
             card.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(4))
             if (mine.isEmpty()) card.addView(ui.hint(L.t("עוד אין קופה. מעלים דוח, או מוסיפים ידנית.", "No fund yet. Upload a report, or add one by hand."), top = 12).apply { setPadding(0, 0, 0, ui.dp(12)) })
             mine.forEachIndexed { n, f ->
-                if (n > 0) card.addView(View(this).apply { setBackgroundColor(0xFFE8DED3.toInt()); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1) })
+                if (n > 0) card.addView(View(this).apply { setBackgroundColor(0xFFE4E9F0.toInt()); layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1) })
                 card.addView(fundRow(f, today))
             }
             card.addView(ui.action(L.t("+ קופה ל${k.name}", "+ A fund for ${k.name}")) { SavingsFundActivity.newFor(this, k.id) })
@@ -249,7 +249,7 @@ class SavingsActivity : AppCompatActivity() {
         val result = amount("", 28f, DS.ink(this)).apply { setPadding(0, ui.dp(14), 0, 0) }
         val split = ui.hint("", top = 2)
         val chart = GrowthChartView(this).apply {
-            deposits = 0xFFE3D5C6.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
+            deposits = 0xFFD6E4F5.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
         }
         val legend = ui.hint(L.t("בהיר: מה שהופקד · כהה: התשואה", "Light: deposited · dark: growth"), top = 4)
@@ -279,10 +279,10 @@ class SavingsActivity : AppCompatActivity() {
 
     private fun trim(y: Double) = if (y % 1.0 == 0.0) y.toInt().toString() else String.format(java.util.Locale.US, "%.1f", y)
 
-    private val PALETTE = listOf(0xFF6F4E37.toInt(), 0xFFC0784A.toInt(), 0xFF7E9A7A.toInt(), 0xFF5B7A99.toInt(), 0xFFB58B3A.toInt(), 0xFF8E5A7A.toInt())
-    private val UP = 0xFF3E7D4F.toInt()
-    private val DOWN = 0xFFA4442F.toInt()
-    private val DEPOSITED = 0xFFC0784A.toInt()
+    private val PALETTE = listOf(0xFF1A6FCC.toInt(), 0xFF5AC8FA.toInt(), 0xFF7B8CDE.toInt(), 0xFF2BA8A0.toInt(), 0xFFF2A971.toInt(), 0xFF9B7FD1.toInt())
+    private val UP = 0xFF1C7F46.toInt()
+    private val DOWN = 0xFFB3261E.toInt()
+    private val DEPOSITED = 0xFF5AC8FA.toInt()
 
     /**
      * The portfolio card: a ring (by child for the whole family, by fund for one child) with the total in the middle
@@ -493,7 +493,7 @@ class SavingsActivity : AppCompatActivity() {
     }
 
     // ---- The ring's colours: chosen per part (kept on this phone) ----
-    private val COLOR_NAMES get() = listOf(L.t("מוקה", "Mocha"), L.t("כתום", "Orange"), L.t("ירוק", "Green"), L.t("כחול", "Blue"), L.t("חרדל", "Mustard"), L.t("סגול", "Purple"))
+    private val COLOR_NAMES get() = listOf(L.t("כחול", "Blue"), L.t("תכלת", "Sky"), L.t("לבנדר", "Lavender"), L.t("טורקיז", "Teal"), L.t("משמש", "Apricot"), L.t("סגול", "Purple"))
 
     private fun colorOf(part: String, i: Int): Int =
         PALETTE[Settings.prefs(this).getInt("savings_color_$part", i % PALETTE.size).coerceIn(0, PALETTE.size - 1)]

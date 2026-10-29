@@ -15,8 +15,8 @@ import android.view.View
 class HistoryChartView(ctx: Context) : View(ctx) {
     var points: List<Pair<String, Double>> = emptyList()
         set(v) { field = v; invalidate() }
-    var line: Int = 0xFF6F4E37.toInt()
-    var soft: Int = 0xFF675C54.toInt()
+    var line: Int = 0xFF1A6FCC.toInt()
+    var soft: Int = 0xFF5B687A.toInt()
     var dotFill: Int = 0xFFFFFFFF.toInt()
     var startLabel = ""
     var endLabel = ""

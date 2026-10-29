@@ -98,7 +98,7 @@ class StoriesActivity : AppCompatActivity() {
                     }
                     background = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.OVAL
-                        setColor(0xFFF0E6DC.toInt())
+                        setColor(0xFFEEF3F9.toInt())
                         setStroke(mv.dp(2), 0xFFFFFFFF.toInt())
                     }
                 })
@@ -107,7 +107,7 @@ class StoriesActivity : AppCompatActivity() {
         }
         box.addView(ui.scrollRow(strip, top = 12))
         box.addView(View(this).apply {
-            setBackgroundColor(0xFFF0E6DC.toInt())
+            setBackgroundColor(0xFFEEF3F9.toInt())
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, mv.dp(1)).apply { topMargin = mv.dp(16) }
         })
         return box

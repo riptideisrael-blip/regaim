@@ -440,11 +440,10 @@ class FamilyItemActivity : AppCompatActivity() {
         val chain = item.vendor.ifBlank { item.title.substringBefore(" · ") }.ifBlank { item.kind.label }
         val link = FamilyItems.link(item.note)
         val cvv = FamilyItems.cvv(item.note)
-        val white = 0xFFFFFFFF.toInt()
+        val white = DS.ink(this@FamilyItemActivity)
         return ui.card(top = 12).apply {
             setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18))
-            background = DS.rounded(0xFF6F4E37.toInt(), ui.dp(22).toFloat())
-            addView(TextView(this@FamilyItemActivity).apply { text = chain; textSize = 15f; setTextColor(0xE6FFFFFF.toInt()); typeface = DS.emphasis; textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
+            addView(TextView(this@FamilyItemActivity).apply { text = chain; textSize = 15f; setTextColor(DS.inkSoft(this@FamilyItemActivity)); typeface = DS.emphasis; textDirection = View.TEXT_DIRECTION_FIRST_STRONG })
             FamilyItems.worth(item).takeIf { it > 0 }?.let { w ->
                 addView(TextView(this@FamilyItemActivity).apply {
                     text = FamilyItems.money(w); textSize = 32f; setTextColor(white); typeface = DS.emphasis; textDirection = View.TEXT_DIRECTION_LTR
@@ -452,7 +451,7 @@ class FamilyItemActivity : AppCompatActivity() {
                 })
             }
             FamilyItems.expiryLine(item, today).takeIf { it.isNotEmpty() }?.let { e ->
-                addView(TextView(this@FamilyItemActivity).apply { text = e; textSize = 13f; setTextColor(0xE6FFFFFF.toInt()); setPadding(0, ui.dp(2), 0, 0) })
+                addView(TextView(this@FamilyItemActivity).apply { text = e; textSize = 13f; setTextColor(DS.inkSoft(this@FamilyItemActivity)); setPadding(0, ui.dp(2), 0, 0) })
             }
             if (item.code.isNotEmpty()) {
                 addView(TextView(this@FamilyItemActivity).apply {
@@ -460,7 +459,7 @@ class FamilyItemActivity : AppCompatActivity() {
                     contentDescription = item.code.toCharArray().joinToString(" ")
                     textDirection = View.TEXT_DIRECTION_LTR; textAlignment = View.TEXT_ALIGNMENT_CENTER
                     letterSpacing = 0.06f; setTextIsSelectable(true)
-                    background = DS.rounded(0x26FFFFFF, ui.dp(12).toFloat())
+                    background = DS.rounded(DS.cardAlt(this@FamilyItemActivity), ui.dp(12).toFloat())
                     setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) }
                 })
@@ -469,8 +468,8 @@ class FamilyItemActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
             }
             fun pill(label: String, onClick: () -> Unit) = TextView(this@FamilyItemActivity).apply {
-                text = label; textSize = 14f; setTextColor(white); typeface = DS.emphasis; gravity = android.view.Gravity.CENTER
-                background = DS.rounded(0x33FFFFFF, ui.dp(20).toFloat())
+                text = label; textSize = 14f; setTextColor(DS.primary(this@FamilyItemActivity)); typeface = DS.emphasis; gravity = android.view.Gravity.CENTER
+                background = DS.rounded(DS.selected(this@FamilyItemActivity), ui.dp(12).toFloat())
                 setPadding(ui.dp(14), ui.dp(9), ui.dp(14), ui.dp(9)); minHeight = ui.dp(44)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }
                 setOnClickListener { onClick() }

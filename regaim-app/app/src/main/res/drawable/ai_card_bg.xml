@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Design system card: white, a hairline border, rounded (Sky Clean). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="@color/ds_card" />
+    <stroke android:width="@dimen/ds_line" android:color="@color/ds_line" />
     <corners android:radius="@dimen/ds_radius_chip" />
 </shape>

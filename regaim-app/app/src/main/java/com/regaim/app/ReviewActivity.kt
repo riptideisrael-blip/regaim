@@ -72,7 +72,7 @@ class ReviewActivity : AppCompatActivity() {
         val width = resources.displayMetrics.widthPixels - ui.dp(40)
         val iv = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { cornerRadius = ui.dp(20).toFloat(); setColor(0xFFF0E6DC.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = ui.dp(20).toFloat(); setColor(0xFFEEF3F9.toInt()) }
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (width * 1.2f).toInt()).apply { topMargin = ui.dp(10) }
             if (m.thumb.isNotEmpty()) BitmapFactory.decodeFile(m.thumb)?.let { setImageBitmap(it) }
@@ -109,7 +109,7 @@ class ReviewActivity : AppCompatActivity() {
             textSize = 14f
             setTextColor(ui.color(R.color.ink))
             setPadding(ui.dp(12), ui.dp(6), ui.dp(12), ui.dp(6))
-            background = GradientDrawable().apply { cornerRadius = ui.dp(14).toFloat(); setColor(0xFFF3EBE2.toInt()) }
+            background = GradientDrawable().apply { cornerRadius = ui.dp(14).toFloat(); setColor(0xFFFFFFFF.toInt()) }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(8) }
         })
 
@@ -202,7 +202,7 @@ class ReviewActivity : AppCompatActivity() {
         setTextColor(if (primary) 0xFFFFFFFF.toInt() else ui.color(R.color.ink))
         background = GradientDrawable().apply {
             cornerRadius = ui.dp(28).toFloat()
-            if (primary) setColor(0xFF87664F.toInt()) else { setColor(0xFFF0E6DC.toInt()) }
+            if (primary) setColor(0xFF1A6FCC.toInt()) else { setColor(0xFFEEF3F9.toInt()) }
         }
         // Grows with a large phone font instead of cutting the words.
         minHeight = ui.dp(56); setPadding(paddingLeft, ui.dp(8), paddingRight, ui.dp(8))

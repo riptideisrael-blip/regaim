@@ -171,7 +171,7 @@ class WelcomeActivity : AppCompatActivity() {
             return ImageView(this).apply {
                 setImageResource(resId)
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = GradientDrawable().apply { cornerRadius = radius; setColor(0xFFF0E6DC.toInt()) }
+                background = GradientDrawable().apply { cornerRadius = radius; setColor(0xFFEEF3F9.toInt()) }
                 clipToOutline = true
                 layoutParams = lp
             }
@@ -227,7 +227,7 @@ class WelcomeActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 cornerRadius = ui.dp(16).toFloat()
                 setColor(0xE6FFFFFF.toInt())
-                setStroke(ui.dp(1), 0xFFF0E6DC.toInt())
+                setStroke(ui.dp(1), 0xFFEEF3F9.toInt())
             }
             setPadding(ui.dp(12), ui.dp(6), ui.dp(12), ui.dp(6))
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
@@ -289,7 +289,7 @@ class WelcomeActivity : AppCompatActivity() {
         } else {
             backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this@WelcomeActivity, R.color.white))
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
-            strokeColor = android.content.res.ColorStateList.valueOf(0xFFF0E6DC.toInt())
+            strokeColor = android.content.res.ColorStateList.valueOf(0xFFEEF3F9.toInt())
             strokeWidth = ui.dp(1)
         }
         minHeight = ui.dp(56)
@@ -348,7 +348,7 @@ class WelcomeActivity : AppCompatActivity() {
         background = GradientDrawable().apply {
             cornerRadius = ui.dp(16).toFloat()
             setColor(0xFFFFFFFF.toInt())
-            setStroke(ui.dp(1), 0xFFF0E6DC.toInt())
+            setStroke(ui.dp(1), 0xFFEEF3F9.toInt())
         }
         setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14))
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
