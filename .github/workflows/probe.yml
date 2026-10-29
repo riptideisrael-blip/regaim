@@ -7,8 +7,14 @@ jobs:
       - name: Probe open data
         run: |
           set +e
-          q() { echo "::notice title=$1::$(curl -sS -m 30 "$2" | head -c 900 | tr '\n' ' ' | sed 's/%/%25/g')"; }
-          q search "https://data.gov.il/api/3/action/package_search?q=%D7%92%D7%9E%D7%9C%20%D7%A0%D7%98&rows=5&fl=name,title"
-          q search2 "https://data.gov.il/api/3/action/package_search?q=gemelnet&rows=5"
-          for n in gemelnet gemel-net gemelnet-data; do q "show-$n" "https://data.gov.il/api/3/action/package_show?id=$n"; done
-          q gemelnet-site "https://gemelnet.cma.gov.il/"
+          n() { echo "::notice title=$1::$(echo "$2" | head -c 3000 | tr '\n' ' ' | sed 's/%/%25/g')"; }
+          P=$(curl -sS -m 30 "https://data.gov.il/api/3/action/package_show?id=gemelnet")
+          n resources "$(echo "$P" | jq -c '[.result.resources[]|{id,name,format,last_modified,datastore_active}]')"
+          for R in $(echo "$P" | jq -r '.result.resources[]|select(.datastore_active==true)|.id'); do
+            D=$(curl -sS -m 60 "https://data.gov.il/api/3/action/datastore_search?resource_id=$R&limit=1")
+            n "fields-$R" "$(echo "$D" | jq -c '[.result.fields[].id]')"
+            n "total-$R" "$(echo "$D" | jq -c '.result.total')"
+            n "sample-$R" "$(echo "$D" | jq -c '.result.records[0]')"
+            Q=$(curl -sS -m 60 -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "q=S&P 500" --data-urlencode "limit=40")
+            n "sp500-$R" "$(echo "$Q" | jq -c '[.result.records[]|del(._full_text)]' | head -c 2900)"
+          done
