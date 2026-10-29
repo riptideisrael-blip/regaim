@@ -215,17 +215,28 @@ class FamilyFileActivity : AppCompatActivity() {
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         // Sharing with the other parent: each of them turns it on, after reading what it means.
-        if (PartnerShare.partner(this).isNotEmpty() && FamilyFile.consented(this)) {
+        // Shown even while the file is empty here: a parent with nothing of their own yet still turns it on to see
+        // the other parent's items (it used to appear only after their own first item, so it looked unsynced).
+        if (PartnerShare.partner(this).isNotEmpty()) {
             val who = partnerName()
+            fun askShare() = AlertDialog.Builder(this)
+                .setTitle(L.t("לשתף את התיק עם $who?", "Share the file with $who?"))
+                .setMessage(FamilyFileSync.shareConsentText(who))
+                .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFileSync.turnOn(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
+                .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
+                .setOnCancelListener { render() }
+                .show()
             content.addView(ui.switch(L.t("שיתוף התיק עם $who", "Share the file with $who"), FamilyFileSync.on(this), top = 8) { want ->
                 if (want == FamilyFileSync.on(this)) return@switch
-                if (want) AlertDialog.Builder(this)
-                    .setTitle(L.t("לשתף את התיק עם $who?", "Share the file with $who?"))
-                    .setMessage(FamilyFileSync.shareConsentText(who))
-                    .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFileSync.turnOn(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
-                    .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
+                // The file's own consent first (what's kept and where), then what sharing it means.
+                if (want && !FamilyFile.consented(this)) AlertDialog.Builder(this)
+                    .setTitle(L.t("תיק המשפחה: מה נשמר ואיפה", "The family file: what's kept, and where"))
+                    .setMessage(FamilyFile.consentText())
+                    .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); askShare() }
+                    .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> render() }
                     .setOnCancelListener { render() }
                     .show()
+                else if (want) askShare()
                 else AlertDialog.Builder(this)
                     .setTitle(L.t("להפסיק לשתף?", "Stop sharing?"))
                     .setMessage(L.t("מה שנשלח מהטלפון הזה יימחק מהשרת, והפריטים של $who יוסרו מכאן.", "What this phone sent is deleted from the server, and $who's items are removed from here."))
@@ -236,6 +247,11 @@ class FamilyFileActivity : AppCompatActivity() {
             })
             content.addView(ui.hint(if (FamilyFileSync.on(this)) L.t("הפריטים שלך נשלחים ל$who. הפריטים של $who יופיעו כאן כשגם $who יפעיל/תפעיל שיתוף.", "Your items go to $who. $who's items appear here once $who turns sharing on too.")
                 else L.t("כרגע התיק נשמר רק בטלפון הזה.", "For now the file stays on this phone only."), top = 2))
+        } else if (Account.signedIn(this)) {
+            // No partner chosen yet: say where that's done (both parents choose each other in the family circle).
+            content.addView(ui.action(L.t("לשתף את התיק עם ההורה השני: בוחרים אחד את השני במעגל המשפחתי ›", "Share the file with the other parent: choose each other in the family circle ›")) {
+                CircleActivity.open(this)
+            })
         }
         val hidden = FamilyFile.all(this).filter { CouponImport.noCode(it) }
         if (hidden.isNotEmpty()) content.addView(ui.action(L.t("ניקוי ${hidden.size} שורות בלי קוד שיובאו מ-Excel", "Clear ${hidden.size} imported rows without a code"), R.color.ink_soft) {

@@ -516,6 +516,31 @@ object PitzkiStore {
         return PitzkiScript.CHILD_KEYS.any { it != PitzkiScript.INTRO_KEY && sceneFile(ctx, c.memberId, it).exists() }
     }
 
+    /** What about a child's film waits for the parent (a drawing still running is not waiting). */
+    enum class Waiting { CHARACTER, INTRO, SCENES }
+
+    fun waiting(ctx: Context, c: Child): Waiting? = when {
+        drawing?.let { !it.finished && (it.member == c.memberId || it.member.endsWith(c.memberId)) } == true -> null
+        heroCandidate(ctx, c.memberId).exists() || candidate(ctx, c.memberId).exists() -> Waiting.CHARACTER
+        awaitingIntro(ctx, c) -> Waiting.INTRO
+        PitzkiScript.CHILD_KEYS.any { clipFile(ctx, c.memberId, it).exists() } && !reviewed(ctx, c.memberId) -> Waiting.SCENES
+        else -> null
+    }
+
+    /** In words, for a card wherever the parent is: what waits, and (for the first scene) why the rest isn't there yet. */
+    fun waitingText(ctx: Context, c: Child, w: Waiting): String {
+        val name = c.kid.name
+        return when (w) {
+            Waiting.CHARACTER -> L.t("✨ דמות חדשה של $name מחכה לאישור שלכם.", "✨ A new character of $name is waiting for your OK.")
+            Waiting.INTRO -> L.t("👀 הסצנה הראשונה של $name מחכה לאישור שלכם. עד שתאשרו, שאר הסצנות לא מצוירות.",
+                "👀 $name's first scene is waiting for your OK. Until you approve it, the other scenes aren't drawn.")
+            Waiting.SCENES -> PitzkiScript.CHILD_KEYS.count { clipFile(ctx, c.memberId, it).exists() }.let { n ->
+                if (n == 1) L.t("👀 סצנה חדשה של $name מחכה שתעברו עליה.", "👀 A new scene of $name is waiting for you to go over it.")
+                else L.t("👀 $n סצנות חדשות של $name מחכות שתעברו עליהן.", "👀 $n new scenes of $name are waiting for you to go over them.")
+            }
+        }
+    }
+
     /** The first scene is drawn and waits for the parent's "yes" (the rest isn't made yet). */
     fun awaitingIntro(ctx: Context, c: Child): Boolean =
         sceneFile(ctx, c.memberId, PitzkiScript.INTRO_KEY).exists() && !introApproved(ctx, c) && drawnFrom(ctx, c.memberId) == c.look?.key
