@@ -164,6 +164,38 @@ object Savings {
             else deposits?.let { it / (months ?: 3).coerceIn(1, 12) }
     }
 
+    /**
+     * Several documents of one fund read together (an account statement, a tracks report, a screenshot): one reading.
+     * The date, balance and the period's numbers come from the document that has a balance (the newest such); every
+     * other detail (company, name, track, monthly deposits, fund number) from the first document that has it.
+     */
+    fun combine(rs: List<Reading>): Reading? {
+        if (rs.isEmpty()) return null
+        val base = rs[baseIndex(rs)]
+        val order = listOf(base) + rs.filter { it !== base }
+        fun s(f: (Reading) -> String) = order.map(f).firstOrNull { it.isNotBlank() }.orEmpty()
+        fun <T> n(f: (Reading) -> T?): T? = order.firstNotNullOfOrNull(f)
+        return base.copy(provider = s { it.provider }, name = s { it.name }, track = s { it.track }, childName = s { it.childName }, kind = n { it.kind },
+            monthly = n { it.monthly }, stateMonthly = n { it.stateMonthly }, feesPct = n { it.feesPct }, fundNumber = n { it.fundNumber },
+            coins = base.coins.ifEmpty { order.firstOrNull { it.coins.isNotEmpty() }?.coins.orEmpty() })
+    }
+
+    /** Which document the balance is taken from: the newest with a balance (₪ or $), else the first. */
+    fun baseIndex(rs: List<Reading>): Int =
+        rs.indices.filter { rs[it].balance != null || rs[it].valueUsd != null }.maxByOrNull { rs[it].date } ?: 0
+
+    /** Documents of more than one person (by first name), which can't be one fund. */
+    fun mixedPeople(rs: List<Reading>): Boolean =
+        rs.map { it.childName.trim().substringBefore(' ') }.filter { it.isNotEmpty() }.distinct().size > 1
+
+    /** What the state deposits each month for every child (ביטוח לאומי, "חיסכון לכל ילד"), by year; updated each January. */
+    private val STATE_MONTHLY = mapOf(2026 to 58.0)
+
+    fun stateMonthlyFor(year: Int): Double = STATE_MONTHLY[year] ?: STATE_MONTHLY.entries.minByOrNull { Math.abs(it.key - year) }!!.value
+
+    /** A fund (not crypto) without its track: it can't be found at Gemel-Net, so there's no return. */
+    fun needsTrack(f: Fund): Boolean = f.kind != Kind.CRYPTO && f.track.isBlank() && f.gemelId == 0
+
     fun reading(o: JSONObject): Reading {
         fun s(k: String) = o.optString(k).takeIf { !o.isNull(k) && it != "null" }.orEmpty().trim()
         fun d(k: String) = if (o.isNull(k)) null else FamilyItems.cleanAmount(o.opt(k))

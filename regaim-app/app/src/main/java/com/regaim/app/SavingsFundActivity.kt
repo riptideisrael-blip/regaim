@@ -63,10 +63,10 @@ class SavingsFundActivity : AppCompatActivity() {
     /** The balance was worked out from the coins' prices (said next to it). */
     private var computed = false
 
-    private val picker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@registerForActivityResult
+    private val picker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isEmpty()) return@registerForActivityResult
         fromFields(); reading = true; render()
-        SavingsReports.read(this, uri, fund.child) { r, docId ->
+        SavingsReports.readAll(this, uris, fund.child) { r, docId ->
             reading = false
             if (r != null) apply(r, docId) else if (docId.isNotEmpty()) pending = (pending ?: Savings.Report("", Double.NaN)).copy(doc = docId)
             fresh = true; render()
@@ -82,9 +82,13 @@ class SavingsFundActivity : AppCompatActivity() {
         else if (fund.kind != Savings.Kind.CRYPTO) {
             r.monthly?.let { fund = fund.copy(monthly = it) }
             r.stateMonthly?.let { fund = fund.copy(stateMonthly = it) }
+            // A tracks report: the track, when the fund doesn't have one yet.
+            if (fund.track.isBlank() && r.track.isNotBlank()) fund = fund.copy(track = r.track)
         }
         // The fund's number from the report: its Gemel-Net fund (checked against the list in the background).
         if (fund.kind != Savings.Kind.CRYPTO && fund.gemelId == 0 && r.fundNumber != null) fund = fund.copy(gemelId = r.fundNumber, gemelName = "")
+        // A document with no balance at all (a tracks report): its details only, no report (its date isn't a balance's).
+        if (r.balance == null && r.valueUsd == null && r.coins.isEmpty()) return
         val units = r.coins.associate { it.symbol to it.units }
         val date = r.date.ifEmpty { java.time.LocalDate.now().toString() }
         val prices = CryptoPrices.cached(this)
@@ -123,6 +127,10 @@ class SavingsFundActivity : AppCompatActivity() {
                     c.copy(monthly = if (c.monthly > 0) c.monthly else fund.coins.firstOrNull { it.symbol == c.symbol }?.monthly ?: 0.0) })
             }
             // What goes in each month: as the report says, or its period's deposits spread over the months.
+            // "Savings for every child": the state's amount is known; the parents' part is asked on the screen (the
+            // period's deposits spread over its months would mix the two, and a first report's catch-up too).
+            else if (r.kind == Savings.Kind.CHILD_SAVINGS) fund = fund.copy(child = child, kind = Savings.Kind.CHILD_SAVINGS, provider = r.provider, name = r.name, track = r.track,
+                monthly = r.monthly ?: 0.0, stateMonthly = r.stateMonthly ?: Savings.stateMonthlyFor(java.time.LocalDate.now().year))
             else fund = fund.copy(child = child, kind = r.kind ?: fund.kind, provider = r.provider, name = r.name, track = r.track,
                 monthly = if (r.kind == Savings.Kind.CRYPTO) 0.0 else r.monthly ?: (if (r.stateMonthly == null) r.perMonth ?: 0.0 else 0.0),
                 stateMonthly = r.stateMonthly ?: 0.0, coins = if (r.kind == Savings.Kind.CRYPTO) r.coins else emptyList())
@@ -180,7 +188,7 @@ class SavingsFundActivity : AppCompatActivity() {
             else if (fund.kind == Savings.Kind.CRYPTO) L.t("📄 העלאת דף חשבון לקופה הזו", "📄 Upload a statement to this fund") else L.t("📄 העלאת דוח רבעוני לקופה הזו", "📄 Upload a quarterly report to this fund"), primary = true, top = 12) {
             if (!reading) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !reading })
-        content.addView(ui.hint(L.t("PDF או צילום. הפרטים מתמלאים מהדוח, ואתם בודקים לפני שמירה.", "PDF or photo. The details are filled in from it; you check before saving."), top = 4))
+        content.addView(ui.hint(L.t("PDF או צילום, גם כמה קבצים יחד. הפרטים מתמלאים מהדוח, ואתם בודקים לפני שמירה.", "PDF or photo, several files together too. The details are filled in from it; you check before saving."), top = 4))
         content.addView(ui.text(L.t("של מי?", "Whose?"), 15f, bold = true, top = 14))
         if (kids.isNotEmpty()) content.addView(ui.chips(kids.map { it.name }, kids.indexOfFirst { it.id == fund.child }, top = 6) { i -> fromFields(); fund = fund.copy(child = kids[i].id); render() })
         content.addView(ui.text(L.t("סוג החיסכון", "Kind of savings"), 15f, bold = true, top = 14))
@@ -207,9 +215,26 @@ class SavingsFundActivity : AppCompatActivity() {
             }
         } else {
             fTrack = field(L.t("מסלול (למשל: מניות, כללי, הלכה)", "Track (e.g. stocks, general)"), fund.track)
+            // Without the track the fund can't be found at Gemel-Net: no return, only the balance plus the deposits.
+            if (Savings.needsTrack(fund)) content.addView(ui.text(L.t("⚠️ חסר מסלול. בלעדיו לא נמצא את הקופה בגמל נט ולא נחשב תשואה. המסלול כתוב בדוח \"פירוט מסלולי השקעה\" או באתר הקופה (אפשר להעלות את הדוח הזה, והמסלול יתמלא).",
+                "⚠️ The track is missing. Without it the fund can't be found at Gemel-Net and there's no return. It's in the tracks report or on the fund's site (upload that report and it's filled in)."), 13f, R.color.ink, top = 4))
             fName = field(L.t("שם הקופה או התוכנית (אם יש)", "Fund or plan name (if any)"), fund.name)
-            fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪", "What you deposit each month in ₪"), money(fund.monthly), number = true)
-            fState = if (fund.kind == Savings.Kind.CHILD_SAVINGS) field(L.t("כמה המדינה מפקידה בחודש ב-₪ (כתוב בדוח)", "What the state deposits each month in ₪ (in the report)"), money(fund.stateMonthly), number = true) else null
+            if (fund.kind == Savings.Kind.CHILD_SAVINGS) {
+                // The state's amount is known (it's the same for every child); the parents choose whether to match it.
+                val state = Savings.stateMonthlyFor(java.time.LocalDate.now().year)
+                if (fund.stateMonthly == 0.0) fund = fund.copy(stateMonthly = state)
+                fState = field(L.t("כמה המדינה מפקידה בחודש ב-₪", "What the state deposits each month in ₪"), money(fund.stateMonthly), number = true)
+                content.addView(ui.hint(L.t("המדינה מפקידה ${FamilyItems.money(state)} בחודש לכל ילד (ביטוח לאומי, ${java.time.LocalDate.now().year}).", "The state deposits ${FamilyItems.money(state)} a month for every child (National Insurance, ${java.time.LocalDate.now().year})."), top = 2))
+                content.addView(ui.text(L.t("אתם מכפילים מקצבת הילדים?", "Do you match it from the child allowance?"), 13f, R.color.ink_soft, bold = true, top = 12))
+                val sel = when { fund.monthly == fund.stateMonthly && fund.monthly > 0 -> 0; fund.monthly == 0.0 -> 1; else -> -1 }
+                content.addView(ui.chips(listOf(L.t("כן, עוד ${FamilyItems.money(fund.stateMonthly)}", "Yes, another ${FamilyItems.money(fund.stateMonthly)}"), L.t("לא", "No")), sel, top = 4) { i ->
+                    fromFields(); fund = fund.copy(monthly = if (i == 0) fund.stateMonthly else 0.0); fresh = true; render()
+                })
+                fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪ (אם זה סכום אחר)", "What you deposit each month in ₪ (if it's another amount)"), money(fund.monthly), number = true)
+            } else {
+                fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪", "What you deposit each month in ₪"), money(fund.monthly), number = true)
+                fState = null
+            }
         }
 
         // The report being added (read, or typed by hand).

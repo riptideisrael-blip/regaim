@@ -262,7 +262,8 @@ class FamilyActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(8), ui.dp(4), ui.dp(8), ui.dp(4))
             minimumWidth = ui.dp(76)
-            addView(mv.avatar(p.name, 64, ring = p.isChild))
+            // No ring here: a ring means something new (a child is told by the age under the name).
+            addView(mv.avatar(p.name, 64))
             addView(ui.text(PitzkiScript.firstName(p.name), 14f, bold = true, top = 6).apply { gravity = Gravity.CENTER })
             addView(ui.hint(if (p.isChild) Profile.ageText(p.birth).ifEmpty { Profile.relationLabel(p.relation) } else Profile.relationLabel(p.relation), top = 0).apply { gravity = Gravity.CENTER; maxLines = 2 })
             background = DS.pressable(this@FamilyActivity, DS.rounded(android.graphics.Color.TRANSPARENT, ui.dp(16).toFloat()))

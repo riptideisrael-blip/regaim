@@ -103,6 +103,9 @@ class HomeActivity : AppCompatActivity() {
         worker.execute {
             try { MemoryStore.expirePending(applicationContext) } catch (_: Exception) { }
             try { GlobalVotes.refresh(applicationContext) } catch (_: Exception) { } // at most once a day
+            // The other parent's new moments: a story ring on their picture (at most every few minutes).
+            val changed = try { PartnerStories.refresh(applicationContext) } catch (_: Exception) { false }
+            if (changed) runOnUiThread { if (!isFinishing && !isDestroyed) render() }
         }
         render()
         loadFamily()
@@ -373,23 +376,34 @@ class HomeActivity : AppCompatActivity() {
         content.addView(row)
     }
 
-    /** The family as round profile pictures (a ring means something new this week). Tap one to see their moments. */
+    /**
+     * The family as round profile pictures. A soft ring: something new with them this week (tap: their moments). A bold
+     * blue ring on the other parent: moments they shared in the last day not watched yet (tap: played as a story).
+     * A long press says what the ring means.
+     */
     private fun peopleStrip(all: List<Memory>) {
         val weekAgo = System.currentTimeMillis() - 7 * DateUtils.DAY_IN_MILLIS
         val members = Profile.members(this)
-        val named = (members.map { it.name } + PeopleStore.people(this).map { it.name } + all.flatMap { Fmt.names(it) })
+        val stories = PartnerStories.unseen(this)
+        val partnerName = PartnerStories.name(this)
+        fun isPartner(n: String) = partnerName.isNotEmpty() && PitzkiScript.firstName(n) == partnerName
+        var named = (members.map { it.name } + PeopleStore.people(this).map { it.name } + all.flatMap { Fmt.names(it) })
             .map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (stories.isNotEmpty() && named.none { isPartner(it) }) named = listOf(partnerName) + named
         if (named.isEmpty()) return
         fun count(n: String) = all.count { Fmt.names(it).contains(n) }
-        fun fresh(n: String) = all.any { it.time >= weekAgo && Fmt.names(it).contains(n) }
-        val ordered = named.sortedByDescending { count(it) }.take(14)
+        fun freshCount(n: String) = all.count { it.time >= weekAgo && Fmt.names(it).contains(n) }
+        fun fresh(n: String) = freshCount(n) > 0
+        // The other parent's new story first, like on Instagram.
+        val ordered = named.sortedWith(compareByDescending<String> { stories.isNotEmpty() && isPartner(it) }.thenByDescending { count(it) }).take(14)
         val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (n in ordered) {
             strip.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(mv.dp(78), ViewGroup.LayoutParams.WRAP_CONTENT)
-                addView(mv.avatar(n, 66, ring = fresh(n)))
+                val story = stories.isNotEmpty() && isPartner(n)
+                addView(mv.avatar(n, 66, ring = !story && fresh(n), story = story))
                 addView(TextView(this@HomeActivity).apply {
                     text = n
                     textSize = 13f
@@ -399,13 +413,36 @@ class HomeActivity : AppCompatActivity() {
                     setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink))
                     setPadding(0, mv.dp(6), 0, 0)
                 })
-                if (count(n) > 0) addView(TextView(this@HomeActivity).apply {
+                if (story) addView(TextView(this@HomeActivity).apply {
+                    text = L.t("סטורי חדש", "New story")
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    setTextColor(DS.primary(this@HomeActivity)); typeface = DS.emphasis
+                }) else if (count(n) > 0) addView(TextView(this@HomeActivity).apply {
                     text = if (count(n) == 1) L.t("רגע אחד", "1 moment") else L.t("${count(n)} רגעים", "${count(n)} moments")
                     textSize = 11f
                     gravity = Gravity.CENTER
                     setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink_soft))
                 })
+                // What the ring means, on a long press.
+                setOnLongClickListener {
+                    val f = freshCount(n)
+                    Toast.makeText(this@HomeActivity, when {
+                        story -> L.t("${stories.size} רגעים חדשים מ${partnerName} מהיממה האחרונה, שעוד לא ראית. לחיצה מנגנת אותם כמו סטורי.",
+                            "${stories.size} moments $partnerName shared in the last day you haven't watched. Tap to play them as a story.")
+                        f == 1 -> L.t("רגע חדש אחד עם $n השבוע. לחיצה פותחת את הרגעים.", "1 new moment with $n this week. Tap to open the moments.")
+                        f > 1 -> L.t("$f רגעים חדשים עם $n השבוע. לחיצה פותחת את הרגעים.", "$f new moments with $n this week. Tap to open the moments.")
+                        else -> L.t("אין רגעים חדשים עם $n השבוע.", "No new moments with $n this week.")
+                    }, Toast.LENGTH_LONG).show()
+                    true
+                }
+                contentDescription = n + ", " + when {
+                    story -> L.t("סטורי חדש", "new story")
+                    fresh(n) -> L.t("${freshCount(n)} רגעים חדשים השבוע", "${freshCount(n)} new moments this week")
+                    else -> ""
+                }
                 setOnClickListener {
+                    if (story) { StoryViewerActivity.partner(this@HomeActivity, stories.map { it.id }); return@setOnClickListener }
                     // A child: their page. Anyone else: their moments.
                     if (ChildActivity.openByName(this@HomeActivity, n)) return@setOnClickListener
                     if (count(n) > 0) startActivity(Intent(this@HomeActivity, MemoriesActivity::class.java)

@@ -199,7 +199,7 @@ object MemoryStore {
     fun keptOf(list: List<Memory>): List<Memory> = list.filter { !it.isPending }
 
     /** What the AI may describe: not yet described, and not waiting in the queue (no pending frame leaves the phone). */
-    fun toAnalyze(list: List<Memory>): List<Memory> = list.filter { !it.analyzed && !it.isPending }
+    fun toAnalyze(list: List<Memory>): List<Memory> = list.filter { !it.isPending && (!it.analyzed || NamedMoments.waitingForNames(it)) }
 
     /** 👍 from the queue: into the archive, approved (not a favorite, not "chosen"), then described as usual. */
     fun approve(ctx: Context, id: String) = modify(ctx, id) { it.copy(review = "kept", approved = true) }
@@ -271,6 +271,8 @@ object MemoryStore {
         // Recognize faces first, so the AI can use the people's names.
         try { if (PeopleStore.peopleEnabled(ctx)) PeopleStore.scanPending(ctx) } catch (_: Exception) {}
         try { Pets.scanPending(ctx) } catch (_: Throwable) {}
+        // Once: moments already described with nobody recognized lose those words (they come back with names).
+        try { clearUnnamedOnce(ctx) } catch (_: Exception) {}
         if (!ClaudeClient.hasKey(ctx)) return 0
         if (!analyzing.compareAndSet(false, true)) return 0
         try {
@@ -278,6 +280,17 @@ object MemoryStore {
         } finally {
             analyzing.set(false)
         }
+    }
+
+    /** Moments described before the "names only" rule with nobody recognized: their AI words are removed, once. */
+    private fun clearUnnamedOnce(ctx: Context) {
+        val key = "unnamed_words_cleared_v1"
+        if (Settings.prefs(ctx).getBoolean(key, false)) return
+        synchronized(this) {
+            val list = read(ctx)
+            if (list.any { NamedMoments.shouldClear(it) }) write(ctx, list.map { if (NamedMoments.shouldClear(it)) NamedMoments.clear(it) else it })
+        }
+        Settings.prefs(ctx).edit().putBoolean(key, true).apply()
     }
 
     private fun analyzeAll(ctx: Context): Int {

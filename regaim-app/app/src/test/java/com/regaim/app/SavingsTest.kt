@@ -277,4 +277,36 @@ class SavingsTest {
         assertEquals(0.25, s.getValue("ETH"), 0.0001)
         assertEquals(emptyMap<String, Double>(), Savings.coinShares(f, null))
     }
+
+    private fun r(provider: String = "", track: String = "", date: String = "", balance: Double? = null, child: String = "", fundNumber: Int? = null, deposits: Double? = null) =
+        Savings.Reading(provider, "", track, date, balance, deposits, null, null, null, null, Savings.Kind.CHILD_SAVINGS, child, fundNumber = fundNumber)
+
+    @Test fun combineTakesBalanceFromStatementAndTrackFromTracksReport() {
+        // The tracks report (its "updated" date is not a balance's) and the account statement of the same child.
+        val tracks = r("מור", "מור חיסכון לכל ילד - חוסכים המעדיפים סיכון מוגבר", "2016-01-01", child = "נעם רביבו", fundNumber = 9420)
+        val statement = r("מור", "", "2026-09-30", 1643.0, "נעם רביבו", deposits = 1559.0)
+        val c = Savings.combine(listOf(tracks, statement))!!
+        assertEquals("2026-09-30", c.date)
+        assertEquals(1643.0, c.balance!!, 0.001)
+        assertEquals(1559.0, c.deposits!!, 0.001)
+        assertEquals("מור חיסכון לכל ילד - חוסכים המעדיפים סיכון מוגבר", c.track)
+        assertEquals(9420, c.fundNumber)
+        assertEquals(1, Savings.baseIndex(listOf(tracks, statement)))
+        assertNull(Savings.combine(emptyList()))
+        // The newest balance wins.
+        assertEquals(1, Savings.baseIndex(listOf(r(date = "2026-06-30", balance = 1.0), r(date = "2026-09-30", balance = 2.0))))
+    }
+
+    @Test fun mixedPeopleByFirstName() {
+        assertEquals(false, Savings.mixedPeople(listOf(r(child = "אורי נתן רביבו"), r(child = "אורי רביבו"), r(child = ""))))
+        assertEquals(true, Savings.mixedPeople(listOf(r(child = "אורי רביבו"), r(child = "נעם רביבו"))))
+    }
+
+    @Test fun stateDepositAndMissingTrack() {
+        assertEquals(58.0, Savings.stateMonthlyFor(2026), 0.001)
+        assertEquals(58.0, Savings.stateMonthlyFor(2027), 0.001) // nearest known year until it's updated
+        assertEquals(true, Savings.needsTrack(Fund("1", "k", Savings.Kind.CHILD_SAVINGS, "מור")))
+        assertEquals(false, Savings.needsTrack(Fund("1", "k", Savings.Kind.CHILD_SAVINGS, "מור", track = "סיכון מוגבר")))
+        assertEquals(false, Savings.needsTrack(Fund("1", "k", Savings.Kind.CRYPTO, "הוריזון")))
+    }
 }
