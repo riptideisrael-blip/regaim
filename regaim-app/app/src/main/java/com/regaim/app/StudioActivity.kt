@@ -204,7 +204,7 @@ class StudioActivity : AppCompatActivity() {
         })
         val texts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(ui.dp(14), 0, 0, 0)
+            setPaddingRelative(ui.dp(16), 0, 0, 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         texts.addView(ui.text(title, 17f, bold = true))

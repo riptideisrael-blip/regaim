@@ -779,7 +779,7 @@ class CommunityActivity : AppCompatActivity() {
                 line.addView(mv.avatar(c.author, 32, byName = false))
                 val texts = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(ui.dp(10), 0, 0, 0)
+                    setPaddingRelative(ui.dp(12), 0, 0, 0)
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 texts.addView(ui.text(c.author, 13f, bold = true))

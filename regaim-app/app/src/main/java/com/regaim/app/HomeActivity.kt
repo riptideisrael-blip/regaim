@@ -163,7 +163,7 @@ class HomeActivity : AppCompatActivity() {
                 })
                 addView(LinearLayout(this@HomeActivity).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(ui.dp(14), 0, 0, 0)
+                    setPaddingRelative(ui.dp(16), 0, 0, 0)
                     addView(ui.text(title, 16f, bold = true))
                     addView(ui.hint(sub, top = 1))
                 })
@@ -308,7 +308,7 @@ class HomeActivity : AppCompatActivity() {
         row.addView(strip)
         val texts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(ui.dp(10), 0, 0, 0)
+            setPaddingRelative(ui.dp(12), 0, 0, 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         texts.addView(ui.text(if (waiting.size == 1) L.t("רגע אחד מחכה", "1 moment waiting") else L.t("${waiting.size} רגעים מחכים", "${waiting.size} moments waiting"), 16f, bold = true))
