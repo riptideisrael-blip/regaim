@@ -244,6 +244,7 @@ class HomeActivity : AppCompatActivity() {
         header()
         updateFab()
         filmInProgress()
+        pitzkiWaiting()
         peopleStrip(all)
         queueCard(waiting)
         backupTip(all.isNotEmpty())
@@ -553,6 +554,21 @@ class HomeActivity : AppCompatActivity() {
         card.addView(ui.hint(if (s.state == CartoonFilm.Session.State.LOOK) L.t("מחכה לאישור שלכם: איך הדמויות נראות", "Waiting for you: approve how the characters look") else L.t("לחצו כדי לראות", "Tap to see it"), top = 2))
         card.setOnClickListener { CartoonFilmActivity.open(this, s.memory.id) }
         content.addView(card)
+    }
+
+    /**
+     * Something in a child's Pitzki film waits for the parent (a new character, the first scene, new scenes to go
+     * over): a card here too, so it doesn't look as if the scenes are gone. A tap goes to that child's film.
+     */
+    private fun pitzkiWaiting() {
+        for (c in PitzkiStore.children(this)) {
+            val w = PitzkiStore.waiting(this, c) ?: continue
+            val card = ui.card(top = 16)
+            card.addView(ui.text(PitzkiStore.waitingText(this, c, w), 15f))
+            card.addView(ui.hint(L.t("לסרט של ${c.kid.name} ›", "To ${c.kid.name}'s film ›"), top = 4))
+            card.setOnClickListener { PitzkiActivity.openFilm(this, c.memberId) }
+            content.addView(card)
+        }
     }
 
     /** The way in to everything you can make: a 3D animated film first, then comics and videos. */

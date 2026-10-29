@@ -31,6 +31,9 @@ class PitzkiActivity : AppCompatActivity() {
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, PitzkiActivity::class.java))
         /** Opens with this child already chosen (from the child's page). */
         fun openFor(ctx: Context, memberId: String) = ctx.startActivity(Intent(ctx, PitzkiActivity::class.java).putExtra(EXTRA_CHILD, memberId))
+        private const val EXTRA_FILM = "open_film"
+        /** Straight to the child's film settings (after the parents' check): from a "waiting for your OK" card. */
+        fun openFilm(ctx: Context, memberId: String) = ctx.startActivity(Intent(ctx, PitzkiActivity::class.java).putExtra(EXTRA_CHILD, memberId).putExtra(EXTRA_FILM, true))
     }
 
     private lateinit var ui: Ui
@@ -63,6 +66,7 @@ class PitzkiActivity : AppCompatActivity() {
         // An animation cut off when the app was closed: picked up again (what was already sent isn't paid again).
         children.firstOrNull { PitzkiStore.interrupted(this, it) }?.let { PitzkiStore.resume(this, it); chosen = it }
         setup()
+        if (intent.getBooleanExtra(EXTRA_FILM, false) && chosen != null) ParentGate.ask(this) { showSettings = true; renderSetup(); scrollTop() }
         // The other parent's children (and their Pitzki films) may be on their way: fetched now, shown when they arrive.
         if (PartnerShare.partner(this).isNotEmpty()) Thread {
             try { PartnerShare.sync(applicationContext) } catch (_: Exception) {}
@@ -233,13 +237,9 @@ class PitzkiActivity : AppCompatActivity() {
     private fun filmWaiting(c: PitzkiStore.Child): View {
         val name = c.kid.name
         val running = PitzkiStore.drawing?.let { !it.finished && (it.member == c.memberId || it.member.endsWith(c.memberId)) } == true
-        val text = when {
-            running -> L.t("⏳ מציירים עכשיו את $name. אפשר לצאת לטיול בינתיים.", "⏳ $name is being drawn now. You can go for a walk meanwhile.")
-            PitzkiStore.heroCandidate(this, c.memberId).exists() || PitzkiStore.candidate(this, c.memberId).exists() ->
-                L.t("✨ דמות חדשה של $name מחכה לאישור שלכם.", "✨ A new character of $name is waiting for your OK.")
-            PitzkiStore.awaitingIntro(this, c) -> L.t("👀 משהו בסרט של $name מחכה לאישור שלכם.", "👀 Something in $name's film is waiting for your OK.")
-            else -> L.t("👀 סצנות חדשות של $name מחכות שתעברו עליהן לפני הטיול.", "👀 New scenes of $name are waiting for you to go over them before the walk.")
-        }
+        val text = if (running) L.t("⏳ מציירים עכשיו את $name. אפשר לצאת לטיול בינתיים.", "⏳ $name is being drawn now. You can go for a walk meanwhile.")
+            else PitzkiStore.waiting(this, c)?.let { PitzkiStore.waitingText(this, c, it) }
+                ?: L.t("👀 סצנות חדשות של $name מחכות שתעברו עליהן לפני הטיול.", "👀 New scenes of $name are waiting for you to go over them before the walk.")
         val card = ui.card(top = 14)
         card.addView(ui.text(text, 15f))
         card.addView(ui.action(L.t("לסרט של $name ›", "To $name's film ›")) {
