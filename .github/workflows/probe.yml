@@ -1,0 +1,14 @@
+name: probe-gemelnet
+on: push
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe open data
+        run: |
+          set +e
+          q() { echo "::notice title=$1::$(curl -sS -m 30 "$2" | head -c 900 | tr '\n' ' ' | sed 's/%/%25/g')"; }
+          q search "https://data.gov.il/api/3/action/package_search?q=%D7%92%D7%9E%D7%9C%20%D7%A0%D7%98&rows=5&fl=name,title"
+          q search2 "https://data.gov.il/api/3/action/package_search?q=gemelnet&rows=5"
+          for n in gemelnet gemel-net gemelnet-data; do q "show-$n" "https://data.gov.il/api/3/action/package_show?id=$n"; done
+          q gemelnet-site "https://gemelnet.cma.gov.il/"
