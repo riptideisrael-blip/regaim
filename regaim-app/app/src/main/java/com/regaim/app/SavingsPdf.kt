@@ -119,9 +119,12 @@ object SavingsPdf {
             val mine = funds.filter { it.child == k.id }
             val kidTotal = mine.sumOf { e[it]?.total ?: 0.0 }
             p.ensure(74 + 78)
-            p.text(k.name, p.readX(M, W - 2 * M, W - 2 * M - 120), p.y, W - 2 * M - 120, 15f, INK, bold = true)
-            p.text(ils(kidTotal), M, p.y, W - 2 * M, 15f, INK, bold = true, opposite = true)
-            p.y += 24
+            // One child: the title already has the name and the tiles the total.
+            if (kids.size > 1) {
+                p.text(k.name, p.readX(M, W - 2 * M, W - 2 * M - 120), p.y, W - 2 * M - 120, 15f, INK, bold = true)
+                p.text(ils(kidTotal), M, p.y, W - 2 * M, 15f, INK, bold = true, opposite = true)
+                p.y += 24
+            } else p.heading(L.t("הקופות", "The funds"))
             val cols = mine.mapIndexed { i, f -> color(f, i) }
             if (mine.size > 1 && kidTotal > 0) {
                 p.bar(M, p.y, W - 2 * M, 8f, mine.mapIndexed { i, f -> (e[f]?.total ?: 0.0) to cols[i] }.filter { it.first > 0 })
