@@ -471,13 +471,13 @@ class MomentActivity : AppCompatActivity() {
                 desc.setTextColor(ContextCompat.getColor(this, R.color.ink))
                 if (!first) mv.reveal(desc)
             }
-            (!m.analyzed || MomentWords.waitingForNames(m)) && ClaudeClient.hasKey(this) && AnalysisRetry.gaveUp(this, m.id) -> {
+            (!m.analyzed || NamedMoments.waitingForNames(m)) && ClaudeClient.hasKey(this) && AnalysisRetry.gaveUp(this, m.id) -> {
                 mv.stopPulse(desc)
                 desc.text = L.t("לא הצלחנו לתאר את הרגע הזה אחרי כמה ניסיונות. לנסות שוב? ›", "We couldn't describe this moment after a few tries. Try again? ›")
                 desc.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
                 desc.setOnClickListener { AnalysisRetry.reset(this, m.id); triedAnalyze = false; desc.setOnClickListener(null); bind(first = false) }
             }
-            (!m.analyzed || MomentWords.waitingForNames(m)) && ClaudeClient.hasKey(this) -> {
+            (!m.analyzed || NamedMoments.waitingForNames(m)) && ClaudeClient.hasKey(this) -> {
                 desc.text = L.t("אנחנו מבינים את הרגע...", "Getting to know this moment...")
                 desc.setTextColor(ContextCompat.getColor(this, R.color.accent))
                 mv.pulse(desc)
@@ -489,7 +489,7 @@ class MomentActivity : AppCompatActivity() {
                             if (isFinishing) return@runOnUiThread
                             val fresh = MemoryStore.get(this, memory.id) ?: return@runOnUiThread
                             memory = fresh
-                            if (fresh.analyzed && !MomentWords.waitingForNames(fresh)) bind(first = false) else {
+                            if (fresh.analyzed && !NamedMoments.waitingForNames(fresh)) bind(first = false) else {
                                 mv.stopPulse(desc)
                                 desc.text = L.t("לא הצלחנו להבין את הרגע הפעם. ננסה שוב בפעם הבאה שתפתחו את האפליקציה.", "We couldn't make sense of this moment yet. We'll try again next time you open the app.")
                                 desc.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
@@ -499,7 +499,7 @@ class MomentActivity : AppCompatActivity() {
                 }
             }
             // Nobody known in it: no guessed words; who's in it, and it's described with their names.
-            m.analyzed && !MomentWords.named(m) && !m.descriptionByUser -> {
+            m.analyzed && !NamedMoments.named(m) && !m.descriptionByUser -> {
                 desc.text = L.t("לא זיהינו מי ברגע הזה, אז לא כתבנו תיאור. מי זה? ›", "We didn't recognize who's in this moment, so we didn't describe it. Who is it? ›")
                 desc.setTextColor(ContextCompat.getColor(this, R.color.ink_soft))
                 desc.setOnClickListener { editPeople() }

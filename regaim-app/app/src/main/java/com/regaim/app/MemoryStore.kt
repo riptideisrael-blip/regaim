@@ -199,7 +199,7 @@ object MemoryStore {
     fun keptOf(list: List<Memory>): List<Memory> = list.filter { !it.isPending }
 
     /** What the AI may describe: not yet described, and not waiting in the queue (no pending frame leaves the phone). */
-    fun toAnalyze(list: List<Memory>): List<Memory> = list.filter { !it.isPending && (!it.analyzed || MomentWords.waitingForNames(it)) }
+    fun toAnalyze(list: List<Memory>): List<Memory> = list.filter { !it.isPending && (!it.analyzed || NamedMoments.waitingForNames(it)) }
 
     /** 👍 from the queue: into the archive, approved (not a favorite, not "chosen"), then described as usual. */
     fun approve(ctx: Context, id: String) = modify(ctx, id) { it.copy(review = "kept", approved = true) }
@@ -288,7 +288,7 @@ object MemoryStore {
         if (Settings.prefs(ctx).getBoolean(key, false)) return
         synchronized(this) {
             val list = read(ctx)
-            if (list.any { MomentWords.shouldClear(it) }) write(ctx, list.map { if (MomentWords.shouldClear(it)) MomentWords.clear(it) else it })
+            if (list.any { NamedMoments.shouldClear(it) }) write(ctx, list.map { if (NamedMoments.shouldClear(it)) NamedMoments.clear(it) else it })
         }
         Settings.prefs(ctx).edit().putBoolean(key, true).apply()
     }

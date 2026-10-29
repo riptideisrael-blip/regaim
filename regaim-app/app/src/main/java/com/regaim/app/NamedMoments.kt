@@ -6,7 +6,7 @@ package com.regaim.app
  * be about the wrong child). It's still sorted and scored. Once someone is recognized or marked, it's described again.
  * Pure rules, unit tested.
  */
-object MomentWords {
+object NamedMoments {
     /** [Memory.descriptionSource] of a moment left without words because nobody in it was known. */
     const val UNNAMED = "unnamed"
 
