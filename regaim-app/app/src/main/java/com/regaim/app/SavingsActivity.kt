@@ -523,7 +523,11 @@ class SavingsActivity : AppCompatActivity() {
     // ---- A one-page summary to share ----
     private fun sharePdf(funds: List<Savings.Fund>, people: List<FamilyMember>, today: String) {
         try {
-            val file = SavingsPdf.write(this, funds, people, today) { est(it, today) }
+            val year = today.take(4).toIntOrNull() ?: 0
+            // The same numbers and colours as on the screen.
+            val file = SavingsPdf.write(this, funds, people, today, est = { est(it, today) },
+                ytd = { if (it.kind == Savings.Kind.CRYPTO) Savings.yearToDateCrypto(it, CryptoPrices.cached(this), year) else Savings.yearToDate(off(it), year) },
+                color = { f, i -> colorOf(legendName(f), i) })
             val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", file)
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), L.t("שיתוף הסיכום", "Share the summary")))
