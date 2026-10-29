@@ -44,6 +44,12 @@ object PartnerShare {
     /** A sharing is running now (started when the app opened): a second one waits for it. */
     val busy: Boolean get() = running.get()
 
+    /**
+     * A moment goes to the other parent when it was taken, or added to the app, since sharing was turned on: photos a
+     * parent adds from the gallery today go too, however old they are. Older ones only with "share the older ones".
+     */
+    fun isNew(m: Memory, from: Long): Boolean = maxOf(m.time, m.added) >= from
+
     fun sync(ctx: Context, max: Int = 30) {
         if (running.get()) return
         val app = ctx.applicationContext
@@ -71,7 +77,7 @@ object PartnerShare {
             note(app, L.t("הילדים והסרטים של פיצקי ✓", "Children and Pitzki films ✓") + kids + L.t(" · עכשיו הרגעים…", " · now the moments…"))
             var left = max
             while (left > 0) {
-                val todo = MemoryStore.kept(app).filter { it.time >= from && !p(app).getBoolean(doneKey(it.id), false) }
+                val todo = MemoryStore.kept(app).filter { isNew(it, from) && !p(app).getBoolean(doneKey(it.id), false) }
                     .sortedByDescending { it.time }.take(minOf(5, left))
                 if (todo.isEmpty()) break
                 for (m in todo) {

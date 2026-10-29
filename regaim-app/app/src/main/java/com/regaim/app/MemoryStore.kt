@@ -80,6 +80,8 @@ data class Memory(
      * [milestone] only when they say yes, and is never used in descriptions. Empty once answered.
      */
     val milestoneGuess: String = "",
+    /** When it was added to the app (0: before this was kept). A gallery photo added today can be years old by [time]. */
+    val added: Long = 0L,
 ) {
     val isPending: Boolean get() = review == "pending"
     val privacyLevel: Privacy get() = Privacy.of(privacy)
@@ -119,7 +121,7 @@ data class Memory(
         put("highlightSource", highlightSource); put("timeSource", timeSource)
         put("titleByUser", titleByUser); put("descriptionByUser", descriptionByUser); put("descriptionSource", descriptionSource)
         put("origin", origin); put("privacy", privacy); put("look", look.toString())
-        put("review", review); put("approved", approved); put("milestoneGuess", milestoneGuess)
+        put("review", review); put("approved", approved); put("milestoneGuess", milestoneGuess); put("added", added)
     }
 
     companion object {
@@ -167,6 +169,7 @@ data class Memory(
             review = if (o.optString("review") == "pending") "pending" else "kept",
             approved = o.optBoolean("approved", false),
             milestoneGuess = o.optString("milestoneGuess"),
+            added = o.optLong("added"),
         )
     }
 }
@@ -244,7 +247,7 @@ object MemoryStore {
 
     @Synchronized
     fun add(ctx: Context, m: Memory) {
-        write(ctx, read(ctx) + m)
+        write(ctx, read(ctx) + (if (m.added > 0) m else m.copy(added = System.currentTimeMillis())))
         // Find who's in it (on the phone), so new moments are tagged without anyone asking.
         try { FaceScan.kick(ctx) } catch (_: Throwable) { }
     }
