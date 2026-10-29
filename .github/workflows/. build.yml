@@ -5,6 +5,11 @@ on:
   workflow_dispatch: {}
 permissions:
   contents: write
+# One build at a time, in order: two merges close together used to race, and the older build (finishing last)
+# overwrote latest.json, so phones were offered the older version.
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
