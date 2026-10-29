@@ -307,31 +307,28 @@ class CircleActivity : AppCompatActivity() {
                         .setItems(others.map { it.name.ifBlank { L.t("בן משפחה", "Family member") } }.toTypedArray()) { _, i ->
                             val who = others[i]
                             val whoName = who.name.ifBlank { L.t("בן המשפחה", "this family member") }
-                            // Said once more, in the choice itself, before anything is shared.
-                            AlertDialog.Builder(this)
-                                .setTitle(L.t("לשתף עם $whoName?", "Share with $whoName?"))
-                                .setMessage(L.t("כל רגע שאחד מכם שומר יעבור אוטומטית לשני (קטעים של 10 שניות), רק לשניכם.\n\n", "Every moment one of you keeps goes automatically to the other (10-second clips), only to the two of you.\n\n") + alsoShared)
-                                .setPositiveButton(L.t("לשתף", "Share")) { _, _ -> Thread {
+                            // Everything that goes between the two parents, chosen in one step (said before anything is shared).
+                            connectDialog(whoName, alsoShared) { choice -> Thread {
                                 val r = try { Circle.setPartner(app, who.userId) } catch (e: Exception) { null }
                                 runOnUiThread {
                                     if (isDestroyed) return@runOnUiThread
                                     if (r == null) { toast(L.t("לא הצליח. נסו שוב.", "Didn't work. Try again.")); return@runOnUiThread }
-                                    if (r) { PartnerShare.turnOn(app, who.userId); Thread { PartnerShare.sync(app) }.start() }
+                                    PartnerShare.turnOn(app, who.userId)
+                                    applyConnect(choice)
+                                    if (!r) toast(L.t("נשאר רק ש$whoName יבחר/תבחר בך באפליקציה שלו/שלה.", "Now $whoName only needs to choose you in their app."))
                                     render()
                                 }
                             }.start() }
-                                .setNegativeButton(L.t("ביטול", "Cancel"), null)
-                                .show()
                         }.show()
                 })
                 if (chosen != null && status.second) {
+                    // What's on between you, at a glance; anything missing is turned on in one tap.
+                    val missing = connectMissing(app)
+                    card.addView(ui.text(connectLines(app, chosen.name).joinToString("\n"), 13f, R.color.ink, top = 6))
+                    if (missing) actions.addView(ui.action(L.t("✨ להשלים את החיבור", "✨ Complete the connection")) {
+                        connectDialog(chosen.name, alsoShared) { choice -> applyConnect(choice); render() }
+                    })
                     card.addView(ui.hint(alsoShared, top = 4))
-                    if (!PartnerShare.sharingOld(app)) actions.addView(ui.action(L.t("לשתף גם את כל הישנים", "Share all the older ones too")) {
-                        PartnerShare.shareOld(app)
-                        Thread { PartnerShare.sync(app) }.start()
-                        toast(L.t("משתפים ברקע, כמה בכל פעם…", "Sharing in the background, a few at a time…"))
-                        render()
-                    }) else card.addView(ui.hint(L.t("✓ גם הרגעים הישנים עוברים (ברקע, כמה בכל פעם).", "✓ The older moments are going too (in the background, a few at a time)."), top = 2))
                 }
                 if (chosen != null && status.second) {
                     // A notification when the other parent shares a moment or adds to the family file.
@@ -358,6 +355,65 @@ class CircleActivity : AppCompatActivity() {
             }
         }.start()
     }
+
+    /** What the parent chose in [connectDialog]: the older moments too, the family file, notifications. */
+    private class Connect(val old: Boolean, val file: Boolean, val notify: Boolean)
+
+    /**
+     * Connecting with the other parent in one step: new moments always go (that's the connection), and three choices,
+     * all on by default, each said plainly (the family file's own words a tap away, since it holds codes and cards).
+     */
+    private fun connectDialog(whoName: String, alsoShared: String, go: (Connect) -> Unit) {
+        val app = applicationContext
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(22), ui.dp(8), ui.dp(22), 0) }
+        box.addView(ui.text(L.t("✓ כל רגע חדש שאחד מכם שומר עובר לשני (קטעים של 10 שניות), רק לשניכם.", "✓ Every new moment one of you keeps goes to the other (10-second clips), only to the two of you."), 14f))
+        box.addView(ui.hint(alsoShared, top = 4))
+        fun check(label: String, sub: String, on: Boolean) = android.widget.CheckBox(this).apply {
+            text = label; textSize = 15f; isChecked = on; setPadding(0, ui.dp(6), 0, 0)
+            box.addView(this)
+            box.addView(ui.hint(sub, top = 0))
+        }
+        val old = check(L.t("גם כל הרגעים הישנים", "All the older moments too"), L.t("עוברים ברקע, כמה בכל פעם. אחרת רק מה שיישמר מעכשיו.", "In the background, a few at a time. Otherwise only what's kept from now on."), true)
+        val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), true)
+        box.addView(ui.action(L.t("מה בדיוק עובר בתיק ›", "What exactly the file shares ›")) {
+            AlertDialog.Builder(this).setMessage(FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
+        })
+        val notify = check(L.t("התראה כש$whoName משתף/ת משהו", "Notify me when $whoName shares something"), L.t("רגע חדש או פריט חדש בתיק, תוך כרבע שעה.", "A new moment or file item, within about 15 minutes."), true)
+        AlertDialog.Builder(this)
+            .setTitle(L.t("חיבור עם $whoName", "Connect with $whoName"))
+            .setView(android.widget.ScrollView(this).apply { addView(box) })
+            .setPositiveButton(L.t("לחבר", "Connect")) { _, _ -> go(Connect(old.isChecked, file.isChecked, notify.isChecked)) }
+            .setNegativeButton(L.t("ביטול", "Cancel"), null)
+            .show()
+    }
+
+    /** Turns on what was chosen (the moments themselves are already on), and starts sharing right away. */
+    private fun applyConnect(c: Connect) {
+        val app = applicationContext
+        if (c.old && !PartnerShare.sharingOld(app)) PartnerShare.shareOld(app)
+        if (c.file) {
+            // Agreeing to share the file is agreeing to keep one (the words were in the same dialog).
+            if (!FamilyFile.consented(app)) FamilyFile.setConsented(app)
+            if (!FamilyFileSync.on(app)) FamilyFileSync.turnOn(app)
+            FamilyFileSync.kick(app, force = true)
+        }
+        PartnerNotify.setOn(app, c.notify)
+        if (c.notify && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 43)
+        Thread { try { PartnerShare.sync(app) } catch (_: Exception) { } }.start()
+        toast(L.t("מחובר ✓ הרגעים עוברים ברקע", "Connected ✓ Moments are going in the background"))
+    }
+
+    /** Something of the connection is still off on this phone. */
+    private fun connectMissing(app: android.content.Context) = !PartnerShare.sharingOld(app) || !FamilyFileSync.on(app) || !PartnerNotify.on(app)
+
+    /** The connection at a glance: ✓ on, ○ off. */
+    private fun connectLines(app: android.content.Context, who: String) = listOf(
+        L.t("✓ רגעים חדשים עוברים ביניכם", "✓ New moments go between you"),
+        (if (PartnerShare.sharingOld(app)) "✓ " else "○ ") + L.t("הרגעים הישנים", "The older moments"),
+        (if (FamilyFileSync.on(app)) "✓ " else "○ ") + L.t("תיק המשפחה משותף", "The family file is shared"),
+        (if (PartnerNotify.on(app)) "✓ " else "○ ") + L.t("התראה כש$who משתף/ת", "Notified when $who shares"),
+    )
 
     private fun circleHome() {
         val head = ui.card(top = 14)

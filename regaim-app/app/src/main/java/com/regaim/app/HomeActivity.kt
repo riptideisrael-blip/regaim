@@ -247,6 +247,7 @@ class HomeActivity : AppCompatActivity() {
         updateFab()
         filmInProgress()
         pitzkiWaiting()
+        connectCard()
         peopleStrip(all)
         queueCard(waiting)
         backupTip(all.isNotEmpty())
@@ -267,8 +268,8 @@ class HomeActivity : AppCompatActivity() {
             heroSection(all)
             storySection(all)
             weekSection(all)
-            digestCard()
-            if (all.isNotEmpty()) studioCard()
+            // (The grandparents' digest and the studio card were here: both are in the Studio tab, and the week card
+            // already makes the week's video. Fewer cards, one clear "this week".)
             if (all.isEmpty()) filter = "הכל" else filtersRow(all)
             recentSection(all)
         }
@@ -322,18 +323,6 @@ class HomeActivity : AppCompatActivity() {
         row.addView(texts)
         card.addView(row)
         card.setOnClickListener { ReviewActivity.open(this) }
-        content.addView(card)
-    }
-
-    /** Thursday to Saturday: the week's digest for the grandparents, one tap away. */
-    private fun digestCard() {
-        val day = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-        if (day != Calendar.THURSDAY && day != Calendar.FRIDAY && day != Calendar.SATURDAY) return
-        val week = Digest.moments(this)
-        if (week.size < 2) return
-        val card = ui.card(top = 16)
-        card.addView(ui.row(L.t("סיכום השבוע לסבא וסבתא", "This week's digest for the grandparents"), L.t("${week.size} רגעים", "${week.size} moments"), top = 0) { DigestActivity.open(this) })
-        card.addView(ui.hint(L.t("סרטון או קולאז׳ של השבוע, מוכן לשליחה בוואטסאפ.", "A video or collage of the week, ready for WhatsApp."), top = 0))
         content.addView(card)
     }
 
@@ -558,6 +547,20 @@ class HomeActivity : AppCompatActivity() {
         content.addView(card)
     }
 
+    /** In the family circle but not connected with the other parent yet: one card to the one-step connection. */
+    private fun connectCard() {
+        val prefs = Settings.prefs(this)
+        if (!Account.signedIn(this) || !Circle.joined(this) || PartnerShare.partner(this).isNotEmpty() || prefs.getBoolean("connect_card_closed", false)) return
+        val card = ui.card(top = 16)
+        card.addView(ui.text(L.t("💞 לחבר את בן/בת הזוג", "💞 Connect your partner"), 16f, bold = true))
+        card.addView(ui.hint(L.t("בצעד אחד: הרגעים עוברים ביניכם, תיק המשפחה משותף, והתראה כשמשהו חדש מגיע.", "In one step: moments go between you, the family file is shared, and you're notified when something new arrives."), top = 4))
+        val row = ui.horizontal(top = 6)
+        row.addView(ui.action(L.t("לחבר ›", "Connect ›")) { startActivity(Intent(this, CircleActivity::class.java)) })
+        row.addView(ui.action(L.t("לא עכשיו", "Not now"), R.color.ink_soft) { prefs.edit().putBoolean("connect_card_closed", true).apply(); render() })
+        card.addView(row)
+        content.addView(card)
+    }
+
     /**
      * Something in a child's Pitzki film waits for the parent (a new character, the first scene, new scenes to go
      * over): a card here too, so it doesn't look as if the scenes are gone. A tap goes to that child's film.
@@ -571,45 +574,6 @@ class HomeActivity : AppCompatActivity() {
             card.setOnClickListener { PitzkiActivity.openFilm(this, c.memberId) }
             content.addView(card)
         }
-    }
-
-    /** The way in to everything you can make: a 3D animated film first, then comics and videos. */
-    private fun studioCard() {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.card_white)
-            elevation = 0f
-            setPadding(mv.dp(20), mv.dp(18), mv.dp(20), mv.dp(18))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = mv.dp(18) }
-            setOnClickListener { StudioActivity.open(this@HomeActivity) }
-        }
-        card.addView(TextView(this).apply {
-            text = L.t("סטודיו", "Studio")
-            textSize = 13f
-            typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.accent_dark))
-        })
-        card.addView(ui.text(L.t("הפכו רגע לסרט מצויר בתלת-ממד", "Turn a moment into a 3D animated film"), 20f, bold = true, top = 4))
-        card.addView(ui.hint(L.t("דמויות אנימציה בסגנון סרטי פיקסאר, עם מוזיקה. וגם: סרטונים מהשבוע.", "Pixar-style animated characters, with music. Also: videos of your week."), top = 4))
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = mv.dp(14) }
-        }
-        fun pill(label: String, primary: Boolean, weight: Float, go: () -> Unit) = TextView(this).apply {
-            text = label
-            textSize = 14f
-            gravity = Gravity.CENTER
-            typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@HomeActivity, if (primary) R.color.white else R.color.ink))
-            background = DS.buttonBackground(this@HomeActivity, primary)
-            setPadding(mv.dp(10), mv.dp(11), mv.dp(10), mv.dp(11))
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight).apply { marginEnd = mv.dp(8) }
-            setOnClickListener { go() }
-        }
-        row.addView(pill(L.t("צרו סרט מצויר", "Make a film"), true, 1.3f) { StudioActivity.makeFilm(this) })
-        row.addView(pill(L.t("עוד יצירות ›", "More ›"), false, 1f) { StudioActivity.open(this) })
-        card.addView(row)
-        content.addView(card)
     }
 
     // ---------- on this day ----------
