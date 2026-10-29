@@ -170,4 +170,61 @@ class SavingsTest {
         assertEquals("הראל · עוקב מדד \u2066S&P 500\u2069", Fund("1", "u", provider = "הראל", track = "עוקב מדד S&P 500").title)
         assertEquals("מור · מניות", Fund("1", "u", provider = "מור", track = "מניות").title)
     }
+
+    @Test fun breakdownSplitsReportedDepositedAndGrowth() {
+        val b = Savings.breakdown(listOf(Savings.Estimate(1100.0, 900.0, 100.0, 1, "2026-09-30"), null, Savings.Estimate(480.0, 500.0, 0.0, 0, "2026-09-30")))
+        assertEquals(1400.0, b.reported, 0.001)
+        assertEquals(100.0, b.depositedSince, 0.001)
+        assertEquals(80.0, b.growth, 0.001) // +100 and -20
+        assertEquals(1580.0, b.total, 0.001)
+    }
+
+    @Test fun historyHasOnePointPerReportAndTodayLast() {
+        val a = Fund("a", "u", reports = listOf(Report("2026-03-31", 1000.0), Report("2026-09-30", 1500.0)))
+        val b = Fund("b", "u", reports = listOf(Report("2026-06-30", 200.0)))
+        val h = Savings.history(listOf(a, b), today, 1800.0)
+        assertEquals(listOf("2026-03-31" to 1000.0, "2026-06-30" to 1200.0, "2026-09-30" to 1700.0, today to 1800.0), h)
+        assertEquals(emptyList<Pair<String, Double>>(), Savings.history(listOf(b), today, 0.0)) // one point only: no chart
+    }
+
+    @Test fun nextQuarterlyReportIsDueAMonthAfterTheQuarterEnds() {
+        val f = Fund("a", "u", reports = listOf(Report("2026-09-30", 1000.0)))
+        assertNull(Savings.reportDue(f, "2026-12-31"))
+        assertNull(Savings.reportDue(f, "2027-01-29"))
+        assertEquals("2026-12-31", Savings.reportDue(f, "2027-01-30"))
+        val mid = Fund("b", "u", reports = listOf(Report("2026-08-15", 1000.0)))
+        assertEquals("2026-09-30", Savings.reportDue(mid, "2026-10-30"))
+        assertNull(Savings.reportDue(Fund("c", "u", Savings.Kind.CRYPTO, reports = listOf(Report("2026-01-01", 1.0))), today))
+        assertNull(Savings.reportDue(Fund("d", "u"), today))
+    }
+
+    @Test fun cryptoChangeSinceYesterday() {
+        val f = Fund("c", "u", Savings.Kind.CRYPTO, coins = listOf(Savings.Coin("BTC", 1.0), Savings.Coin("ETH", 10.0)))
+        val p = Savings.Prices(mapOf("BTC" to 110.0, "ETH" to 9.0), mapOf("BTC" to mapOf("2026-10-28" to 100.0), "ETH" to mapOf("2026-10-28" to 10.0)))
+        // BTC +10% on 110, ETH -10% on 90: weighted (110*10 - 90*10) / 200 = +1%
+        assertEquals(1.0, Savings.dailyChangeCrypto(f, p, today)!!, 0.0001)
+        assertNull(Savings.dailyChangeCrypto(f, null, today))
+    }
+
+    @Test fun goalProgress() {
+        assertEquals(0.25, Savings.progress(2500.0, 10000.0)!!, 0.0001)
+        assertEquals(1.0, Savings.progress(12000.0, 10000.0)!!, 0.0001)
+        assertNull(Savings.progress(100.0, 0.0))
+    }
+
+    @Test fun fundNextToTheOthersOfItsTrack() {
+        val rows = listOf(
+            Savings.Peer(1, "עוקב מדד s&p 500", 7.78, 13.7, 0.56, 202609),
+            Savings.Peer(2, "עוקב מדד s&p 500 ", 8.5, 14.0, 0.40, 202609),
+            Savings.Peer(3, "עוקב מדד s&p 500", 7.0, null, 0.60, 202609),
+            Savings.Peer(4, "כללי", 20.0, 10.0, 0.1, 202609))
+        val c = Savings.compare(rows, 1)!!
+        assertEquals(3, c.count)
+        assertEquals(2, c.rankYtd)
+        assertEquals((7.78 + 8.5 + 7.0) / 3, c.avgYtd!!, 0.0001)
+        assertEquals(13.85, c.avgAvg3y!!, 0.0001) // the fund without the number is left out
+        assertEquals(0.52, c.avgFee!!, 0.0001)
+        assertNull(Savings.compare(rows, 4)) // alone in its track
+        assertNull(Savings.compare(rows, 9)) // not there
+    }
 }

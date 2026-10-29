@@ -54,14 +54,40 @@ object GemelNet {
         SafeFiles.write(File(dir(ctx), "$fundId.json"), JSONObject().put("at", System.currentTimeMillis()).put("yields", y).toString())
     }
 
+    private fun latestPeriod(): Int = get(mapOf("fields" to "REPORT_PERIOD", "sort" to "REPORT_PERIOD desc", "limit" to "1"))
+        .getJSONArray("records").getJSONObject(0).optInt("REPORT_PERIOD")
+
     /** The funds in a list at Gemel-Net in its latest month (number and name). */
     private fun candidates(classification: String): List<Pair<Int, String>> {
-        val latest = get(mapOf("fields" to "REPORT_PERIOD", "sort" to "REPORT_PERIOD desc", "limit" to "1"))
-            .getJSONArray("records").getJSONObject(0).optInt("REPORT_PERIOD")
+        val latest = latestPeriod()
         val rows = get(mapOf("filters" to JSONObject().put("FUND_CLASSIFICATION", classification).put("REPORT_PERIOD", latest).toString(),
             "fields" to "FUND_ID,FUND_NAME", "limit" to "2000")).getJSONArray("records")
         return (0 until rows.length()).map { rows.getJSONObject(it) }.map { it.optInt("FUND_ID") to it.optString("FUND_NAME").trim() }
     }
+
+    private fun peersFile(ctx: Context, classification: String) = File(dir(ctx), "peers_" + Integer.toHexString(classification.hashCode()) + ".json")
+
+    /** Every fund of a list in its latest month, with its track and published numbers (kept on the phone). */
+    fun cachedPeers(ctx: Context, classification: String): List<Savings.Peer> = try {
+        val a = JSONObject(peersFile(ctx, classification).readText()).getJSONArray("rows")
+        (0 until a.length()).map { a.getJSONObject(it) }.map { o ->
+            fun n(k: String) = if (o.isNull(k) || !o.has(k)) null else o.optDouble(k).takeIf { !it.isNaN() }
+            Savings.Peer(o.optInt("FUND_ID"), o.optString("SUB_SPECIALIZATION"), n("YEAR_TO_DATE_YIELD"), n("AVG_ANNUAL_YIELD_TRAILING_3YRS"), n("AVG_ANNUAL_MANAGEMENT_FEE"), o.optInt("REPORT_PERIOD"))
+        }
+    } catch (_: Exception) { emptyList() }
+
+    private fun fetchPeers(ctx: Context, classification: String) {
+        val rows = get(mapOf("filters" to JSONObject().put("FUND_CLASSIFICATION", classification).put("REPORT_PERIOD", latestPeriod()).toString(),
+            "fields" to "FUND_ID,SUB_SPECIALIZATION,REPORT_PERIOD,YEAR_TO_DATE_YIELD,AVG_ANNUAL_YIELD_TRAILING_3YRS,AVG_ANNUAL_MANAGEMENT_FEE", "limit" to "2000"))
+            .getJSONArray("records")
+        SafeFiles.write(peersFile(ctx, classification), JSONObject().put("at", System.currentTimeMillis()).put("rows", rows).toString())
+    }
+
+    private fun peersAt(ctx: Context, classification: String): Long = try { JSONObject(peersFile(ctx, classification).readText()).optLong("at") } catch (_: Exception) { 0L }
+
+    /** This fund next to the others of its track, from what's kept on the phone (null if not fetched or alone). */
+    fun compare(ctx: Context, f: Savings.Fund): Savings.PeerCompare? =
+        if (f.gemelId <= 0 || f.kind == Savings.Kind.CRYPTO) null else Savings.compare(cachedPeers(ctx, Savings.classification(f.kind)), f.gemelId)
 
     /**
      * Finds each fund at Gemel-Net (once, by company and track) and refreshes its months (twice a day at most).
@@ -83,6 +109,11 @@ object GemelNet {
             }
             if (fund.gemelId > 0 && System.currentTimeMillis() - fetchedAt(ctx, fund.gemelId) > 12 * 3600_000L) {
                 try { fetchYields(ctx, fund.gemelId); changed = true } catch (_: Exception) { }
+            }
+            // The other funds of its list, to show it next to its track (public numbers only).
+            val cls = Savings.classification(fund.kind)
+            if (fund.gemelId > 0 && System.currentTimeMillis() - peersAt(ctx, cls) > 12 * 3600_000L) {
+                try { fetchPeers(ctx, cls); changed = true } catch (_: Exception) { }
             }
         }
         return changed

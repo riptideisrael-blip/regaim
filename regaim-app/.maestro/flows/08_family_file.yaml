@@ -28,3 +28,14 @@ name: The family file opens from the family tab, and asks for consent before the
     timeout: 10000
 - tapOn: "Not now"
 - assertVisible: "The file is empty"
+# The savings screen opens and draws (portfolio, calculator) after consent.
+- tapOn: "Savings"
+- extendedWaitUntil:
+    visible: ".*what's kept, and where.*"
+    timeout: 10000
+- tapOn: "I agree"
+- extendedWaitUntil:
+    visible: "Calculator: how much there could be"
+    timeout: 10000
+- assertVisible: "The family's savings"
+- takeScreenshot: 08_savings

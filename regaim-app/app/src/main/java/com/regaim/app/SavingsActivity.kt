@@ -88,6 +88,9 @@ class SavingsActivity : AppCompatActivity() {
 
         // The portfolio at a glance: a ring of what it's made of, and the three numbers that matter.
         content.addView(portfolio(funds, shownKids, today))
+        // How it got here: the balances in the reports over time, and today's estimate.
+        val hist = Savings.history(funds, today, funds.sumOf { est(it, today)?.total ?: 0.0 })
+        if (hist.isNotEmpty()) content.addView(historyCard(hist))
         content.addView(calculator(funds, shownKids, today))
 
         content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח רבעוני", "📄 Upload a quarterly report"), primary = true, top = 14) {
@@ -114,7 +117,9 @@ class SavingsActivity : AppCompatActivity() {
             }
             card.addView(ui.action(L.t("+ קופה ל${k.name}", "+ A fund for ${k.name}")) { SavingsFundActivity.newFor(this, k.id) })
             content.addView(card)
+            content.addView(goalRow(k, sum))
         }
+        if (funds.any { it.lastReport != null }) content.addView(ui.button(L.t("שיתוף סיכום (PDF)", "Share a summary (PDF)"), top = 18) { sharePdf(funds, shownKids, today) })
         // Both parents see the same savings when the family file is shared.
         if (PartnerShare.partner(this).isNotEmpty() && !FamilyFileSync.on(this)) content.addView(ui.hint(
             L.t("כדי שגם ההורה השני יראה את החיסכון ויוכל להעלות את הדוח הבא: מפעילים \"שיתוף התיק\" בתחתית תיק המשפחה (אצל שניכם).",
@@ -144,7 +149,9 @@ class SavingsActivity : AppCompatActivity() {
             f.lastReport?.let { L.t("דוח ${FamilyItems.short(it.date)}: ${ils(it.balance)}", "Report ${FamilyItems.short(it.date)}: ${ils(it.balance)}") }
                 ?: L.t("עוד אין דוח", "No report yet"),
             if (f.perMonth > 0) L.t("+${ils(f.perMonth)} בחודש", "+${ils(f.perMonth)} a month") else null,
+            if (f.kind == Savings.Kind.CRYPTO) Savings.dailyChangeCrypto(f, CryptoPrices.cached(this), today)?.let { L.t("מאתמול: ${pct(it)}", "Since yesterday: ${pct(it)}") } else null,
         )
+        val peers = GemelNet.compare(this, f)?.let { peerText(it) }
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(0, ui.dp(12), 0, ui.dp(12)); minimumHeight = ui.dp(56)
@@ -159,9 +166,16 @@ class SavingsActivity : AppCompatActivity() {
                 addView(TextView(this@SavingsActivity).apply {
                     text = meta.joinToString(" · ") { "⁨$it⁩" }; textSize = 12.5f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0)
                 })
+                // Next to the other funds of the same track (Gemel-Net): numbers only.
+                if (peers != null) addView(TextView(this@SavingsActivity).apply {
+                    text = peers; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity))
+                    setPadding(ui.dp(8), ui.dp(5), ui.dp(8), ui.dp(5))
+                    background = DS.rounded(DS.cardAlt(this@SavingsActivity), ui.dp(8).toFloat())
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(6) }
+                })
             })
             e?.let { addView(amount(ils(it.total), 15f, DS.ink(this@SavingsActivity))) }
-            contentDescription = (listOf(f.title) + meta + listOfNotNull(e?.let { ils(it.total) })).joinToString(", ")
+            contentDescription = (listOf(f.title) + meta + listOfNotNull(peers, e?.let { ils(it.total) })).joinToString(", ")
             setOnClickListener { SavingsFundActivity.open(this@SavingsActivity, f.id) }
         }
     }
@@ -268,6 +282,7 @@ class SavingsActivity : AppCompatActivity() {
     private val PALETTE = listOf(0xFF6F4E37.toInt(), 0xFFC0784A.toInt(), 0xFF7E9A7A.toInt(), 0xFF5B7A99.toInt(), 0xFFB58B3A.toInt(), 0xFF8E5A7A.toInt())
     private val UP = 0xFF3E7D4F.toInt()
     private val DOWN = 0xFFA4442F.toInt()
+    private val DEPOSITED = 0xFFC0784A.toInt()
 
     /**
      * The portfolio card: a ring (by child for the whole family, by fund for one child) with the total in the middle
@@ -292,7 +307,7 @@ class SavingsActivity : AppCompatActivity() {
         // The ring and its legend.
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) } }
         row.addView(DonutView(this).apply {
-            slices = parts.mapIndexed { i, p -> p.second to PALETTE[i % PALETTE.size] }
+            slices = parts.mapIndexed { i, p -> p.second to colorOf(p.first, i) }
             center = if (total > 0) ils(total) else "—"
             caption = L.t("יש היום (הערכה)", "today (estimate)")
             track = DS.cardAlt(this@SavingsActivity); ink = DS.ink(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
@@ -305,8 +320,10 @@ class SavingsActivity : AppCompatActivity() {
             legend.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, ui.dp(4), 0, ui.dp(4))
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-                addView(View(this@SavingsActivity).apply { background = DS.rounded(PALETTE[i % PALETTE.size], ui.dp(5).toFloat()); layoutParams = LinearLayout.LayoutParams(ui.dp(10), ui.dp(10)).apply { marginEnd = ui.dp(8) } })
+                // A tap chooses the part's colour (kept on this phone).
+                contentDescription = L.t("$name, ${ils(v)}. לשינוי הצבע", "$name, ${ils(v)}. Change the colour")
+                setOnClickListener { pickColor(name) }
+                addView(View(this@SavingsActivity).apply { background = DS.rounded(colorOf(name, i), ui.dp(5).toFloat()); layoutParams = LinearLayout.LayoutParams(ui.dp(12), ui.dp(12)).apply { marginEnd = ui.dp(8) } })
                 addView(LinearLayout(this@SavingsActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -338,9 +355,167 @@ class SavingsActivity : AppCompatActivity() {
         stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), L.t("הורים + מדינה", "parents + state"), 2)
         card.addView(stats)
 
+        // What the total is made of: the balances in the reports, what was deposited since, and the gain or loss since.
+        val b = Savings.breakdown(funds.map { est[it] })
+        if (b.total > 0) card.addView(breakdownBar(b))
+        sources(funds)?.let { card.addView(ui.text(it, 12f, R.color.ink_soft, top = 10)) }
+
         card.addView(ui.hint(L.t("הערכה: היתרה בדוח האחרון לפי התשואות החודשיות הרשמיות (גמל נט, משרד האוצר), מטבעות דיגיטליים לפי המחיר של היום, ועוד ההפקדות. תשואות עבר אינן מבטיחות תשואות בעתיד. מידע בלבד, לא המלצה.",
             "Estimate: the last report's balance at the official monthly returns (Gemel-Net, Ministry of Finance), crypto at today's price, plus the deposits. Past returns don't promise future ones. Information only, not advice."), top = 12))
         return card
+    }
+
+    private fun pct2(v: Double) = String.format(java.util.Locale.US, "%.2f", v) + "%"
+
+    /** "In the S&P 500 track (15 funds, Gemel-Net 09/2026): this year +7.8% · average +8.1% · 6th · fees 0.56% · average 0.52%". */
+    private fun peerText(c: Savings.PeerCompare): String {
+        val month = if (c.period > 0) "%02d/%d".format(c.period % 100, c.period / 100) else ""
+        val parts = listOfNotNull(
+            c.ytd?.let { y -> L.t("השנה ${pct(y)}", "this year ${pct(y)}") + (c.avgYtd?.let { L.t(" · ממוצע ${pct(it)}", " · average ${pct(it)}") } ?: "") },
+            c.rankYtd?.let { L.t("מקום $it מתוך ${c.count}", "#$it of ${c.count}") },
+            c.avg3y?.let { y -> L.t("3 שנים (שנתי) ${pct(y)}", "3 years (yearly) ${pct(y)}") + (c.avgAvg3y?.let { L.t(" · ממוצע ${pct(it)}", " · average ${pct(it)}") } ?: "") },
+            c.fee?.let { fee -> L.t("דמי ניהול ${pct2(fee)}", "fees ${pct2(fee)}") + (c.avgFee?.let { L.t(" · ממוצע ${pct2(it)}", " · average ${pct2(it)}") } ?: "") },
+        )
+        return L.t("לעומת ${c.count} הקופות במסלול ⁨${Savings.isolateLatin(c.sub)}⁩ (גמל נט $month):\n", "Next to the ${c.count} funds of the ⁨${Savings.isolateLatin(c.sub)}⁩ track (Gemel-Net $month):\n") +
+            parts.joinToString("\n") { "⁨$it⁩" }
+    }
+
+    /** One bar of three parts (reports' balances, deposited since, gain since) and the three amounts under it. */
+    private fun breakdownBar(b: Savings.Breakdown): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) }
+        val gain = b.growth.coerceAtLeast(0.0)
+        val parts = listOf(b.reported to DS.primary(this@SavingsActivity), b.depositedSince to DEPOSITED, gain to UP).filter { it.first > 0 }
+        addView(LinearLayout(this@SavingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = DS.rounded(DS.cardAlt(this@SavingsActivity), ui.dp(6).toFloat())
+            clipToOutline = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(12))
+            parts.forEach { (v, color) -> addView(View(this@SavingsActivity).apply { setBackgroundColor(color); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, v.toFloat()) }) }
+        })
+        fun line(color: Int, label: String, value: String, valueColor: Int = DS.ink(this@SavingsActivity)) = addView(LinearLayout(this@SavingsActivity).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, ui.dp(6), 0, 0)
+            addView(View(this@SavingsActivity).apply { background = DS.rounded(color, ui.dp(4).toFloat()); layoutParams = LinearLayout.LayoutParams(ui.dp(8), ui.dp(8)).apply { marginEnd = ui.dp(8) } })
+            addView(TextView(this@SavingsActivity).apply { text = label; textSize = 13f; setTextColor(DS.inkSoft(this@SavingsActivity)); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+            addView(amount(value, 13.5f, valueColor))
+            contentDescription = "$label, $value"
+        })
+        line(DS.primary(this@SavingsActivity), L.t("היתרות בדוחות האחרונים", "Balances in the last reports"), ils(b.reported))
+        if (b.depositedSince > 0) line(DEPOSITED, L.t("הופקד מאז", "Deposited since"), ils(b.depositedSince))
+        if (Math.rint(b.growth) != 0.0) line(if (b.growth >= 0) UP else DOWN, if (b.growth >= 0) L.t("רווח מאז (הערכה)", "Gain since (estimate)") else L.t("הפסד מאז (הערכה)", "Loss since (estimate)"),
+            sign(b.growth) + ils(kotlin.math.abs(b.growth)), if (b.growth >= 0) UP else DOWN)
+    }
+
+    /** Where the numbers come from: the last report, Gemel-Net's last month, and when the coin prices were taken. */
+    private fun sources(funds: List<Savings.Fund>): String? {
+        val parts = mutableListOf<String>()
+        funds.mapNotNull { it.lastReport?.date }.maxOrNull()?.let { parts += L.t("דוח אחרון ${FamilyItems.short(it)}", "last report ${FamilyItems.short(it)}") }
+        funds.filter { it.kind != Savings.Kind.CRYPTO }.mapNotNull { off(it)?.latest?.takeIf { m -> m > 0 } }.maxOrNull()
+            ?.let { parts += L.t("גמל נט עד ${GemelNet.latestLabel(Savings.Official(mapOf(it to 0.0)))}", "Gemel-Net to ${GemelNet.latestLabel(Savings.Official(mapOf(it to 0.0)))}") }
+        if (funds.any { it.kind == Savings.Kind.CRYPTO }) CryptoPrices.cached(this)?.at?.takeIf { it > 0 }?.let { at ->
+            val t = java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault())
+            val text = if (t.toLocalDate() == java.time.LocalDate.now()) "%02d:%02d".format(t.hour, t.minute) else FamilyItems.short(t.toLocalDate().toString())
+            parts += L.t("מחירי קריפטו מ-$text", "crypto prices from $text")
+        }
+        val plain = funds.count { it.kind != Savings.Kind.CRYPTO && it.lastReport != null && it.gemelId == 0 }
+        if (plain > 0) parts += L.t("$plain לא נמצאו בגמל נט (יתרה + הפקדות)", "$plain not at Gemel-Net (balance + deposits)")
+        return if (parts.isEmpty()) null else L.t("מקורות: ", "Sources: ") + parts.joinToString(" · ") { "⁨$it⁩" }
+    }
+
+    private fun historyCard(points: List<Pair<String, Double>>): View {
+        val card = ui.card(top = 12)
+        card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(14))
+        card.addView(ui.text(L.t("איך התיק גדל", "How it grew"), 16f, bold = true))
+        val first = points.first(); val last = points.last()
+        val change = last.second - first.second
+        card.addView(ui.hint(L.t("מ-${FamilyItems.short(first.first)}: ${sign(change)}${ils(kotlin.math.abs(change))} (כולל הפקדות)", "Since ${FamilyItems.short(first.first)}: ${sign(change)}${ils(kotlin.math.abs(change))} (deposits included)"), top = 2))
+        card.addView(HistoryChartView(this).apply {
+            this.points = points; line = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity); dotFill = DS.card(this@SavingsActivity)
+            startLabel = FamilyItems.short(first.first); endLabel = L.t("היום", "today")
+            contentDescription = points.joinToString(", ") { "${FamilyItems.short(it.first)}: ${ils(it.second)}" }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
+        })
+        card.addView(ui.hint(L.t("נקודה מלאה: סכום היתרות בדוחות באותו תאריך · נקודה חלולה: הערכה להיום", "Full dot: the reports' balances on that date · hollow dot: today's estimate"), top = 6))
+        return card
+    }
+
+    // ---- A goal for each person (kept on this phone) ----
+    private fun goal(id: String) = Settings.prefs(this).getFloat("savings_goal_$id", 0f).toDouble()
+
+    private fun goalRow(k: FamilyMember, sum: Double): View {
+        val g = goal(k.id)
+        val p = Savings.progress(sum, g)
+        if (p == null) return ui.action(L.t("+ יעד חיסכון ל${k.name}", "+ A savings goal for ${k.name}")) { editGoal(k) }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
+            background = DS.pressable(this@SavingsActivity, DS.rounded(DS.card(this@SavingsActivity), ui.dp(16).toFloat()))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(8) }
+            addView(LinearLayout(this@SavingsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@SavingsActivity).apply { text = L.t("היעד: ${ils(g)}", "Goal: ${ils(g)}"); textSize = 13.5f; setTextColor(DS.ink(this@SavingsActivity)); typeface = DS.emphasis; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+                addView(TextView(this@SavingsActivity).apply { text = "${Math.round(p * 100)}%"; textSize = 13.5f; setTextColor(DS.primary(this@SavingsActivity)); typeface = DS.emphasis })
+            })
+            addView(LinearLayout(this@SavingsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = DS.rounded(DS.cardAlt(this@SavingsActivity), ui.dp(5).toFloat()); clipToOutline = true
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(10)).apply { topMargin = ui.dp(8) }
+                addView(View(this@SavingsActivity).apply { background = DS.rounded(DS.primary(this@SavingsActivity), ui.dp(5).toFloat()); layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, p.toFloat().coerceAtLeast(0.01f)) })
+                if (p < 1.0) addView(View(this@SavingsActivity).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, (1 - p).toFloat()) })
+            })
+            addView(TextView(this@SavingsActivity).apply {
+                text = if (p >= 1.0) L.t("הגעתם ליעד", "Goal reached") else L.t("חסרים ${ils(g - sum)}", "${ils(g - sum)} to go")
+                textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(6), 0, 0)
+            })
+            contentDescription = L.t("יעד החיסכון של ${k.name}: ${ils(g)}, ${Math.round(p * 100)} אחוז. לשינוי", "${k.name}'s savings goal: ${ils(g)}, ${Math.round(p * 100)} percent. Change")
+            A11y.button(this)
+            setOnClickListener { editGoal(k) }
+        }
+    }
+
+    private fun editGoal(k: FamilyMember) {
+        val field = ui.field(L.t("סכום היעד ב-₪", "Goal in ₪"), goal(k.id).takeIf { it > 0 }?.let { Math.round(it).toString() }.orEmpty()).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(20), ui.dp(4), ui.dp(20), 0); addView(field) }
+        AlertDialog.Builder(this)
+            .setTitle(L.t("יעד חיסכון ל${k.name}", "A savings goal for ${k.name}"))
+            .setMessage(L.t("למשל הסכום שתרצו שיהיה בגיל 18. נשמר רק בטלפון הזה.", "For example what you'd like there to be at 18. Kept on this phone only."))
+            .setView(box)
+            .setPositiveButton(L.t("שמירה", "Save")) { _, _ ->
+                val v = FamilyItems.cleanAmount(field.text.toString()) ?: 0.0
+                Settings.prefs(this).edit().putFloat("savings_goal_${k.id}", v.toFloat()).apply(); render()
+            }
+            .setNeutralButton(L.t("בלי יעד", "No goal")) { _, _ -> Settings.prefs(this).edit().remove("savings_goal_${k.id}").apply(); render() }
+            .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
+    }
+
+    // ---- The ring's colours: chosen per part (kept on this phone) ----
+    private val COLOR_NAMES get() = listOf(L.t("מוקה", "Mocha"), L.t("כתום", "Orange"), L.t("ירוק", "Green"), L.t("כחול", "Blue"), L.t("חרדל", "Mustard"), L.t("סגול", "Purple"))
+
+    private fun colorOf(part: String, i: Int): Int =
+        PALETTE[Settings.prefs(this).getInt("savings_color_$part", i % PALETTE.size).coerceIn(0, PALETTE.size - 1)]
+
+    private fun pickColor(part: String) {
+        AlertDialog.Builder(this).setTitle(L.t("צבע ל${part}", "A colour for $part"))
+            .setItems(COLOR_NAMES.mapIndexed { i, n ->
+                android.text.SpannableString("●  $n").apply { setSpan(android.text.style.ForegroundColorSpan(PALETTE[i]), 0, 1, 0) }
+            }.toTypedArray<CharSequence>()) { _, i -> Settings.prefs(this).edit().putInt("savings_color_$part", i).apply(); render() }
+            .show()
+    }
+
+    // ---- A one-page summary to share ----
+    private fun sharePdf(funds: List<Savings.Fund>, people: List<FamilyMember>, today: String) {
+        try {
+            val file = SavingsPdf.write(this, funds, people, today) { est(it, today) }
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", file)
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), L.t("שיתוף הסיכום", "Share the summary")))
+        } catch (_: Exception) {
+            Toast.makeText(this, L.t("לא הצלחנו להכין את הסיכום", "Couldn't make the summary"), Toast.LENGTH_LONG).show()
+        }
     }
 
     /** Savings in whole shekels (an estimate isn't precise to the agora). */
