@@ -874,11 +874,14 @@ object Circle {
                 ?: throw IllegalStateException(L.t("התמונה אינה זמינה", "This photo isn't available"))
             require(tmp.length() <= 45L * 1024 * 1024) { L.t("התמונה גדולה מדי לשיתוף (עד 45MB)", "This photo is too large to share (max 45MB)") }
             val ext = when (type) { "image/png" -> "png"; "image/webp" -> "webp"; "image/heic" -> "heic"; else -> "jpg" }
-            uploaded = upload(ctx, "${circleId(ctx)}/${Account.id(ctx)}/" + (if (onlyFor != null) "p/$onlyFor/" else "") + "${m.id}_${System.currentTimeMillis()}.$ext", tmp, type)
+            val base = "${circleId(ctx)}/${Account.id(ctx)}/" + (if (onlyFor != null) "p/$onlyFor/" else "") + "${m.id}_${System.currentTimeMillis()}"
+            uploaded = upload(ctx, "$base.$ext", tmp, type)
+            // A small copy for the grid (a whole phone photo is megabytes; the grid needs a few dozen KB).
+            val cover = thumbOf(tmp)?.let { t -> try { upload(ctx, "${base}_thumb.jpg", t, "image/jpeg") } catch (_: Exception) { null } finally { t.delete() } } ?: uploaded
             writePost(ctx, "POST", "posts", JSONObject().put("circle_id", circleId(ctx)).put("author_id", Account.id(ctx)).put("author", me(ctx))
                 .apply { if (onlyFor != null) put("only_for", onlyFor) }
                 .put("title", d.title.trim()).put("story", if (d.withStory) m.description else "").put("people", Fmt.names(m).joinToString(" · "))
-                .put("place", Fmt.place(m)).put("kind", "photo").put("taken_at", if (m.timeSource == "imported") JSONObject.NULL else isoOf(m.time)).put("video", uploaded).put("cover", uploaded)
+                .put("place", Fmt.place(m)).put("kind", "photo").put("taken_at", if (m.timeSource == "imported") JSONObject.NULL else isoOf(m.time)).put("video", uploaded).put("cover", cover)
                 .put("caption", d.caption.trim()).put("style", d.style).put("memory_id", m.id))
             if (onlyFor == null) Settings.prefs(ctx).edit().putBoolean(sharedKey(ctx, m.id), true).apply()
         } catch (e: Exception) { if (uploaded.isNotEmpty()) removeFile(ctx, uploaded); throw e }
@@ -1107,6 +1110,59 @@ object Circle {
         val bmp = upright(f, raw)
         imgCache.put(key, bmp)
         return bmp
+    }
+
+    /** A small upright JPEG (longest side 640) of a photo file, for covers; null when it can't be read. */
+    fun thumbOf(src: File): File? = try {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(src.absolutePath, o)
+        var sample = 1
+        while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= 640) sample *= 2
+        val raw = BitmapFactory.decodeFile(src.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+        if (raw == null) null else {
+            val up = upright(src, raw)
+            val scale = 640f / maxOf(up.width, up.height)
+            val small = if (scale < 1f) Bitmap.createScaledBitmap(up, (up.width * scale).toInt().coerceAtLeast(1), (up.height * scale).toInt().coerceAtLeast(1), true) else up
+            val out = File(src.parentFile, src.name + "_thumb.jpg")
+            out.outputStream().use { small.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+            out
+        }
+    } catch (_: Throwable) { null }
+
+    /**
+     * Photos this parent shared with the other parent before covers were small: a small cover is made and set, a
+     * few at a time ([max]), so the other phone's grid fills quickly. From the photo on this phone when it's here,
+     * else from the shared original. Background thread only. Returns how many were fixed.
+     */
+    fun fixPartnerCovers(ctx: Context, partner: String, max: Int = 20): Int {
+        val me = Account.id(ctx)
+        if (me.isEmpty() || partner.isEmpty() || circleId(ctx).isEmpty()) return 0
+        val rows = rest(ctx, "GET", "posts?circle_id=eq.${circleId(ctx)}&author_id=eq.${enc(me)}&only_for=eq.${enc(partner)}&kind=eq.photo" +
+            "&select=id,video,cover,memory_id&order=created_at.desc&limit=1000")
+        var fixed = 0
+        for (i in 0 until rows.length()) {
+            if (fixed >= max) break
+            val o = rows.getJSONObject(i)
+            val video = mediaPath(ctx, o.optString("video").nullless())
+            val cover = mediaPath(ctx, o.optString("cover").nullless())
+            if (video.isEmpty() || (cover.isNotEmpty() && cover != video)) continue
+            val tmp = File(ctx.cacheDir, "cover_fix_${System.nanoTime()}")
+            try {
+                val local = MemoryStore.get(ctx, o.optString("memory_id"))?.uri?.takeIf { !it.startsWith("content://") }?.let { File(it) }?.takeIf { it.exists() }
+                if (local != null) local.copyTo(tmp, overwrite = true)
+                else (URL(signedUrl(ctx, video)).openConnection() as HttpURLConnection).run {
+                    try { if (responseCode == 200) inputStream.use { i2 -> tmp.outputStream().use { i2.copyTo(it) } } } finally { disconnect() }
+                }
+                val t = if (tmp.length() > 0) thumbOf(tmp) else null
+                if (t != null) try {
+                    val path = upload(ctx, video.substringBeforeLast('.') + "_thumb.jpg", t, "image/jpeg")
+                    writePost(ctx, "PATCH", "posts?id=eq.${o.optString("id")}", JSONObject().put("cover", path))
+                    fixed++
+                } finally { t.delete() }
+            } catch (_: Exception) {
+            } finally { tmp.delete() }
+        }
+        return fixed
     }
 
     /** A phone photo is often stored sideways with a note (EXIF) saying how to turn it: turn it, so it isn't shown on its side. */

@@ -87,6 +87,8 @@ object PartnerShare {
                     left--
                 }
             }
+            // Photos shared before covers were small: small covers now (a few each time), so the other grid is quick.
+            try { Circle.fixPartnerCovers(app, partner) } catch (_: Exception) { }
             note(app, L.t("עבד ✓", "Worked ✓") + kids)
         } catch (e: Exception) { // no connection, or the server isn't ready: next time
             if (!lastResult(app).contains(L.t("נכשלה", "failed"))) note(app, L.t("נעצר: ", "Stopped: ") + (e.message ?: e.javaClass.simpleName).take(80))

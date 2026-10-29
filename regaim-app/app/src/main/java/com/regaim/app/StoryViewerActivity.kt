@@ -177,7 +177,8 @@ class StoryViewerActivity : AppCompatActivity() {
                 photo.setImageDrawable(null)
                 loader.execute {
                     val bmp = try {
-                        val url = p.cover.ifEmpty { p.video }.ifEmpty { Circle.mediaLink(applicationContext, p.coverPath.ifEmpty { p.videoPath }) }
+                        // The photo itself full screen (the cover may be the grid's small copy).
+                        val url = if (p.videoPath.isNotEmpty()) Circle.mediaLink(applicationContext, p.videoPath) else p.cover.ifEmpty { Circle.mediaLink(applicationContext, p.coverPath) }
                         Circle.image(applicationContext, url)
                     } catch (_: Exception) { null }
                     runOnUiThread { if (token == showing && !isDestroyed && bmp != null) photo.setImageBitmap(bmp) }
