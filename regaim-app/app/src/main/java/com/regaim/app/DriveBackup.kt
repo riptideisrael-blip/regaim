@@ -102,6 +102,13 @@ object DriveBackup {
 
     private fun keyFile(ctx: Context) = File(ctx.filesDir, "backup_key.bin")
 
+    /** The account is gone: the backup stops, and its key copy and state leave this phone. */
+    fun forget(ctx: Context) {
+        setOn(ctx, false)
+        keyFile(ctx).delete(); stateFile(ctx).delete()
+        Settings.prefs(ctx).edit().remove(LAST).remove(ERROR).remove(BYTES).remove(FILES).remove(FOLDER_ID).apply()
+    }
+
     /** The account's backup key, kept on the phone too (sealed with the phone's own key) after the first time. */
     private fun key(ctx: Context): SecretKeySpec {
         val f = keyFile(ctx)

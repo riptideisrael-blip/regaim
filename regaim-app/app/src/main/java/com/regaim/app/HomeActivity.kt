@@ -113,6 +113,7 @@ class HomeActivity : AppCompatActivity() {
         worker.execute {
             try { MemoryStore.expirePending(applicationContext) } catch (_: Exception) { }
             try { GlobalVotes.refresh(applicationContext) } catch (_: Exception) { } // at most once a day
+            try { FamilyFileSync.clearPending(applicationContext) } catch (_: Exception) { }
             // The other parent's new moments: a story ring on their picture (at most every few minutes).
             val changed = try { PartnerStories.refresh(applicationContext) } catch (_: Exception) { false }
             if (changed) runOnUiThread { if (!isFinishing && !isDestroyed) render() }

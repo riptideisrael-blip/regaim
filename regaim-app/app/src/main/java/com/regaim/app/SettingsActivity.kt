@@ -185,6 +185,7 @@ open class SettingsActivity : AppCompatActivity() {
                         // Signed out on this phone, with what was tied to the account (family circle, community, payments).
                         try { Account.signOut(applicationContext) } catch (_: Exception) { }
                         getSharedPreferences("billing", MODE_PRIVATE).edit().clear().apply()
+                        try { DriveBackup.forget(applicationContext) } catch (_: Exception) { }
                         Settings.prefs(applicationContext).edit().remove("community_terms").remove("community_terms_18").apply()
                     }
                     runOnUiThread {
@@ -963,7 +964,7 @@ open class SettingsActivity : AppCompatActivity() {
         val clips = MemoryStore.kept(this)
         card.addView(ui.text(L.t("הזיכרונות נשמרים בטלפון. שיתוף עם המשפחה מעלה רק את התוכן שבחרתם למעגל שאליו הצטרפתם.", "Memories are saved on your phone. Sharing with family uploads only what you choose, to the circle you joined."), 14f, top = 0))
         // Crash reports: what broke and on which phone (with the account id), kept 90 days; can be turned off.
-        card.addView(ui.switch(L.t("לשלוח דוחות קריסה (מה נשבר, באיזה מסך ובאיזה טלפון)", "Send crash reports (what broke, on which screen and phone)"), CrashLog.on(this), top = 10) { on -> CrashLog.setOn(this, on) })
+        card.addView(ui.switch(L.t("לשלוח דוחות קריסה (מה נשבר, באיזה מסך ובאיזה טלפון, עם מזהה החשבון)", "Send crash reports (what broke, on which screen and phone, with the account id)"), CrashLog.on(this), top = 10) { on -> CrashLog.setOn(this, on) })
         // The backup to the parent's own Google Drive (encrypted; the key is in their Moments account).
         card.addView(ui.row("💾 " + L.t("גיבוי לגוגל דרייב", "Backup to Google Drive"), if (DriveBackup.on(this)) L.t("פועל", "On") else L.t("כבוי", "Off"), top = 10) { BackupActivity.open(this) })
         // Private by default: the moments stay inside Moments (not in the phone's gallery, so not backed up to Google Photos).
@@ -993,6 +994,8 @@ fun PeopleStore.clearAll(ctx: Context) {
     // Family profile photos are learned again (they were marked "done" forever), and failed scans start over.
     ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).edit().remove("enrolled_family").apply()
     ctx.getSharedPreferences("face_scan_tries", Context.MODE_PRIVATE).edit().clear().apply()
+    // Face prints kept for books (faces the parent rejected) go too.
+    ctx.getSharedPreferences("book_rejects", Context.MODE_PRIVATE).edit().clear().apply()
     val ids = MemoryStore.all(ctx).filter { it.people.isNotEmpty() || it.facesScanned }.map { it.id }.toSet()
     MemoryStore.updateMany(ctx, ids) { it.copy(people = "", facesScanned = false) } // one write, not one per moment
 }

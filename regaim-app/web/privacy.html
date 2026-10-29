@@ -50,7 +50,7 @@
 <div class="card" role="note">
   <p><strong>בקצרה:</strong> Moments שומרת רגעים משפחתיים. ההקלטה, זיהוי הרגעים וזיהוי הפנים קורים בטלפון שלכם, והזיכרונות נשמרים בטלפון.
   מידע יוצא מהטלפון רק לשירותים שאתם מפעילים: שיתוף עם המשפחה ועם ההורה השני, תיאור בעזרת בינה מלאכותית, ספרים וסרטים מצוירים, הדפסת ספר,
-  תיק המשפחה המשותף, גיבוי לגוגל דרייב שלכם, ותשלום. לא מוכרים מידע, לא משתמשים בו לפרסום, ואנחנו לא משתמשים בו לאימון מודלים.</p>
+  תיק המשפחה המשותף, גיבוי לגוגל דרייב שלכם, ותשלום. בנוסף, זיהוי מילים בזמן הקלטה משתמש בשירות הדיבור של הטלפון (אפשר לכבות), ודוחות קריסה נשלחים כדי לתקן תקלות (אפשר לכבות). לא מוכרים מידע, לא משתמשים בו לפרסום, ואנחנו לא משתמשים בו לאימון מודלים.</p>
 </div>
 
 <h2 id="who">1. מי אחראי על המידע</h2>
@@ -60,12 +60,12 @@
 
 <h2 id="phone">2. מה נשאר רק בטלפון</h2>
 <ul>
-  <li><strong>הקלטה אוטומטית:</strong> הטלפון שומר בזיכרון זמני רק את השניות האחרונות ומוחק אותן כל הזמן. הקול נבדק בטלפון (מודל YAMNet) כדי לזהות צחוק ורגעים שמחים, ורק אז נשמר קליפ קצר. כל עוד ההקלטה פועלת מוצגת התראה קבועה.</li>
+  <li><strong>הקלטה אוטומטית:</strong> הטלפון שומר בזיכרון זמני רק את השניות האחרונות ומוחק אותן כל הזמן. הקול נבדק בטלפון (מודל YAMNet) כדי לזהות צחוק ורגעים שמחים, ורק אז נשמר קליפ קצר. כל עוד ההקלטה פועלת מוצגת התראה קבועה. (חריג: זיהוי מילים, ראו סעיף 3.)</li>
   <li><strong>הזיכרונות:</strong> קליפים, תמונות, תיאורים, תאריכים ושמות.</li>
-  <li><strong>מיקום משוער</strong> (שכונה או עיר, לא כתובת מדויקת) שנשמר עם הרגע. את שם המקום מספק שירות המיקום של Android (Google).</li>
+  <li><strong>מיקום משוער</strong> שנשמר עם הרגע, ושם הרחוב והעיר הקרובים. את שם המקום מספק שירות המיקום של Android (Google). שם המקום עובר עם רגע שאתם משתפים.</li>
   <li><strong>פרופיל המשפחה</strong> (שמות, קרבה, תאריכי לידה, תמונות פרופיל), וההגדרות שלכם.</li>
   <li><strong>הקלטות הקול שלכם</strong> לקריאת ספר.</li>
-  <li><strong>טביעות הפנים</strong> (ראו סעיף 5).</li>
+  <li><strong>טביעות הפנים</strong> (ראו סעיף 4).</li>
   <li><strong>תיק המשפחה</strong> (קבלות, מסמכים, שוברים, חיסכון הילדים), מוצפן, כל עוד לא הפעלתם שיתוף עם ההורה השני (סעיף 3.4).</li>
 </ul>
 <p>מה שבטלפון נמחק כשמסירים את האפליקציה. אם הפעלתם גיבוי לגוגל דרייב, נשאר עותק מוצפן בדרייב שלכם עד שתמחקו אותו שם (סעיף 3.6).</p>
@@ -77,11 +77,12 @@
   <thead><tr><th scope="col">מתי</th><th scope="col">מה נשלח</th><th scope="col">לאן</th><th scope="col">כמה זמן נשמר</th></tr></thead>
   <tbody>
     <tr><td data-label="מתי">הרשמה והתחברות</td><td data-label="מה נשלח">מייל, שם, תמונת פרופיל (בהתחברות עם Google)</td><td data-label="לאן">השרת של Moments (Supabase)</td><td data-label="כמה זמן">עד מחיקת החשבון</td></tr>
-    <tr><td data-label="מתי">תיאור רגע, ושאלות על הזיכרונות (אחרי אישור הבנת רגעים)</td><td data-label="מה נשלח">3 תמונות קטנות מהרגע, תאריך, שם מקום, שמות האנשים שזוהו או סומנו. בשאלות: השאלה ותיאור כתוב של רגעים רלוונטיים, ושמות וגילים מהפרופיל. רגע שלא זוהה בו אף אחד מהמשפחה לא מתואר.</td><td data-label="לאן">Claude של Anthropic, דרך השרת שלנו</td><td data-label="כמה זמן">השרת שלנו לא שומר. Anthropic שומרת לזמן קצר לפי המדיניות שלה ולא מאמנת על זה מודלים</td></tr>
+    <tr><td data-label="מתי">תיאור רגע, ושאלות על הזיכרונות (אחרי אישור הבנת רגעים)</td><td data-label="מה נשלח">3 תמונות קטנות מהרגע (8 ב"מצא את הרגע"), תאריך, שם מקום, שמות האנשים שזוהו או סומנו, ומה שהאפליקציה למדה על מה שחשוב לכם לשמור. בשאלות: השאלה ותיאור כתוב של רגעים, ושמות וגילים מהפרופיל. רגע שלא זוהה בו אף אחד מהמשפחה לא נשלח, עד שתסמנו מי בו.</td><td data-label="לאן">Claude של Anthropic, דרך השרת שלנו</td><td data-label="כמה זמן">השרת שלנו לא שומר. Anthropic שומרת לזמן קצר לפי המדיניות שלה ולא מאמנת על זה מודלים</td></tr>
     <tr><td data-label="מתי">כתיבת סיפור לספר</td><td data-label="מה נשלח">שם הילד, גיל, נושא, הפרטים שכתבתם, שמות בני המשפחה והקשר, תיאור כתוב של רגעים שבחרתם (בלי תמונות)</td><td data-label="לאן">Claude של Anthropic</td><td data-label="כמה זמן">כנ"ל</td></tr>
-    <tr><td data-label="מתי">ציור ספר, סרט מצויר, הנפשה, דמות וסצנות של פיצקי</td><td data-label="מה נשלח">תמונות פנים שאישרתם, פריימים מהסרטון, תיאור, גיל, הדמויות המצוירות ועמודי הספר</td><td data-label="לאן">fal.ai, שמריצה מודלים של OpenAI (GPT Image), Kling, FLUX Kontext, Google (Gemini Image) ו-ESRGAN</td><td data-label="כמה זמן">מבקשים מחיקה מיד אחרי ההורדה. בכל מקרה התוצאות פגות תוך שעה (בפיצקי תוך 16 שעות)</td></tr>
+    <tr><td data-label="מתי">ציור ספר, סרט מצויר, הנפשה, דמות וסצנות של פיצקי</td><td data-label="מה נשלח">תמונות פנים שאישרתם, פריימים מהסרטון, תיאור, גיל, הדמויות המצוירות ועמודי הספר</td><td data-label="לאן">fal.ai, שמריצה מודלים של OpenAI (GPT Image), Kling, FLUX Kontext, Google (Gemini Image) ו-ESRGAN. בפיצקי, כשהשירות הזה לא זמין: Gemini של Google, עם אותן תמונות</td><td data-label="כמה זמן">מבקשים מחיקה מיד אחרי ההורדה. בכל מקרה התוצאות פגות תוך שעה (בפיצקי תוך 16 שעות)</td></tr>
     <tr><td data-label="מתי">ציורי קומיקס (כשהאפשרות פעילה)</td><td data-label="מה נשלח">פריימים מהרגע</td><td data-label="לאן">Gemini של Google, דרך השרת שלנו</td><td data-label="כמה זמן">השרת שלנו לא שומר</td></tr>
     <tr><td data-label="מתי">הקול של פיצקי</td><td data-label="מה נשלח">טקסט המשפט שפיצקי אומר (יכול לכלול את השם הפרטי של הילד), בלי קול ובלי תמונות</td><td data-label="לאן">ElevenLabs, דרך השרת שלנו</td><td data-label="כמה זמן">השרת סופר רק כמה תווים נשלחו היום</td></tr>
+    <tr><td data-label="מתי">זיהוי מילים בזמן הקלטה אוטומטית (אפשר לכבות)</td><td data-label="מה נשלח">הקול, כדי לזהות מילה שבחרתם</td><td data-label="לאן">זיהוי הדיבור של הטלפון: בלי אינטרנט כשהטלפון יכול, ואחרת השירות של Google</td><td data-label="כמה זמן">לא מגיע לשרת שלנו ולא נשמר אצלנו</td></tr>
     <tr><td data-label="מתי">פיצקי מקשיב לתשובות (אפשר לכבות)</td><td data-label="מה נשלח">מה שהילד אומר בזמן שפיצקי מקשיב</td><td data-label="לאן">זיהוי הדיבור של הטלפון: קודם בלי אינטרנט, ואם אין, השירות של Google</td><td data-label="כמה זמן">לא מגיע לשרת שלנו ולא נשמר אצלנו</td></tr>
   </tbody>
 </table>
@@ -90,12 +91,12 @@
 <p>מה שאתם משתפים למעגל: הקטע שבחרתם (וידאו עם קול) או תמונה, כותרת, תיאור, שמות ושם המקום, תגובות, לבבות והודעות. נשמר בשרת של Moments וגלוי רק לבני המעגל המאושרים, דרך קישורים זמניים.
 גם שמות הילדים ותאריכי הלידה שלהם נשמרים בשרת וגלויים לבני המעגל, כדי שכולם יראו את אותה משפחה.
 סבים וסבתות שנכנסים מהקישור באתר מקבלים חשבון אורח: השם שהם כותבים, התגובות, ההודעות והתמונות או הסרטונים שהם מעלים נשמרים בשרת וגלויים למעגל.
-נשמר עד שתמחקו את הפוסט, תצאו מהמעגל או תמחקו את החשבון. אורחים שרוצים למחוק את מה שהעלו כותבים לנו (סעיף 8).</p>
+נשמר עד שתמחקו את הפוסט, תצאו מהמעגל או תמחקו את החשבון. פרטי הילדים נשארים למשפחה כל עוד יש בה חברים. אורחים שרוצים למחוק את מה שהעלו כותבים לנו (סעיף 9).</p>
 
 <h3 id="partner">3.2 גלריה משותפת להורים</h3>
 <p>רק אם שני ההורים בחרו זה בזה: כל רגע שאחד מכם שומר (קטע של 10 שניות, סרט שלם, או תמונה, כולל תמונות שמוסיפים מהגלריה) עובר להורה השני ורק אליו, עם כותרת, תיאור, שמות, מקום וזמן הצילום.
 עוברים גם הילדים מהפרופיל (שם, תאריך לידה, תמונה והדמות המצוירת) והסרטים של פיצקי עם הילדים. רגעים מלפני ההפעלה עוברים רק אם בחרתם בזה.
-נשמר בשרת, בתיקייה שרק שניכם יכולים לפתוח. <strong>כיבוי הגלריה מוחק מהשרת את כל מה שהטלפון שלכם שיתף.</strong>
+נשמר בשרת, בתיקייה שרק שניכם יכולים לפתוח. <strong>כיבוי הגלריה מוחק מהשרת את כל מה שהטלפון שלכם שיתף, כולל תיק המשפחה המשותף.</strong> אם המחיקה לא מצליחה (למשל בלי אינטרנט), הגלריה נשארת פועלת ואפשר לנסות שוב.
 האפליקציה בודקת בשרת בערך כל 15 דקות אם יש משהו חדש, כדי להציג התראה (אפשר לכבות).</p>
 
 <h3 id="savings">3.3 חיסכון הילדים</h3>
@@ -104,20 +105,20 @@
 ההערכה היא מידע בלבד ולא ייעוץ השקעות.</p>
 
 <h3 id="file">3.4 תיק המשפחה המשותף</h3>
-<p>רק אם הפעלתם "שיתוף התיק" ושני ההורים אישרו: הקבלות, המסמכים, האחריות, השוברים, הקודים ומספרי הכרטיס, הקבצים שלהם, וקופות החיסכון של הילדים נשמרים גם בשרת של Moments, גלויים רק לשניכם.
-<strong>קוד CVV לא יוצא מהטלפון אף פעם.</strong> ההגנה בשרת היא בהרשאות החשבון ולא בהצפנה מקצה לקצה, כך שמי שמנהל את השרת יכול טכנית לגשת אליהם.
-כיבוי השיתוף מוחק מהשרת את כל מה שנשלח מהטלפון שלכם.
-"מילוי אוטומטי" שולח את התמונה (או העמוד הראשון של ה-PDF) ל-Claude כדי לקרוא סכום, תאריך וקוד, ו"חיפוש חכם" שולח רק כותרות, סכומים ותאריכים.</p>
+<p>רק אם הפעלתם "שיתוף התיק" ואתם מחוברים בגלריה המשותפת: הקבלות, המסמכים, האחריות, השוברים, הקודים ומספרי הכרטיס, הקבצים שלהם, וקופות החיסכון של הילדים נשמרים גם בשרת של Moments, גלויים רק לשניכם.
+<strong>קוד CVV שכתוב בפריט לא נשלח לשרת ולא להורה השני</strong> (הוא נכלל רק בגיבוי המוצפן לדרייב שלכם, אם הפעלתם). אם רואים את הקוד בתמונה של הכרטיס, התמונה עצמה כן נשלחת. ההגנה בשרת היא בהרשאות החשבון ולא בהצפנה מקצה לקצה, כך שמי שמנהל את השרת יכול טכנית לגשת אליהם.
+כיבוי השיתוף מוחק מהשרת את כל מה שנשלח מהטלפון שלכם (ואם אין חיבור באותו רגע, המחיקה נעשית בפעם הבאה שהאפליקציה נפתחת).
+"מילוי אוטומטי" שולח את התמונה (או העמוד הראשון של ה-PDF) ל-Claude כדי לקרוא סכום, תאריך וקוד, ו"חיפוש חכם" שולח כותרות, סוגים, חנויות, קטגוריות, סכומים, תאריכים ושמות הילדים (בלי קודים, הערות או קבצים).</p>
 
 <h3 id="print">3.5 ספר מודפס</h3>
 <p>בהזמנת ספר מודפס: שם, כתובת למשלוח, טלפון למשלוח ומייל לעדכונים, שם הספר וקובצי ההדפסה (עמודי הספר והכריכה) נשלחים ל-Lulu (Lulu Press, ארה"ב), שמדפיסה ושולחת.
-קובצי ההדפסה נשמרים בשרת שלנו באחסון פרטי, ו-Lulu מקבלת קישור זמני אליהם. הם נמחקים מהשרת עד 45 יום אחרי שנוצרו. הכתובת נשמרת בטלפון כדי למלא אותה בפעם הבאה.</p>
+קובצי ההדפסה נשמרים בשרת שלנו באחסון פרטי, ו-Lulu מקבלת קישור זמני אליהם. הם נמחקים מהשרת אוטומטית כ-45 יום אחרי שנוצרו. הכתובת נשמרת בטלפון כדי למלא אותה בפעם הבאה.</p>
 
 <h3 id="backup">3.6 גיבוי לגוגל דרייב שלכם</h3>
 <p>רק אם הפעלתם: עותק של כל מה שהאפליקציה שומרת בטלפון (רגעים, תיק המשפחה, טביעות הפנים, הסצנות של פיצקי, ספרים, פרופיל והגדרות) עולה לתיקייה "Moments גיבוי" בגוגל דרייב שלכם.
 Moments מקבלת הרשאה רק לקבצים שהיא עצמה יוצרת, ולא רואה שום דבר אחר בדרייב. הקבצים מוצפנים (AES-256), ושמותיהם בדרייב לא אומרים כלום.
-מפתח ההצפנה שמור בחשבון שלכם בשרת של Moments, והקבצים בדרייב שלכם: כדי לפתוח את הגיבוי צריך את שניהם. סיסמאות כניסה ומפתחות שירותים לא נכנסים לגיבוי.
-כיבוי הגיבוי משאיר את הקבצים בדרייב, ומחיקתם נעשית בדרייב עצמו. מחיקת החשבון מוחקת את המפתח, ואז אי אפשר יותר לפתוח את הגיבוי.</p>
+מפתח ההצפנה שמור בחשבון שלכם בשרת של Moments (ועותק שלו בטלפון, מוצפן במפתח של הטלפון), והקבצים בדרייב שלכם: כדי לפתוח את הגיבוי צריך את שניהם. סיסמאות כניסה ומפתחות שירותים לא נכנסים לגיבוי.
+כיבוי הגיבוי משאיר את הקבצים בדרייב, ומחיקתם נעשית בדרייב עצמו. מחיקת החשבון מוחקת את המפתח (גם את העותק בטלפון ומכבה את הגיבוי), ואז אי אפשר יותר לפתוח את הגיבוי.</p>
 
 <h3 id="community">3.7 קהילה</h3>
 <p>מה שאתם מפרסמים (הרגע או עמודי הספר עם סימן Moments, כותרת, חוות דעת) גלוי למשתמשים מחוברים שאישרו שהם בני 18 ומעלה. מוצג רק השם הפרטי, בלי מיקום ובלי זמן הצילום. נשמר עד שתמחקו.</p>
@@ -125,8 +126,8 @@ Moments מקבלת הרשאה רק לקבצים שהיא עצמה יוצרת, ו
 <h3 id="tech">3.8 מידע טכני</h3>
 <ul>
   <li><strong>דוחות קריסה:</strong> מה נשבר, באיזה מסך, גרסת האפליקציה, דגם הטלפון וגרסת Android, ומזהה החשבון. נשמרים בשרת 90 יום. אפשר לכבות בהגדרות ← פרטיות.</li>
-  <li><strong>👍/👎 על רגעים</strong> (אפשר לכבות): סוג הקול שהפעיל את השמירה וטווח הציון בלבד, בלי מדיה, לשיפור הזיהוי.</li>
-  <li><strong>רישום עלויות:</strong> איזה שירות ציור הופעל ובכמה עלה, לפי חשבון. נשמר 12 חודשים.</li>
+  <li><strong>👍/👎 על רגעים</strong> (אפשר לכבות): סוג הקול שהפעיל את השמירה וטווח הציון בלבד, בלי מדיה, עם מזהה החשבון, לשיפור הזיהוי. נמחק עם החשבון.</li>
+  <li><strong>רישום עלויות ושימוש:</strong> איזה שירות ציור הופעל, בכמה עלה וכמה שימוש היה, לפי חשבון ומשפחה, וקישור בין בקשת ציור לחשבון עד שהיא נמחקת. רישום העלויות נשמר 12 חודשים.</li>
   <li><strong>עדכוני האפליקציה</strong> יורדים מהשרת שלנו. <strong>מודל זיהוי הפנים</strong> יורד פעם אחת מ-GitHub.</li>
   <li><strong>תשלום:</strong> אסימון הרכישה, המוצר ומספר ההזמנה, דרך Google Play. פרטי כרטיס לא מגיעים אלינו.</li>
 </ul>
@@ -134,9 +135,10 @@ Moments מקבלת הרשאה רק לקבצים שהיא עצמה יוצרת, ו
 <h2 id="faces">4. זיהוי פנים ומידע ביומטרי</h2>
 <p>כדי לדעת מי מופיע בכל רגע, Moments יוצרת מכל פנים "טביעה" מספרית, כולל פנים של ילדים. זה מידע ביומטרי, ולכן הוא מופעל רק אחרי שהורה אישר זאת במפורש.</p>
 <ul>
-  <li>הזיהוי קורה בטלפון. הטביעות והשמות נשמרים בטלפון בלבד, מוצפנים במפתח של Android Keystore, ולא נשלחים לשרת שלנו או לאף שירות. אם הפעלתם גיבוי לדרייב, הם נכללים בו מוצפנים.</li>
+  <li>הזיהוי קורה בטלפון. הטביעות והשמות נשמרים בטלפון בלבד, מוצפנים במפתח של Android Keystore, ותמונות הפנים הקטנות נשמרות בתיקייה הפרטית של האפליקציה. שום דבר מזה לא נשלח לשרת שלנו או לאף שירות. אם הפעלתם גיבוי לדרייב, הם נכללים בו מוצפנים.</li>
+  <li>בלי האישור לא נוצרת שום טביעת פנים, גם לא לבחירת תמונות לספר.</li>
   <li>המטרה היחידה: לסמן מי ברגע, ולתאר רגעים רק כשיודעים מי בהם.</li>
-  <li>אפשר לכבות בכל רגע (הגדרות ← אנשים וזיהוי פנים) ולמחוק את כל נתוני הפנים.</li>
+  <li>אפשר לכבות בכל רגע (הגדרות ← הגדרות נוספות ← אנשים וזיהוי פנים) ולמחוק שם את כל נתוני הפנים.</li>
 </ul>
 
 <h2 id="kids">5. ילדים</h2>
@@ -163,7 +165,7 @@ Moments מקבלת הרשאה רק לקבצים שהיא עצמה יוצרת, ו
     <tr><td data-label="ספק">Supabase (על תשתית AWS)</td><td data-label="בשביל מה">השרת: חשבונות, מעגל המשפחה, גלריה משותפת, תיק משותף, קובצי הדפסה, מפתחות גיבוי</td><td data-label="מיקום">יפן (טוקיו)</td></tr>
     <tr><td data-label="ספק">Anthropic (Claude)</td><td data-label="בשביל מה">תיאור רגעים, שאלות, סיפורי ספרים, קריאת קבלות ודוחות חיסכון</td><td data-label="מיקום">ארה"ב</td></tr>
     <tr><td data-label="ספק">fal.ai (ודרכה OpenAI, Kling, Black Forest Labs, Google)</td><td data-label="בשביל מה">ציורים, סרטים מצוירים והנפשה</td><td data-label="מיקום">ארה"ב (ומודלים של ספקים נוספים)</td></tr>
-    <tr><td data-label="ספק">Google</td><td data-label="בשביל מה">התחברות, Google Photos Picker, גוגל דרייב (גיבוי), זיהוי דיבור ושמות מקומות בטלפון, Gemini לקומיקס, Google Play לתשלום</td><td data-label="מיקום">ארה"ב ומדינות נוספות</td></tr>
+    <tr><td data-label="ספק">Google</td><td data-label="בשביל מה">התחברות, Google Photos Picker, גוגל דרייב (גיבוי), זיהוי דיבור ושמות מקומות בטלפון, Gemini לקומיקס ולציורי פיצקי כשהשירות הראשי לא זמין, Google Play לתשלום</td><td data-label="מיקום">ארה"ב ומדינות נוספות</td></tr>
     <tr><td data-label="ספק">ElevenLabs</td><td data-label="בשביל מה">הקול של פיצקי</td><td data-label="מיקום">ארה"ב</td></tr>
     <tr><td data-label="ספק">Lulu Press</td><td data-label="בשביל מה">הדפסת ספר ומשלוח</td><td data-label="מיקום">ארה"ב</td></tr>
     <tr><td data-label="ספק">Netlify</td><td data-label="בשביל מה">אחסון האתר ודף המשפחה</td><td data-label="מיקום">ארה"ב</td></tr>
@@ -198,10 +200,10 @@ Moments מקבלת הרשאה רק לקבצים שהיא עצמה יוצרת, ו
 <h2 id="en-title">Privacy policy (English summary)</h2>
 <p class="soft">Moments (com.regaim.app) and its website · Updated October 29, 2026. The Hebrew version above is the full one.</p>
 <p><strong>Who:</strong> the controller is Yossef Revivo, the app's developer. Contact: <a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a> (answered within 30 days). The app is in a pilot with family and close friends.</p>
-<p><strong>On the phone only:</strong> the rolling recording buffer (sound analyzed on the phone), your memories, approximate location, the family profile and settings, voice recordings, face prints (encrypted), and the family file (encrypted) unless you share it. Uninstalling removes it; a Drive backup you turned on stays in your Drive until you delete it there.</p>
-<p><strong>Leaves the phone, only for what you turn on:</strong> account (our Supabase server, Tokyo); AI descriptions, questions, book stories, receipt and savings-report reading (Anthropic's Claude, via our server, not kept by us; moments with nobody recognized aren't described); drawings, films and Pitzki scenes (fal.ai running OpenAI, Kling, FLUX Kontext, Google and ESRGAN models; deletion requested right after download, expiring within an hour, 16 hours for Pitzki); comics (Google Gemini); Pitzki's voice (ElevenLabs, text only); Pitzki listening (the phone's speech recognition, not kept by us).</p>
-<p><strong>Family circle</strong> (members only; grandparents join as guests from a link, and what they post is kept too); the children's names and birthdays are shared with the circle. <strong>Shared gallery between parents</strong> (only when both choose each other; turning it off deletes from the server everything your phone shared; the app checks for new items about every 15 minutes for notifications). <strong>Shared family file</strong> (only when both agree; protected by account permissions, not end-to-end encryption; a CVV never leaves the phone; turning it off deletes what your phone sent). <strong>Children's savings</strong> (reports read by Claude; public Gemel-Net returns and CoinGecko prices by fund number or coin symbol only; information, not advice). <strong>Printed books</strong> (name, shipping address, phone, email and print files to Lulu, USA; print files deleted within 45 days). <strong>Google Drive backup</strong> (your own Drive, drive.file access only, AES-256 encrypted, the key kept in your Moments account; deleting the account deletes the key). <strong>Community</strong> (signed-in users aged 18+, first name only). <strong>Technical:</strong> crash reports with the account id (90 days, can be turned off), 👍/👎 signals without media, an AI cost log (12 months), Google Play purchase tokens.</p>
-<p><strong>Face recognition</strong> is biometric data, children's included: it runs only after a parent agrees, stays on the phone encrypted, and can be turned off and deleted any time.</p>
+<p><strong>On the phone only:</strong> the rolling recording buffer (sound analyzed on the phone), your memories, approximate location, the family profile and settings, voice recordings, face prints (encrypted) and small face crops, and the family file (encrypted) unless you share it. Approximate location is kept with each moment, with the nearest street and town names. Uninstalling removes it; a Drive backup you turned on stays in your Drive until you delete it there.</p>
+<p><strong>Leaves the phone, only for what you turn on:</strong> account (our Supabase server, Tokyo); AI descriptions, questions, book stories, receipt and savings-report reading (Anthropic's Claude, via our server, not kept by us; moments with nobody recognized aren't sent until you mark who's in them); drawings, films and Pitzki scenes (fal.ai running OpenAI, Kling, FLUX Kontext, Google and ESRGAN models; deletion requested right after download, expiring within an hour, 16 hours for Pitzki); comics (Google Gemini); Pitzki's voice (ElevenLabs, text only); Pitzki listening and listening for words while recording (the phone's speech recognition, offline when the phone can, otherwise Google's service; not kept by us); if fal isn't available, Pitzki's drawings use Google's Gemini.</p>
+<p><strong>Family circle</strong> (members only; grandparents join as guests from a link, and what they post is kept too); the children's names and birthdays are shared with the circle. <strong>Shared gallery between parents</strong> (only when both choose each other; turning it off deletes from the server everything your phone shared, the shared family file included; the app checks for new items about every 15 minutes for notifications). <strong>Shared family file</strong> (only when you turn it on and you're connected in the shared gallery; protected by account permissions, not end-to-end encryption; a CVV typed in an item isn't sent to the server or the other parent, only to your encrypted Drive backup, but a card photo is sent as it is; turning it off deletes what your phone sent). <strong>Children's savings</strong> (reports read by Claude; public Gemel-Net returns and CoinGecko prices by fund number or coin symbol only; information, not advice). <strong>Printed books</strong> (name, shipping address, phone, email and print files to Lulu, USA; print files deleted within 45 days). <strong>Google Drive backup</strong> (your own Drive, drive.file access only, AES-256 encrypted, the key kept in your Moments account with a sealed copy on the phone; deleting the account deletes the key and stops the backup). <strong>Community</strong> (signed-in users aged 18+, first name only). <strong>Technical:</strong> crash reports with the account id (90 days, can be turned off), 👍/👎 signals without media (with the account id), an AI cost and usage log (12 months), Google Play purchase tokens.</p>
+<p><strong>Face recognition</strong> is biometric data, children's included: it runs only after a parent agrees (no face print at all without it, books included), stays on the phone encrypted, and can be turned off and deleted any time.</p>
 <p><strong>Children:</strong> parents hold the account and decide; Pitzki (ages 3–5, with a parent) has no ads, no chat, and no AI talking to the child; drawing the child happens only after the parent sees what's sent and agrees.</p>
 <p><strong>Use:</strong> only to provide what you asked for. No ads, no sale of data, no model training on your data. <strong>Providers and transfers abroad:</strong> Supabase/AWS (Japan), Anthropic, fal.ai, Google, ElevenLabs, Lulu, Netlify, GitHub (USA), CoinGecko (Singapore), data.gov.il (Israel).</p>
 <p><strong>Security:</strong> HTTPS everywhere, row-level permissions and temporary links on the server, encryption on the phone and of the backup. We'll notify you and the Israeli Privacy Protection Authority of a breach as the law requires.</p>

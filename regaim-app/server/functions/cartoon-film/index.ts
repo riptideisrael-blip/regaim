@@ -368,6 +368,20 @@ async function listFiles(admin: any, bucket: string, prefix: string, depth = 0):
   return out;
 }
 
+let printSweptAt = 0;
+/** All accounts' old print files (each account's folder in the "print" bucket), at most every 12 hours. */
+function sweepPrintFiles(admin: any) {
+  if (Date.now() - printSweptAt < 12 * 3_600_000) return;
+  printSweptAt = Date.now();
+  const work = (async () => {
+    try {
+      const { data } = await admin.storage.from("print").list("", { limit: 1000 });
+      for (const e of data ?? []) if (!e.id && e.name) await removeOldPrintFiles(admin, e.name);
+    } catch (_) { /* next time */ }
+  })();
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(work); } catch (_) { /* runs anyway */ }
+}
+
 /** This account's print files older than [days] (the order was made long ago; Lulu already printed it). */
 async function removeOldPrintFiles(admin: any, uid: string, days = 45) {
   try {
@@ -431,6 +445,14 @@ async function deleteAccount(admin: any, uid: string): Promise<{ ok: boolean; er
         famFiles.push(...await listFiles(admin, "moments", String(c.id)));
         await admin.from("circles").delete().eq("id", c.id);
       }
+    }
+    // What other parents shared only with this account: those posts and their folder for it (no one else can see them).
+    const { data: forMe } = await admin.from("posts").select("id,video,cover").eq("only_for", uid);
+    for (const p of forMe ?? []) famFiles.push(pathIn(p.video, "moments"), pathIn(p.cover, "moments"));
+    await admin.from("posts").delete().eq("only_for", uid);
+    for (const c of circles) {
+      const { data: others } = await admin.from("family_memberships").select("user_id").eq("circle_id", c).neq("user_id", uid);
+      for (const o of others ?? []) famFiles.push(...await listFiles(admin, "moments", `${c}/${o.user_id}/p/${uid}`));
     }
     await removeFiles(admin, "moments", famFiles);
     // Community: every file in their folder (posts, book pages).
@@ -625,6 +647,8 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "");
+    // Every account's print files past 45 days, at most twice a day per server instance (in the background).
+    sweepPrintFiles(admin);
 
     if (action === "credits") {
       const { data } = await admin.rpc("film_balance", { p_user: uid });

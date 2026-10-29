@@ -351,17 +351,22 @@ class CircleActivity : AppCompatActivity() {
                     // Off means off: what this phone shared with them leaves the server (said before it happens).
                     AlertDialog.Builder(this)
                         .setTitle(L.t("לכבות את הגלריה המשותפת?", "Turn the shared gallery off?"))
-                        .setMessage(L.t("כל מה שהטלפון הזה שיתף עם ${chosen.name} (רגעים, תמונות הילדים, הסרטים של פיצקי) יימחק מהשרת. מה ש${chosen.name} שיתף/ה איתך נשאר אצלך. תיק המשפחה נכבה בנפרד, בתחתית התיק.",
-                            "Everything this phone shared with ${chosen.name} (moments, the children's pictures, Pitzki's films) is deleted from the server. What ${chosen.name} shared with you stays. The family file is turned off separately, at its bottom."))
+                        .setMessage(L.t("כל מה שהטלפון הזה שיתף עם ${chosen.name} (רגעים, תמונות הילדים, הסרטים של פיצקי, ותיק המשפחה המשותף) יימחק מהשרת. מה ש${chosen.name} שיתף איתך נשאר אצלך.",
+                            "Everything this phone shared with ${chosen.name} (moments, the children's pictures, Pitzki's films, and the shared family file) is deleted from the server. What ${chosen.name} shared with you stays."))
                         .setPositiveButton(L.t("לכבות ולמחוק", "Turn off and delete")) { _, _ ->
                             toast(L.t("מוחקים מהשרת…", "Deleting from the server…"))
                             Thread {
                                 val n = try { Circle.removePartnerShares(app, chosen.userId) } catch (_: Exception) { -1 }
-                                try { Circle.setPartner(app, null) } catch (_: Exception) { }
-                                PartnerShare.turnOff(app)
+                                if (n >= 0) {
+                                    // The shared family file rides on this connection: its rows leave the server too.
+                                    if (FamilyFileSync.on(app)) FamilyFileSync.turnOff(app) { }
+                                    try { Circle.setPartner(app, null) } catch (_: Exception) { }
+                                    PartnerShare.turnOff(app)
+                                }
                                 runOnUiThread {
                                     if (isDestroyed) return@runOnUiThread
-                                    toast(if (n >= 0) L.t("כבוי. נמחקו מהשרת $n קבצים.", "Off. $n files deleted from the server.") else L.t("כבוי, אבל המחיקה מהשרת לא הושלמה. נסו שוב מאוחר יותר.", "Off, but deleting from the server didn't finish. Try again later."))
+                                    // Not deleted: still connected, so "Turn off" is there to try again.
+                                    toast(if (n >= 0) L.t("כבוי. נמחקו מהשרת $n קבצים.", "Off. $n files deleted from the server.") else L.t("לא הצלחנו למחוק מהשרת, אז הגלריה עדיין פועלת. נסו שוב כשיש אינטרנט.", "Couldn't delete from the server, so the gallery is still on. Try again with internet."))
                                     render()
                                 }
                             }.start()
@@ -399,7 +404,8 @@ class CircleActivity : AppCompatActivity() {
         val old = check(L.t("גם כל הרגעים הישנים", "All the older moments too"), L.t("עוברים ברקע, כמה בכל פעם. אחרת רק מה שיישמר מעכשיו.", "In the background, a few at a time. Otherwise only what's kept from now on."), false)
         val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), FamilyFileSync.on(app))
         box.addView(ui.action(L.t("מה בדיוק עובר בתיק ›", "What exactly the file shares ›")) {
-            AlertDialog.Builder(this).setMessage(FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
+            // Both: what the file is (agreed to by ticking) and what sharing it means.
+            AlertDialog.Builder(this).setMessage(FamilyFile.consentText() + "\n\n" + FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
         })
         val notify = check(L.t("התראה כשמגיע משהו חדש מ$whoName", "Notify me when $whoName shares something"), L.t("רגע חדש או פריט חדש בתיק, תוך כרבע שעה.", "A new moment or file item, within about 15 minutes."), true)
         AlertDialog.Builder(this)

@@ -39,11 +39,22 @@ object FamilyFileSync {
         val app = ctx.applicationContext
         Settings.prefs(app).edit().putBoolean(ON, false).apply()
         Thread {
-            try { if (Account.signedIn(app) && Circle.joined(app)) Circle.fileItemsClear(app) } catch (_: Exception) { }
+            // Not reached now (no internet...): remembered, and tried again whenever the app opens.
+            val cleared = try { if (Account.signedIn(app) && Circle.joined(app)) { Circle.fileItemsClear(app); true } else false } catch (_: Exception) { false }
+            Settings.prefs(app).edit().putBoolean(CLEAR_PENDING, !cleared).apply()
             FamilyFile.all(app).filter { it.source == FamilyShare.FROM_PARTNER }.forEach { FamilyFile.delete(app, it.id) }
             Settings.prefs(app).edit().remove(sentKey(app)).remove(gotKey(app)).apply()
             done()
         }.start()
+    }
+
+    private const val CLEAR_PENDING = "ff_clear_pending"
+
+    /** A sharing turned off while the server couldn't be reached: its rows are removed now. Background thread only. */
+    fun clearPending(ctx: Context) {
+        val app = ctx.applicationContext
+        if (!Settings.prefs(app).getBoolean(CLEAR_PENDING, false) || on(app) || !Account.signedIn(app) || !Circle.joined(app)) return
+        try { Circle.fileItemsClear(app); Settings.prefs(app).edit().putBoolean(CLEAR_PENDING, false).apply() } catch (_: Exception) { }
     }
 
     private fun sentKey(ctx: Context) = "ff_sent_" + Circle.circleId(ctx)

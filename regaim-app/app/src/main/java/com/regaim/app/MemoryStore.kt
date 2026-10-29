@@ -300,6 +300,11 @@ object MemoryStore {
         var done = 0
         // Moments that keep failing wait (and stop after a few tries) instead of being sent again every time.
         for (m in toAnalyze(all(ctx)).filter { AnalysisRetry.mayTry(ctx, it.id) }) {
+            // Nobody known in it: nothing is sent; it waits for a name (then it's described).
+            if (!NamedMoments.named(m) && !m.descriptionByUser) {
+                synchronized(this) { read(ctx).firstOrNull { it.id == m.id }?.let { update(ctx, NamedMoments.clear(it).copy(analyzed = true)) } }
+                continue
+            }
             try {
                 val result = ClaudeClient.analyze(ctx, m)
                 synchronized(this) {

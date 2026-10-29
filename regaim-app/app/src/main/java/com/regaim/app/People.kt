@@ -148,6 +148,8 @@ object FaceId {
     }
 
     fun embed(ctx: Context, face: Bitmap): FloatArray? {
+        // Biometric: no face print at all without the parent's yes (books, profile photos, scans alike).
+        if (!PeopleStore.faceConsent(ctx)) return null
         if (!ready(ctx)) return null
         val interp = interpreter ?: try {
             Interpreter(modelFile(ctx), Interpreter.Options().setNumThreads(2)).also { interpreter = it }
@@ -405,13 +407,13 @@ object PeopleStore {
             "• הזיהוי קורה בטלפון. הטביעות והשמות נשמרים בטלפון בלבד, מוצפנים, ולא נשלחים לשרת שלנו או לאף שירות.\n" +
             "• אם תפעילו גיבוי לגוגל דרייב, גם הן בגיבוי, מוצפנות.\n" +
             "• המטרה היחידה: לסמן מי ברגע, ולתאר רגעים רק כשיודעים מי בהם.\n" +
-            "• אפשר לכבות בכל רגע בהגדרות ← אנשים, ולמחוק את כל נתוני הפנים.\n\n" +
+            "• אפשר לכבות בכל רגע בהגדרות ← הגדרות נוספות ← אנשים וזיהוי פנים, ולמחוק שם את כל נתוני הפנים.\n\n" +
             "בלי זיהוי פנים האפליקציה עובדת, ואת השמות אפשר לסמן ידנית.",
         "To know who's in each moment (say, Noam or Uri), Moments makes a numeric \"print\" of each face, children's included. This is biometric data.\n\n" +
             "• Recognition happens on the phone. The prints and names stay on this phone only, encrypted, and aren't sent to our server or any service.\n" +
             "• If you turn on the Google Drive backup, they're in the backup too, encrypted.\n" +
             "• The only purpose: marking who's in a moment, and describing moments only when we know who's in them.\n" +
-            "• You can turn it off any time in Settings → People, and delete all face data.\n\n" +
+            "• You can turn it off any time in Settings → More settings → People and face recognition, and delete all face data there.\n\n" +
             "Without face recognition the app still works, and names can be marked by hand.",
     )
 
