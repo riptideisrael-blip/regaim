@@ -9,11 +9,11 @@ jobs:
         run: |
           set +e
           R=a30dcbea-a1d2-482c-ae29-8f781f5025fb
-          g() { curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "filters=$1" --data-urlencode "limit=${2:-1000}" -o "$3"; echo "::notice title=size-$3::$(wc -c < $3)"; }
-          g '{"FUND_CLASSIFICATION":"קופת גמל להשקעה - חסכון לילד","REPORT_PERIOD":202609}' 1000 b.json
-          echo "::notice title=fields::$(jq -c '[.result.fields[].id]' b.json | head -c 3000)"
-          echo "::notice title=rec::$(jq -c '.result.records[0]' b.json | head -c 3500)"
-          echo "::notice title=spec::$(jq -r '[.result.records[] | "\(.SPECIALIZATION)/\(.SUB_SPECIALIZATION)"] | group_by(.) | map("\(.[0])=\(length)") | join(";")' b.json | head -c 3500)"
-          g '{"FUND_CLASSIFICATION":"קופת גמל להשקעה","REPORT_PERIOD":202609}' 1000 a.json
-          echo "::notice title=specA::$(jq -r '[.result.records[] | "\(.SPECIALIZATION)/\(.SUB_SPECIALIZATION)"] | group_by(.) | map("\(.[0])=\(length)") | join(";")' a.json | head -c 3500)"
-          echo "::notice title=harel::$(jq -c '[.result.records[] | select(.FUND_NAME|test("הראל")) | select(.FUND_NAME|test("500"))][0]' a.json | head -c 3000)"
+          g() { curl -sS -m 90 -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "filters=$1" --data-urlencode "limit=${2:-1000}" -o "$3"; }
+          L=$(curl -sS -G "https://data.gov.il/api/3/action/datastore_search" --data-urlencode "resource_id=$R" --data-urlencode "fields=REPORT_PERIOD" --data-urlencode "sort=REPORT_PERIOD desc" --data-urlencode "limit=1" | jq -r '.result.records[0].REPORT_PERIOD')
+          echo "::notice title=latest::$L"
+          g "{\"FUND_CLASSIFICATION\":\"קופת גמל להשקעה\",\"REPORT_PERIOD\":$L}" 2000 a.json
+          echo "::notice title=harel::$(jq -r '.result.records[] | select(.FUND_NAME|test("הראל")) | "\(.FUND_ID)|\(.FUND_NAME)"' a.json | tr '\n' ';' | head -c 3500)"
+          g "{\"FUND_CLASSIFICATION\":\"קופת גמל להשקעה - חסכון לילד\",\"REPORT_PERIOD\":$L}" 2000 b.json
+          echo "::notice title=harelchild::$(jq -r '.result.records[] | select(.FUND_NAME|test("הראל")) | "\(.FUND_ID)|\(.FUND_NAME)"' b.json | tr '\n' ';' | head -c 3500)"
+          echo "::notice title=alt::$(jq -r '.result.records[] | select(.FUND_NAME|test("אלטשולר")) | "\(.FUND_ID)|\(.FUND_NAME)"' a.json | tr '\n' ';' | head -c 3500)"
