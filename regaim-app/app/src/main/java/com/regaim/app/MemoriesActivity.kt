@@ -581,7 +581,7 @@ class MemoriesActivity : AppCompatActivity() {
                 text = L.t("חפשו או שאלו: \"מתי צחקנו הכי הרבה?\"", "Search or ask: \"When did we laugh the most?\"")
                 textSize = 15f
                 setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.ink_soft))
-                setPadding(mv.dp(10), 0, 0, 0)
+                setPaddingRelative(mv.dp(10), 0, 0, 0)
             })
             setOnClickListener { startActivity(android.content.Intent(this@MemoriesActivity, ChatActivity::class.java)) }
         })

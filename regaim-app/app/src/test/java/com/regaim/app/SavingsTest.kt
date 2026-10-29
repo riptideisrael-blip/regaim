@@ -235,4 +235,30 @@ class SavingsTest {
         assertNull(Savings.valueOn(mapOf("SOL" to 1.0), "2026-09-30", p)) // no price for a coin: no guess
         assertNull(Savings.valueOn(mapOf("BTC" to 1.0), "", p))
     }
+
+    @Test fun dollarStatementAtTheDaysRate() {
+        val p = Savings.Prices(mapOf("USDT" to 3.70), mapOf("USDT" to mapOf("2026-09-29" to 3.65)))
+        assertEquals(4600 * 3.65, Savings.usdToIls(4600.0, "2026-09-30", p)!!, 0.001) // the closest day before
+        assertEquals(4600 * 3.70, Savings.usdToIls(4600.0, "2025-01-01", p)!!, 0.001) // no day that early: today's
+        assertNull(Savings.usdToIls(4600.0, "2026-09-30", null))
+        // Kept with the report.
+        val f = Fund("c", "u", Savings.Kind.CRYPTO, reports = listOf(Report("2026-09-30", 16790.0, usd = 4600.0)))
+        assertEquals(4600.0, Savings.fromJson(Savings.toJson(f)).reports.single().usd!!, 0.001)
+    }
+
+    @Test fun tickerReadBackwardsIsFixedAndFound() {
+        assertEquals("עוקב מדד S&P 500", Savings.fixTicker("עוקב מדד P&S 500"))
+        assertEquals("S&P 500", Savings.fixTicker("S&P 500"))
+        val c = listOf(13414 to "הראל גמל להשקעה עוקב מדד s&p 500", 13415 to "הראל גמל להשקעה כללי")
+        assertEquals(13414, Savings.pickGemel(c, "הראל", "עוקב מדד P&S 500")?.first)
+        // A fund kept with the backwards name is fixed when it's read back.
+        val f = Fund("h", "u", provider = "הראל", track = "עוקב מדד P&S 500")
+        assertEquals("עוקב מדד S&P 500", Savings.fromJson(Savings.toJson(f)).track)
+    }
+
+    @Test fun todaysEstimateReplacesAReportDatedToday() {
+        val a = Fund("a", "u", reports = listOf(Report("2026-03-31", 4344.0)))
+        val b = Fund("b", "u", Savings.Kind.CRYPTO, reports = listOf(Report(today, 1171.0)))
+        assertEquals(listOf("2026-03-31" to 4344.0, today to 7338.0), Savings.history(listOf(a, b), today, 7338.0))
+    }
 }

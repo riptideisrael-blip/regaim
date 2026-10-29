@@ -25,7 +25,8 @@ class SavingsFundActivity : AppCompatActivity() {
 
         fun open(ctx: Context, id: String) = ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_ID, id))
         fun newFor(ctx: Context, child: String) = ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_CHILD, child))
-        fun fromReport(ctx: Context, r: Savings.Reading?, docId: String, child: String) {
+        /** [fundId]: the report goes into this fund (chosen by the parent), not matched by company and track. */
+        fun fromReport(ctx: Context, r: Savings.Reading?, docId: String, child: String, fundId: String = "") {
             val o = org.json.JSONObject()
             if (r != null) o.put("provider", r.provider).put("fund_name", r.name).put("track", r.track).put("report_date", r.date)
                 .put("balance", r.balance ?: org.json.JSONObject.NULL).put("deposits_in_period", r.deposits ?: org.json.JSONObject.NULL)
@@ -34,7 +35,8 @@ class SavingsFundActivity : AppCompatActivity() {
                 .put("kind", r.kind?.id ?: org.json.JSONObject.NULL).put("child_name", r.childName)
                 .put("value_usd", r.valueUsd ?: org.json.JSONObject.NULL)
                 .put("coins", org.json.JSONArray().apply { r.coins.forEach { put(org.json.JSONObject().put("symbol", it.symbol).put("units", it.units).put("monthly_ils", it.monthly)) } }).put("period_months", r.months ?: org.json.JSONObject.NULL)
-            ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_READING, o.toString()).putExtra(EXTRA_DOC, docId).putExtra(EXTRA_CHILD, child))
+            ctx.startActivity(Intent(ctx, SavingsFundActivity::class.java).putExtra(EXTRA_READING, o.toString()).putExtra(EXTRA_DOC, docId).putExtra(EXTRA_CHILD, child)
+                .apply { if (fundId.isNotEmpty()) putExtra(EXTRA_ID, fundId) })
         }
     }
 
@@ -54,6 +56,8 @@ class SavingsFundActivity : AppCompatActivity() {
     private var fDate: EditText? = null
     private var fBalance: EditText? = null
     private var reading = false
+    /** The balance is typed (or was read) in dollars; kept in ₪ at the report day's dollar rate. */
+    private var usdMode = false
     /** What was just read is newer than the fields on screen: the next render doesn't read them back. */
     private var fresh = false
     /** The balance was worked out from the coins' prices (said next to it). */
@@ -70,8 +74,9 @@ class SavingsFundActivity : AppCompatActivity() {
     }
 
     /** What a report or statement says, onto this fund: its date and balance (crypto: the coins' units, and the balance at that day's prices). */
-    private fun apply(r: Savings.Reading, docId: String) {
-        if (fund.kind == Savings.Kind.CRYPTO && r.coins.isNotEmpty()) fund = fund.copy(coins = r.coins.map { c ->
+    private fun apply(r: Savings.Reading, docId: String, details: Boolean = true) {
+        if (!details) Unit
+        else if (fund.kind == Savings.Kind.CRYPTO && r.coins.isNotEmpty()) fund = fund.copy(coins = r.coins.map { c ->
             c.copy(monthly = if (c.monthly > 0) c.monthly else fund.coins.firstOrNull { it.symbol == c.symbol }?.monthly ?: 0.0) } +
             fund.coins.filter { f -> r.coins.none { it.symbol == f.symbol } })
         else if (fund.kind != Savings.Kind.CRYPTO) {
@@ -80,9 +85,14 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         val units = r.coins.associate { it.symbol to it.units }
         val date = r.date.ifEmpty { java.time.LocalDate.now().toString() }
-        val worth = if (r.balance == null && fund.kind == Savings.Kind.CRYPTO) Savings.valueOn(units, date, CryptoPrices.cached(this)) else null
+        val prices = CryptoPrices.cached(this)
+        // A statement in dollars: its own number, at that day's dollar rate. Only without it, the coins at that day's prices.
+        val fromUsd = if (r.balance == null) r.valueUsd?.let { Savings.usdToIls(it, date, prices) } else null
+        val worth = if (r.balance == null && fromUsd == null && fund.kind == Savings.Kind.CRYPTO) Savings.valueOn(units, date, prices) else null
         computed = worth != null
-        pending = Savings.Report(date, r.balance ?: worth ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, docId, r.months, units)
+        usdMode = r.balance == null && r.valueUsd != null
+        pending = Savings.Report(date, r.balance ?: fromUsd ?: worth ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, docId, r.months, units,
+            if (r.balance == null) r.valueUsd else null)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,6 +110,8 @@ class SavingsFundActivity : AppCompatActivity() {
         if (isNew) fund = fund.copy(child = intent.getStringExtra(EXTRA_CHILD).orEmpty().ifEmpty { kids.singleOrNull()?.id.orEmpty() })
         intent.getStringExtra(EXTRA_READING)?.let { text ->
             val r = Savings.reading(try { org.json.JSONObject(text) } catch (_: Exception) { org.json.JSONObject() })
+            // Into the fund the parent chose.
+            if (!isNew) { apply(r, intent.getStringExtra(EXTRA_DOC).orEmpty()); render(); return }
             val child = kids.firstOrNull { r.childName.isNotBlank() && (Profile.sameName(it.name, r.childName) || Profile.sameName(PitzkiScript.firstName(it.name), PitzkiScript.firstName(r.childName))) }?.id ?: fund.child
             val match = Savings.match(funds, child, r.provider, r.track)
             if (match != null) {
@@ -112,8 +124,7 @@ class SavingsFundActivity : AppCompatActivity() {
             else fund = fund.copy(child = child, kind = r.kind ?: fund.kind, provider = r.provider, name = r.name, track = r.track,
                 monthly = if (r.kind == Savings.Kind.CRYPTO) 0.0 else r.monthly ?: (if (r.stateMonthly == null) r.perMonth ?: 0.0 else 0.0),
                 stateMonthly = r.stateMonthly ?: 0.0, coins = if (r.kind == Savings.Kind.CRYPTO) r.coins else emptyList())
-            pending = Savings.Report(r.date, r.balance ?: Double.NaN, r.deposits, r.returnPct, r.feesPct, intent.getStringExtra(EXTRA_DOC).orEmpty(), r.months,
-                r.coins.associate { it.symbol to it.units })
+            apply(r, intent.getStringExtra(EXTRA_DOC).orEmpty(), details = false)
         }
         render()
     }
@@ -132,8 +143,10 @@ class SavingsFundActivity : AppCompatActivity() {
         fund = fund.copy(provider = fProvider?.text?.toString().orEmpty().trim(), name = fName?.text?.toString().orEmpty().trim(),
             track = fTrack?.text?.toString().orEmpty().trim(), monthly = num(fMonthly) ?: 0.0, stateMonthly = if (fState != null) num(fState) ?: 0.0 else fund.stateMonthly)
         pending?.let { p ->
-            pending = p.copy(date = fDate?.text?.toString().orEmpty().let { FamilyItems.cleanDate(it).ifEmpty { if (it.isBlank()) "" else p.date } },
-                balance = num(fBalance) ?: Double.NaN)
+            val date = fDate?.text?.toString().orEmpty().let { FamilyItems.cleanDate(it).ifEmpty { if (it.isBlank()) "" else p.date } }
+            val typed = num(fBalance)
+            pending = if (usdMode) p.copy(date = date, usd = typed, balance = typed?.let { Savings.usdToIls(it, date.ifEmpty { java.time.LocalDate.now().toString() }, CryptoPrices.cached(this)) } ?: Double.NaN)
+                else p.copy(date = date, balance = typed ?: Double.NaN, usd = null)
         }
     }
 
@@ -159,6 +172,13 @@ class SavingsFundActivity : AppCompatActivity() {
             addView(ui.hint(L.t("זיהינו את הקופה לפי החברה והמסלול. בדקו את התאריך והיתרה ולחצו שמירה.", "Matched by company and track. Check the date and balance, then Save."), top = 2))
         }) else if (pending != null) content.addView(ui.hint(L.t("מה שנקרא מהדוח מולא כאן. בדקו ותקנו לפני שמירה.", "What was read from the report is filled in. Check and fix before saving."), top = 12))
 
+        // First thing on the screen: upload this fund's report or statement; the date and balance (crypto: the units, and
+        // the balance in ₪) are filled in from it.
+        content.addView(ui.button(if (reading) L.t("קוראים את הדוח…", "Reading…")
+            else if (fund.kind == Savings.Kind.CRYPTO) L.t("📄 העלאת דף חשבון לקופה הזו", "📄 Upload a statement to this fund") else L.t("📄 העלאת דוח רבעוני לקופה הזו", "📄 Upload a quarterly report to this fund"), primary = true, top = 12) {
+            if (!reading) picker.launch(SavingsReports.TYPES)
+        }.apply { isEnabled = !reading })
+        content.addView(ui.hint(L.t("PDF או צילום. הפרטים מתמלאים מהדוח, ואתם בודקים לפני שמירה.", "PDF or photo. The details are filled in from it; you check before saving."), top = 4))
         content.addView(ui.text(L.t("של מי?", "Whose?"), 15f, bold = true, top = 14))
         if (kids.isNotEmpty()) content.addView(ui.chips(kids.map { it.name }, kids.indexOfFirst { it.id == fund.child }, top = 6) { i -> fromFields(); fund = fund.copy(child = kids[i].id); render() })
         content.addView(ui.text(L.t("סוג החיסכון", "Kind of savings"), 15f, bold = true, top = 14))
@@ -192,16 +212,20 @@ class SavingsFundActivity : AppCompatActivity() {
 
         // The report being added (read, or typed by hand).
         content.addView(ui.section(L.t("יתרה לפי דוח", "Balance from a report")))
-        // Upload the statement or report itself: the date and balance (crypto: the units, and the balance in ₪) are filled in from it.
-        content.addView(ui.button(if (reading) L.t("קוראים את הדוח…", "Reading…")
-            else if (fund.kind == Savings.Kind.CRYPTO) L.t("📄 העלאת דף חשבון (PDF או צילום)", "📄 Upload a statement (PDF or photo)") else L.t("📄 העלאת דוח (PDF או צילום)", "📄 Upload a report (PDF or photo)"), top = 8) {
-            if (!reading) picker.launch(SavingsReports.TYPES)
-        }.apply { isEnabled = !reading })
         val p = pending
         if (p != null) {
             fDate = field(L.t("תאריך הדוח (יום.חודש.שנה)", "Report date (day.month.year)"), FamilyItems.short(p.date))
-            fBalance = field(L.t("היתרה בדוח ב-₪", "Balance in the report in ₪"), money(p.balance), number = true)
-            if (fund.kind == Savings.Kind.CRYPTO) content.addView(ui.hint(if (computed) L.t("חושב לפי היחידות בדוח ומחירי המטבעות ביום הדוח (CoinGecko). אפשר לתקן לסכום שכתוב בדוח.", "Worked out from the statement's units at that day's prices (CoinGecko). You can fix it to the amount in the statement.")
+            content.addView(ui.text(L.t("המטבע בדוח", "The report's currency"), 13f, R.color.ink_soft, bold = true, top = 12))
+            content.addView(ui.chips(listOf("₪ " + L.t("שקלים", "Shekels"), "$ " + L.t("דולרים", "Dollars")), if (usdMode) 1 else 0, top = 4) { i -> fromFields(); usdMode = i == 1; fresh = true; render() })
+            fBalance = if (usdMode) field(L.t("היתרה בדוח ב-$", "Balance in the report in $"), p.usd?.let { String.format(java.util.Locale.US, "%.2f", it) }.orEmpty(), number = true)
+                else field(L.t("היתרה בדוח ב-₪", "Balance in the report in ₪"), money(p.balance), number = true)
+            if (usdMode) {
+                val rate = Savings.usdRate(p.date.ifEmpty { java.time.LocalDate.now().toString() }, CryptoPrices.cached(this))
+                content.addView(ui.hint(if (rate == null) L.t("שער הדולר עוד לא ידוע (צריך חיבור לאינטרנט). אפשר לכתוב את הסכום בשקלים.", "The dollar rate isn't known yet (needs the internet). You can write the amount in shekels.")
+                    else L.t("נשמר בשקלים לפי שער הדולר ביום הדוח: ${String.format(java.util.Locale.US, "%.3f", rate)} ₪ (CoinGecko, לפי USDT)", "Kept in shekels at the report day's dollar rate: ${String.format(java.util.Locale.US, "%.3f", rate)} ₪ (CoinGecko, by USDT)")
+                        + (if (!p.balance.isNaN()) L.t(" ≈ ${FamilyItems.money(Math.rint(p.balance))}", " ≈ ${FamilyItems.money(Math.rint(p.balance))}") else ""), top = 4))
+            }
+            if (fund.kind == Savings.Kind.CRYPTO && !usdMode) content.addView(ui.hint(if (computed) L.t("חושב לפי היחידות בדוח ומחירי המטבעות ביום הדוח (CoinGecko). אפשר לתקן לסכום שכתוב בדוח.", "Worked out from the statement's units at that day's prices (CoinGecko). You can fix it to the amount in the statement.")
                 else L.t("אפשר להשאיר ריק: יחושב לפי מחירי המטבעות ביום הדוח.", "Can stay empty: worked out from the coins' prices on the report's date."), top = 4))
             val extra = listOfNotNull(p.deposits?.let { L.t("הופקדו בתקופה: ${FamilyItems.money(it)}", "Deposited in the period: ${FamilyItems.money(it)}") },
                 p.returnPct?.let { L.t("תשואה בתקופה: $it%", "Return in the period: $it%") }, p.feesPct?.let { L.t("דמי ניהול: $it%", "Management fee: $it%") })
@@ -214,7 +238,8 @@ class SavingsFundActivity : AppCompatActivity() {
             content.addView(ui.text(L.t("דוחות קודמים", "Earlier reports"), 15f, bold = true, top = 14))
             val card = ui.card(top = 6)
             fund.reports.sortedByDescending { it.date }.forEach { r ->
-                card.addView(ui.row(L.t("${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}", "${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}"),
+                val usd = r.usd?.let { " ($" + String.format(java.util.Locale.US, "%,.0f", it) + ")" }.orEmpty()
+                card.addView(ui.row("${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}$usd",
                     if (docOf(r.doc) != null) L.t("הדוח ›", "Report ›") else "", top = 0) { docOf(r.doc)?.let { FamilyItemActivity.open(this, it.id) } })
             }
             content.addView(card)
@@ -248,10 +273,12 @@ class SavingsFundActivity : AppCompatActivity() {
         if (fund.provider.isBlank() && fund.name.isBlank()) { Toast.makeText(this, L.t("כתבו את שם החברה או הקופה", "Write the company or fund name"), Toast.LENGTH_SHORT).show(); return }
         // A crypto statement without a shekel balance: worked out from the coins' prices on its date.
         pending?.let { pr ->
-            if (fund.kind == Savings.Kind.CRYPTO && pr.balance.isNaN() && pr.date.isNotEmpty()) {
+            if (pr.balance.isNaN() && pr.usd != null && pr.date.isNotEmpty()) Savings.usdToIls(pr.usd, pr.date, CryptoPrices.cached(this))?.let { pending = pr.copy(balance = it) }
+            else if (fund.kind == Savings.Kind.CRYPTO && pr.balance.isNaN() && pr.date.isNotEmpty() && !usdMode) {
                 val units = pr.coins.ifEmpty { fund.coins.associate { it.symbol to it.units } }
                 Savings.valueOn(units, pr.date, CryptoPrices.cached(this))?.let { pending = pr.copy(balance = it, coins = units) }
             }
+            Unit
         }
         val p = pending
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {

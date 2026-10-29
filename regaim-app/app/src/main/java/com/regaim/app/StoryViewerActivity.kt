@@ -116,6 +116,8 @@ class StoryViewerActivity : AppCompatActivity() {
         root.addView(touch, 1 + root.indexOfChild(photo), FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(root)
 
+        // A video fills the screen like a story (no black bars); a photo is shown whole.
+        video.setOnPreparedListener { mp -> VideoCover.apply(video, root, mp.videoWidth, mp.videoHeight) }
         video.setOnCompletionListener { next() }
         video.setOnErrorListener { _, _, _ -> next(); true }
         show()

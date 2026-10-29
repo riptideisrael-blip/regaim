@@ -172,7 +172,7 @@ class MemoryViews(private val a: Activity) {
         head.addView(avatar(who ?: Profile.homeTitle(a), 34))
         head.addView(LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), 0, 0, 0)
+            setPaddingRelative(dp(12), 0, 0, 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             addView(TextView(a).apply {
                 text = Fmt.names(m).take(3).joinToString(", ").ifEmpty { Profile.homeTitle(a) }

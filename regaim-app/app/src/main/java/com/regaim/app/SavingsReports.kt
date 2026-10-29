@@ -15,12 +15,22 @@ object SavingsReports {
     /** Off the main thread; [done] runs on it with what was read (null: couldn't read) and the kept document's id. */
     fun read(a: Activity, uri: Uri, child: String, done: (Savings.Reading?, String) -> Unit) {
         Thread {
-            val ctx = a.applicationContext
             val type = try { a.contentResolver.getType(uri) } catch (_: Exception) { null }.orEmpty()
             val b = try { a.contentResolver.openInputStream(uri)?.use { it.readBytes() } } catch (_: Exception) { null }
+            work(a, b, type, child, done)
+        }.start()
+    }
+
+    /** The same, for a document already in hand (shared into the family file). */
+    fun readBytes(a: Activity, b: ByteArray, type: String, child: String, done: (Savings.Reading?, String) -> Unit) {
+        Thread { work(a, b, type, child, done) }.start()
+    }
+
+    private fun work(a: Activity, b: ByteArray?, type: String, child: String, done: (Savings.Reading?, String) -> Unit) {
+            val ctx = a.applicationContext
             if (b == null || b.size > 20 * 1024 * 1024) {
                 a.runOnUiThread { Toast.makeText(a, L.t("לא הצלחנו לקרוא את הקובץ (עד 20MB)", "Couldn't read the file (up to 20 MB)"), Toast.LENGTH_LONG).show(); done(null, "") }
-                return@Thread
+                return
             }
             val pdf = type == "application/pdf" || (b.size > 4 && String(b, 0, 4) == "%PDF")
             val mime = if (pdf) "application/pdf" else "image/jpeg"
@@ -33,13 +43,12 @@ object SavingsReports {
                 Savings.reading(ClaudeClient.readSavingsReport(ctx, pic, pdfB64, kids.map { it.name }, java.time.LocalDate.now().toString()))
             } catch (_: Exception) { null }
             // A crypto statement: the coins' prices (to value it in shekels on its date).
-            if (reading?.coins?.isNotEmpty() == true) try { CryptoPrices.refresh(ctx, reading.coins.map { it.symbol }.toSet()) } catch (_: Exception) { }
+            if (reading != null && (reading.coins.isNotEmpty() || reading.valueUsd != null)) try { CryptoPrices.refresh(ctx, reading.coins.map { it.symbol }.toSet() + "USDT") } catch (_: Exception) { }
             a.runOnUiThread {
                 if (a.isDestroyed) return@runOnUiThread
                 if (reading == null) Toast.makeText(a, if (!Account.signedIn(a)) L.t("קריאה אוטומטית דורשת התחברות. ממלאים ידנית.", "Reading needs you to sign in. Fill it in by hand.")
                     else L.t("לא הצלחנו לקרוא את הדוח. ממלאים ידנית.", "Couldn't read the report. Fill it in by hand."), Toast.LENGTH_LONG).show()
                 done(reading, doc.id)
             }
-        }.start()
     }
 }

@@ -264,7 +264,7 @@ class FamilyActivity : AppCompatActivity() {
             minimumWidth = ui.dp(76)
             addView(mv.avatar(p.name, 64, ring = p.isChild))
             addView(ui.text(PitzkiScript.firstName(p.name), 14f, bold = true, top = 6).apply { gravity = Gravity.CENTER })
-            addView(ui.hint(if (p.isChild) Profile.ageText(p.birth).ifEmpty { Profile.relationLabel(p.relation) } else Profile.relationLabel(p.relation), top = 0).apply { gravity = Gravity.CENTER; maxLines = 1 })
+            addView(ui.hint(if (p.isChild) Profile.ageText(p.birth).ifEmpty { Profile.relationLabel(p.relation) } else Profile.relationLabel(p.relation), top = 0).apply { gravity = Gravity.CENTER; maxLines = 2 })
             background = DS.pressable(this@FamilyActivity, DS.rounded(android.graphics.Color.TRANSPARENT, ui.dp(16).toFloat()))
             contentDescription = listOf(p.name, if (p.isChild) Profile.ageText(p.birth) else Profile.relationLabel(p.relation)).filter { it.isNotBlank() }.joinToString(", ")
             A11y.button(this)
