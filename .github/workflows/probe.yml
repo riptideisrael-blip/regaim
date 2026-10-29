@@ -1,0 +1,15 @@
+name: probe-prices
+on: push
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe prices
+        shell: bash
+        run: |
+          set +e
+          n() { echo "::notice title=$1::$(echo "$2" | head -c 1500 | tr '\n' ' ' | sed 's/%/%25/g' | sed 's/::/: :/g')"; }
+          n cg-now "$(curl -sS -m 30 -A Moments 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=ils,usd&include_last_updated_at=true')"
+          n cg-hist "$(curl -sS -m 30 -A Moments 'https://api.coingecko.com/api/v3/coins/bitcoin/history?date=30-09-2026&localization=false' | jq -c '.market_data.current_price | {ils,usd}')"
+          n cg-range "$(curl -sS -m 30 -A Moments 'https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=ils&days=60&interval=daily' | jq -c '[(.prices | length), .prices[0], .prices[-1]]')"
+          n boi "$(curl -sS -m 30 'https://boi.org.il/PublicApi/GetExchangeRates' | head -c 400)"
