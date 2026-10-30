@@ -261,6 +261,9 @@
             android:name=".StoryViewerActivity"
             android:exported="false" />
         <activity
+            android:name=".MediaViewerActivity"
+            android:exported="false" />
+        <activity
             android:name=".DetectionLabActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

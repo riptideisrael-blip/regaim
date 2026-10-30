@@ -713,12 +713,8 @@ class CircleActivity : AppCompatActivity() {
 
     private fun openMedia(p: Circle.Post) {
         if (p.pitzki) { PitzkiActivity.open(this); return }
-        try {
-            val type = if (p.kind == "photo") "image/*" else "video/*"
-            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(p.video), type))
-        } catch (_: Exception) {
-            toast(L.t("אין באפליקציה נגן מתאים", "No compatible player found"))
-        }
+        // Opens right here (no list of other apps to choose from).
+        MediaViewerActivity.open(this, p.video, photo = p.kind == "photo", title = p.title)
     }
 
     private fun addComment(p: Circle.Post) {
