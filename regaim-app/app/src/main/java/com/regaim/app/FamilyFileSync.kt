@@ -19,12 +19,12 @@ object FamilyFileSync {
 
     fun shareConsentText(partner: String): String = L.t(
         "שיתוף תיק המשפחה עם $partner:\n\n" +
-            "• הפריטים שלך (קבלות, מסמכים, אחריות ושוברים, כולל קודים, מספרי כרטיס ו-CVV) והקבצים שלהם נשלחים לשרת של המשפחה, ונשמרים שם.\n" +
+            "• הפריטים שלך (קבלות, מסמכים, אחריות ושוברים, כולל קודים ומספרי כרטיס) והקבצים שלהם נשלחים לשרת של המשפחה, ונשמרים שם. קוד CVV לא נשלח: הוא נשאר רק בטלפון הזה.\n" +
             "• רק את/ה ו$partner יכולים לראות אותם. הגישה מוגנת בהרשאות החשבון. ההגנה היא בהרשאות ולא בהצפנה מקצה לקצה, כך שמי שמנהל את השרת יכול טכנית לגשת אליהם.\n" +
             "• הפריטים של $partner יופיעו אצלך רק אם גם $partner יאשר בטלפון שלו/ה.\n" +
             "• כיבוי השיתוף מוחק מהשרת את כל מה שנשלח מהטלפון הזה.",
         "Sharing the family file with $partner:\n\n" +
-            "• Your items (receipts, documents, warranties and vouchers, including codes, card numbers and CVVs) and their files are sent to the family's server and kept there.\n" +
+            "• Your items (receipts, documents, warranties and vouchers, including codes and card numbers) and their files are sent to the family's server and kept there. A CVV isn't sent: it stays on this phone only.\n" +
             "• Only you and $partner can see them. Access is protected by account permissions, not end-to-end encryption, so whoever runs the server could technically reach them.\n" +
             "• $partner's items appear here only if $partner agrees on their phone too.\n" +
             "• Turning sharing off deletes from the server everything this phone sent.",
@@ -39,11 +39,22 @@ object FamilyFileSync {
         val app = ctx.applicationContext
         Settings.prefs(app).edit().putBoolean(ON, false).apply()
         Thread {
-            try { if (Account.signedIn(app) && Circle.joined(app)) Circle.fileItemsClear(app) } catch (_: Exception) { }
+            // Not reached now (no internet...): remembered, and tried again whenever the app opens.
+            val cleared = try { if (Account.signedIn(app) && Circle.joined(app)) { Circle.fileItemsClear(app); true } else false } catch (_: Exception) { false }
+            Settings.prefs(app).edit().putBoolean(CLEAR_PENDING, !cleared).apply()
             FamilyFile.all(app).filter { it.source == FamilyShare.FROM_PARTNER }.forEach { FamilyFile.delete(app, it.id) }
             Settings.prefs(app).edit().remove(sentKey(app)).remove(gotKey(app)).apply()
             done()
         }.start()
+    }
+
+    private const val CLEAR_PENDING = "ff_clear_pending"
+
+    /** A sharing turned off while the server couldn't be reached: its rows are removed now. Background thread only. */
+    fun clearPending(ctx: Context) {
+        val app = ctx.applicationContext
+        if (!Settings.prefs(app).getBoolean(CLEAR_PENDING, false) || on(app) || !Account.signedIn(app) || !Circle.joined(app)) return
+        try { Circle.fileItemsClear(app); Settings.prefs(app).edit().putBoolean(CLEAR_PENDING, false).apply() } catch (_: Exception) { }
     }
 
     private fun sentKey(ctx: Context) = "ff_sent_" + Circle.circleId(ctx)

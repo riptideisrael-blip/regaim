@@ -161,10 +161,12 @@ open class SettingsActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(L.t("למחוק את החשבון לצמיתות?", "Delete your account for good?"))
             .setMessage(L.t(
-                "יימחקו מהשרת של Moments: החשבון, הרגעים שהעליתם למעגל המשפחה (עם התגובות והתגובות שלכם), הפוסטים והספרים שפרסמתם בקהילה, הקרדיטים והספרים ששולמו ולא נוצלו. מעגל משפחה שאתם מנהלים יעבור לבן המשפחה שהצטרף ראשון, ואם אין אף אחד, יימחק.\n\n" +
-                    "הזיכרונות שבטלפון נשארים בטלפון. כדי למחוק גם אותם, הסירו את האפליקציה.\n\nאי אפשר לבטל את המחיקה.",
-                "Deleted from Moments' server: your account, the moments you shared to the family circle (with your comments and reactions), your community posts and books, and unused credits or paid books. A family circle you run passes to the member who joined first, or is deleted if there's nobody.\n\n" +
-                    "The memories on this phone stay on the phone. To delete them too, uninstall the app.\n\nThis can't be undone.",
+                "יימחקו מהשרת של Moments: החשבון; מה ששיתפתם למעגל המשפחה ולהורה השני (רגעים, תמונות הילדים, הסרטים של פיצקי, עם התגובות וההודעות שלכם); הפריטים ששלחתם לתיק המשפחה המשותף; הפוסטים והספרים בקהילה; קובצי הדפסה; קרדיטים ורכישות; דוחות קריסה; ומפתח הגיבוי. מעגל משפחה שאתם מנהלים יעבור לבן המשפחה שהצטרף ראשון, ואם אין אף אחד, יימחק.\n\n" +
+                    "גיבוי בגוגל דרייב: בלי המפתח כבר אי אפשר לפתוח אותו. את התיקייה \"Moments גיבוי\" מוחקים בדרייב עצמו.\n" +
+                    "מה שההורה השני שמר אצלו נשאר אצלו. הזיכרונות שבטלפון הזה נשארים בו: כדי למחוק גם אותם, הסירו את האפליקציה.\n\nאי אפשר לבטל את המחיקה.",
+                "Deleted from Moments' server: your account; what you shared to the family circle and with the other parent (moments, the children's pictures, Pitzki's films, with your comments and messages); the items you sent to the shared family file; your community posts and books; print files; credits and purchases; crash reports; and the backup key. A family circle you run passes to the member who joined first, or is deleted if there's nobody.\n\n" +
+                    "A Google Drive backup can't be opened without the key any more. Delete the \"Moments גיבוי\" folder in Drive itself.\n" +
+                    "What the other parent kept on their phone stays with them. The memories on this phone stay on it: to delete them too, uninstall the app.\n\nThis can't be undone.",
             ))
             .setView(field)
             .setPositiveButton(L.t("מחיקה לצמיתות", "Delete for good")) { _, _ ->
@@ -183,6 +185,7 @@ open class SettingsActivity : AppCompatActivity() {
                         // Signed out on this phone, with what was tied to the account (family circle, community, payments).
                         try { Account.signOut(applicationContext) } catch (_: Exception) { }
                         getSharedPreferences("billing", MODE_PRIVATE).edit().clear().apply()
+                        try { DriveBackup.forget(applicationContext) } catch (_: Exception) { }
                         Settings.prefs(applicationContext).edit().remove("community_terms").remove("community_terms_18").apply()
                     }
                     runOnUiThread {
@@ -790,7 +793,15 @@ open class SettingsActivity : AppCompatActivity() {
         content.addView(ui.section(L.t("אנשים וזיהוי פנים", "People and face recognition")))
         val card = ui.card()
         card.addView(ui.switch(L.t("זיהוי מי מופיע בכל רגע", "Recognize who's in each moment"), PeopleStore.peopleEnabled(this), top = 0) { on ->
-            Settings.putBool(this, "people_on", on)
+            // Turning it on asks first (biometric data); off is just off.
+            if (on && !PeopleStore.faceConsent(this)) AlertDialog.Builder(this)
+                .setTitle(L.t("זיהוי פנים", "Face recognition"))
+                .setMessage(PeopleStore.faceConsentText())
+                .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> PeopleStore.setFaceConsent(this, true); FaceScan.kick(this); render() }
+                .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
+                .setOnCancelListener { render() }
+                .show()
+            else Settings.putBool(this, "people_on", on)
         })
         card.addView(ui.hint(L.t("דוגמאות זיהוי הפנים נשמרות בטלפון. אם חיברתם הבנת רגעים, תמונות הזיכרון עשויות להישלח לשירות המחובר.", "Face samples stay on this phone. If you've connected moment understanding, memory photos may be sent to that service.")))
         val people = PeopleStore.people(this)
@@ -952,6 +963,8 @@ open class SettingsActivity : AppCompatActivity() {
         val card = ui.card()
         val clips = MemoryStore.kept(this)
         card.addView(ui.text(L.t("הזיכרונות נשמרים בטלפון. שיתוף עם המשפחה מעלה רק את התוכן שבחרתם למעגל שאליו הצטרפתם.", "Memories are saved on your phone. Sharing with family uploads only what you choose, to the circle you joined."), 14f, top = 0))
+        // Crash reports: what broke and on which phone (with the account id), kept 90 days; can be turned off.
+        card.addView(ui.switch(L.t("לשלוח דוחות קריסה (מה נשבר, באיזה מסך ובאיזה טלפון, עם מזהה החשבון)", "Send crash reports (what broke, on which screen and phone, with the account id)"), CrashLog.on(this), top = 10) { on -> CrashLog.setOn(this, on) })
         // The backup to the parent's own Google Drive (encrypted; the key is in their Moments account).
         card.addView(ui.row("💾 " + L.t("גיבוי לגוגל דרייב", "Backup to Google Drive"), if (DriveBackup.on(this)) L.t("פועל", "On") else L.t("כבוי", "Off"), top = 10) { BackupActivity.open(this) })
         // Private by default: the moments stay inside Moments (not in the phone's gallery, so not backed up to Google Photos).
@@ -981,6 +994,8 @@ fun PeopleStore.clearAll(ctx: Context) {
     // Family profile photos are learned again (they were marked "done" forever), and failed scans start over.
     ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).edit().remove("enrolled_family").apply()
     ctx.getSharedPreferences("face_scan_tries", Context.MODE_PRIVATE).edit().clear().apply()
+    // Face prints kept for books (faces the parent rejected) go too.
+    ctx.getSharedPreferences("book_rejects", Context.MODE_PRIVATE).edit().clear().apply()
     val ids = MemoryStore.all(ctx).filter { it.people.isNotEmpty() || it.facesScanned }.map { it.id }.toSet()
     MemoryStore.updateMany(ctx, ids) { it.copy(people = "", facesScanned = false) } // one write, not one per moment
 }

@@ -23,7 +23,8 @@
             android:layout_weight="1"
             android:textColor="@color/ink"
             android:textSize="22sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/btnClose"
@@ -31,6 +32,9 @@
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackground"
             android:padding="10dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:gravity="center"
             android:text="@string/close"
             android:textColor="@color/accent"
             android:textSize="16sp" />

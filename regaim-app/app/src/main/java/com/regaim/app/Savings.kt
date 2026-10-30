@@ -106,7 +106,7 @@ object Savings {
     }
 
     /** What the other parent's phone gets: the fund with the child's name (each phone has its own ids). */
-    fun shareData(f: Fund, childName: String): JSONObject = toJson(f).put("child", "").put("childName", childName).put("type", "fund")
+    fun shareData(f: Fund, childName: String): JSONObject = toJson(f).put("child", "").put("childName", childName).put("type", "fund").put("note", FamilyShare.withoutCvv(f.note))
 
     fun fromShare(id: String, o: JSONObject, childId: (String) -> String): Fund = fromJson(o).copy(id = id, child = childId(o.optString("childName")))
 

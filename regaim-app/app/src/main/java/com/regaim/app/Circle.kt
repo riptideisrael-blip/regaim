@@ -803,6 +803,56 @@ object Circle {
     // ---------- the parents' shared gallery: Pitzki's films too ----------
 
     /** Background thread. Puts one of Pitzki's film files for the other parent only; returns its path. */
+    /**
+     * Turning the shared gallery off: everything this parent shared with [partner] only leaves the server (the posts,
+     * and every file in their folder for that parent: moments, the children's pictures, Pitzki's films). What the
+     * other parent shared stays theirs. Background thread only. Returns how many files were removed.
+     */
+    fun removePartnerShares(ctx: Context, partner: String): Int {
+        val me = Account.id(ctx)
+        if (me.isEmpty() || partner.isEmpty() || circleId(ctx).isEmpty()) return 0
+        rest(ctx, "DELETE", "posts?circle_id=eq.${circleId(ctx)}&author_id=eq.${enc(me)}&only_for=eq.${enc(partner)}", null, "return=minimal")
+        val files = listAll(ctx, "${circleId(ctx)}/$me/p/$partner")
+        for (part in files.chunked(100)) {
+            val conn = open(ctx, "DELETE", "/storage/v1/object/$BUCKET")
+            try {
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.outputStream.use { it.write(JSONObject().put("prefixes", JSONArray(part)).toString().toByteArray(Charsets.UTF_8)) }
+                read(conn)
+            } finally { conn.disconnect() }
+        }
+        return files.size
+    }
+
+    /** Every file under [prefix] in the family storage (folders opened one by one). */
+    private fun listAll(ctx: Context, prefix: String): List<String> {
+        val out = ArrayList<String>()
+        val dirs = ArrayDeque(listOf(prefix))
+        while (dirs.isNotEmpty() && out.size < 50_000) {
+            val d = dirs.removeFirst()
+            var offset = 0
+            while (true) {
+                val conn = open(ctx, "POST", "/storage/v1/object/list/$BUCKET")
+                val arr = try {
+                    conn.setRequestProperty("Content-Type", "application/json")
+                    conn.doOutput = true
+                    conn.outputStream.use { it.write(JSONObject().put("prefix", d).put("limit", 1000).put("offset", offset).toString().toByteArray(Charsets.UTF_8)) }
+                    JSONArray(read(conn).ifBlank { "[]" })
+                } finally { conn.disconnect() }
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    val name = o.optString("name")
+                    if (name.isEmpty()) continue
+                    if (o.isNull("id")) dirs.add("$d/$name") else out.add("$d/$name")
+                }
+                if (arr.length() < 1000) break
+                offset += 1000
+            }
+        }
+        return out
+    }
+
     fun uploadForPartner(ctx: Context, partner: String, rel: String, f: File, type: String): String {
         val path = "${circleId(ctx)}/${Account.id(ctx)}/p/$partner/$rel"
         return try { upload(ctx, path, f, type) } catch (e: Exception) {

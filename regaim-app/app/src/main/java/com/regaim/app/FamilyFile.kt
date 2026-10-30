@@ -17,7 +17,8 @@ import java.util.UUID
  */
 object FamilyFile {
     /** The privacy text the parent agrees to before the first item (a new version asks again). */
-    const val CONSENT_VERSION = 1
+    /** 2: the file can be shared with the other parent (optional), savings reports are read by the AI, and backed up to Drive (optional). */
+    const val CONSENT_VERSION = 2
 
     private fun dir(ctx: Context) = File(ctx.filesDir, "family_file").apply { mkdirs() }
     private fun index(ctx: Context) = File(dir(ctx), "items.json")
@@ -29,22 +30,28 @@ object FamilyFile {
 
     fun consentText(): String = L.t(
         "מה נשמר בתיק המשפחה:\n" +
-            "• הקבלות, המסמכים, הקופונים והשוברים שאתם משתפים, והפרטים שלהם (סכום, תאריך, קוד, של איזה ילד).\n\n" +
+            "• קבלות, מסמכים, אחריות, קופונים, שוברים וחיסכון הילדים שאתם מוסיפים, והפרטים שלהם (סכום, תאריך, קוד, של איזה ילד).\n\n" +
             "איפה:\n" +
-            "• בשלב זה רק בטלפון הזה, מוצפן. לא בשרת ולא אצל אף אחד אחר.\n" +
-            "• כשנוסיף שיתוף עם ההורה השני, נבקש את אישורכם שוב לפני שמשהו עובר.\n\n" +
-            "מילוי אוטומטי:\n" +
-            "• רק כשתלחצו \"מילוי אוטומטי\", התמונה (או העמוד הראשון של ה-PDF) נשלחת לבינה המלאכותית כדי לקרוא סכום, תאריך וקוד, ולא נשמרת שם.\n" +
-            "• חיפוש חכם: רק כשתלחצו עליו, נשלחת רשימה של הכותרות, הסכומים והתאריכים (בלי קודים, הערות או קבצים) כדי למצוא את מה שביקשתם.\n\n" +
+            "• בטלפון הזה, מוצפן.\n" +
+            "• רק אם תפעילו \"שיתוף התיק\" עם ההורה השני (ושניכם תאשרו): הפריטים והקבצים נשמרים גם בשרת של Moments, גלויים רק לשניכם. ההגנה שם היא בהרשאות החשבון, לא בהצפנה מקצה לקצה. קוד CVV לא יוצא מהטלפון אף פעם. כיבוי השיתוף מוחק מהשרת את מה שנשלח מהטלפון הזה.\n" +
+            "• רק אם תפעילו גיבוי לגוגל דרייב: עותק מוצפן בדרייב שלכם.\n\n" +
+            "בינה מלאכותית (Claude של Anthropic, דרך השרת שלנו, לא נשמר אצלנו):\n" +
+            "• \"מילוי אוטומטי\": התמונה (או העמוד הראשון של ה-PDF) נשלחת כדי לקרוא סכום, תאריך וקוד.\n" +
+            "• העלאת דוח חיסכון: הדוח נשלח כדי לקרוא את הקופה, המסלול, היתרה וההפקדות.\n" +
+            "• חיפוש חכם: נשלחת רשימה של כותרות, סכומים ותאריכים (בלי קודים, הערות או קבצים).\n\n" +
+            "חיסכון: כדי להעריך כמה יש היום, האפליקציה מורידה נתונים ציבוריים (תשואות מגמל נט של משרד האוצר, מחירי מטבעות מ-CoinGecko) לפי מספר הקופה או סמל המטבע בלבד.\n\n" +
             "אפשר למחוק כל פריט, או את כל התיק, בכל רגע.",
         "What the family file keeps:\n" +
-            "• The receipts, documents, coupons and vouchers you share, and their details (amount, date, code, which child).\n\n" +
+            "• Receipts, documents, warranties, coupons, vouchers and the children's savings you add, and their details (amount, date, code, which child).\n\n" +
             "Where:\n" +
-            "• For now only on this phone, encrypted. Not on a server and not with anyone else.\n" +
-            "• When sharing with the other parent is added, we'll ask you again before anything moves.\n\n" +
-            "Auto-fill:\n" +
-            "• Only when you tap \"Auto-fill\", the picture (or the PDF's first page) is sent to the AI to read the amount, date and code; it isn't kept there.\n" +
-            "• Smart search: only when you tap it, a list of titles, amounts and dates (no codes, notes or files) is sent to find what you asked for.\n\n" +
+            "• On this phone, encrypted.\n" +
+            "• Only if you turn on \"Share the file\" with the other parent (and both of you agree): the items and files are also kept on the Moments server, visible only to the two of you. They're protected there by account permissions, not end-to-end encryption. A CVV never leaves the phone. Turning sharing off deletes from the server what this phone sent.\n" +
+            "• Only if you turn on the Google Drive backup: an encrypted copy in your Drive.\n\n" +
+            "AI (Anthropic's Claude, via our server, not kept by us):\n" +
+            "• \"Auto-fill\": the picture (or the PDF's first page) is sent to read the amount, date and code.\n" +
+            "• Uploading a savings report: the report is sent to read the fund, track, balance and deposits.\n" +
+            "• Smart search: a list of titles, amounts and dates (no codes, notes or files) is sent.\n\n" +
+            "Savings: to estimate today's amount, the app downloads public data (Gemel-Net returns from the Ministry of Finance, coin prices from CoinGecko) by the fund number or coin symbol only.\n\n" +
             "You can delete any item, or the whole file, at any time.",
     )
 

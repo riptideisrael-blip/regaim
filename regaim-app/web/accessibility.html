@@ -4,94 +4,109 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>הצהרת נגישות · Moments</title>
-<meta name="theme-color" content="#FAF8F5">
+<meta name="description" content="הצהרת הנגישות של האפליקציה Moments והאתר שלה: מה הונגש, מה עוד לא, ואיך פונים לרכז הנגישות.">
+<meta name="theme-color" content="#F7F9FC">
 <style>
-  :root { --bg: #FAF8F5; --ink: #1F1D2B; --soft: #6E6A80; --line: #ECE7E1; --accent: #5B4FE0; }
+  :root { --bg: #F7F9FC; --card: #FFFFFF; --ink: #0F1B2D; --soft: #4F5B6D; --line: #DDE4EE; --accent: #1A62B8; }
   * { box-sizing: border-box; }
-  body { margin: 0 auto; max-width: 720px; padding: 28px 16px 64px; background: var(--bg); color: var(--ink);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; line-height: 1.65; }
-  h1 { font-size: 26px; margin: 0 0 6px; }
-  h2 { font-size: 19px; margin: 28px 0 6px; }
+  body { margin: 0 auto; max-width: 760px; padding: 28px 16px 64px; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; line-height: 1.7; }
+  .skip { position: absolute; inset-inline-start: -9999px; top: 8px; background: var(--card); padding: 8px 12px; border-radius: 8px; }
+  .skip:focus { inset-inline-start: 16px; }
+  h1 { font-size: 27px; margin: 0 0 6px; line-height: 1.3; }
+  h2 { font-size: 20px; margin: 30px 0 6px; line-height: 1.35; }
   p, li { font-size: 16px; }
-  .soft { color: var(--soft); font-size: 14px; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px 18px; margin-top: 16px; }
-  a { color: var(--accent); }
+  ul { padding-inline-start: 22px; margin: 6px 0; }
+  li { margin: 4px 0; }
+  .soft { color: var(--soft); font-size: 15px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; margin-top: 16px; }
+  a { color: var(--accent); text-underline-offset: 2px; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-  hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
   [lang="en"] { direction: ltr; text-align: left; }
-  .foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+  .foot { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; gap: 16px; flex-wrap: wrap; font-size: 15px; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
-<main>
+<a class="skip" href="#main">דילוג לתוכן</a>
+<main id="main">
 <h1>הצהרת נגישות</h1>
-<p class="soft">האתר והאפליקציה Moments (com.regaim.app) · עודכן לאחרונה: 24 באוקטובר 2026</p>
+<p class="soft">האפליקציה Moments (com.regaim.app) והאתר שלה · עודכן לאחרונה: 29 באוקטובר 2026</p>
 
-<p>אנחנו רוצים ש-Moments יהיה נוח לכל המשפחה, כולל אנשים עם מוגבלות. אנחנו פועלים להנגיש את האתר ואת האפליקציה
+<p>אנחנו רוצים ש-Moments תהיה נוחה לכל המשפחה, כולל אנשים עם מוגבלות. אנחנו פועלים להנגיש את האתר ואת האפליקציה
 לפי תקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013, ולפי התקן הישראלי ת"י 5568
-(המבוסס על הנחיות WCAG 2.0) ברמה AA. ההנגשה היא עבודה מתמשכת, ואם משהו לא נגיש לכם, נשמח לדעת ולתקן.</p>
+(המבוסס על הנחיות WCAG 2.0) ברמה AA.</p>
+
+<div class="card" role="note">
+  <p><strong>רמת העמידה:</strong> האתר והאפליקציה עומדים <strong>באופן חלקי</strong> בת"י 5568 ברמה AA.
+  ההנגשה היא עבודה מתמשכת. בהמשך הדף מפורט מה הונגש, מה עוד לא, ואיך מקבלים עזרה בינתיים.</p>
+</div>
+
+<h2>איך בדקנו</h2>
+<p>הבדיקה האחרונה נעשתה ב-29 באוקטובר 2026: סקירה של קוד האפליקציה מול דרישות התקן (תוויות לקורא מסך, ניגודיות צבעים, גודל אזורי לחיצה, כותרות, הודעות מצב ומחוות),
+ובדיקות אוטומטיות של מסכים מרכזיים על מכשיר מדומה. האפליקציה עוד לא נבדקה במלואה ידנית עם קורא מסך.</p>
 
 <h2>מה עשינו באתר</h2>
 <ul>
-  <li>שפה וכיוון מוגדרים (עברית, מימין לשמאל), והאתר מאפשר הגדלת טקסט ותצוגה עד 200% בלי לאבד תוכן.</li>
-  <li>אפשר להשתמש בכל הפעולות במקלדת, עם מסגרת מודגשת סביב הרכיב שבפוקוס, וקישור "דילוג לרגעים" בתחילת הדף.</li>
-  <li>לכפתורים, לשדות הטקסט ולתגובות יש תוויות שקוראי מסך מקריאים (למשל "תגובת לב, 3 הגיבו"), וכפתור הניגון של סרטון הוא כפתור אמיתי.</li>
-  <li>לתמונות יש טקסט חלופי לפי הכותרת שניתנה להן.</li>
+  <li>שפה וכיוון מוגדרים (עברית, מימין לשמאל, והחלק באנגלית מסומן כאנגלית). אפשר להגדיל טקסט ותצוגה עד 200% בלי לאבד תוכן.</li>
+  <li>כל הפעולות זמינות במקלדת, עם מסגרת מודגשת סביב הרכיב שבפוקוס, וקישור דילוג לתוכן בתחילת הדפים הארוכים (דף המשפחה, מדיניות הפרטיות והצהרת הנגישות).</li>
+  <li>לכפתורים, לשדות הטקסט ולתגובות יש תוויות שקוראי מסך מקריאים, ולתמונות יש טקסט חלופי לפי הכותרת שניתנה להן.</li>
   <li>חלונות (שם, שיתוף רגע, שיחה) מוגדרים כחלונות דו־שיח: הפוקוס עובר אליהם ונשאר בתוכם, Escape סוגר אותם, והפוקוס חוזר למקום.</li>
-  <li>הדף לא מתרענן בזמן שכותבים תגובה, צופים בסרטון או נמצאים בחלון. כשנוספים רגעים חדשים, מודיעים על כך פעם אחת. אחרי לחיצה על תגובה הפוקוס נשאר על הכפתור.</li>
-  <li>הודעות מערכת (נשמר, שגיאה) מוקראות לקוראי מסך.</li>
-  <li>צבעי הטקסט באתר נבחרו בניגודיות של 4.5:1 לפחות, ומי שביקש במכשיר פחות תנועה מקבל דף בלי אנימציות.</li>
+  <li>הדף לא מתרענן בזמן שכותבים, צופים בסרטון או נמצאים בחלון. הודעות מערכת (נשמר, שגיאה, נוספו רגעים) מוקראות לקוראי מסך.</li>
+  <li>צבעי הטקסט בניגודיות של 4.5:1 לפחות, ומי שביקש במכשיר פחות תנועה מקבל דף בלי אנימציות.</li>
+  <li>בטבלאות של מדיניות הפרטיות, במסך צר, כל תא מציין לאיזו עמודה הוא שייך.</li>
 </ul>
 
 <h2>מה עשינו באפליקציה</h2>
 <ul>
-  <li>גודל הטקסט עוקב אחרי הגדרת גודל הגופן בטלפון.</li>
-  <li>לכפתורים ולפעולות יש תוויות לקורא המסך (TalkBack), כותרות מסומנות ככותרות, ותמונות קישוטיות לא מוקראות.</li>
-  <li>אזורי לחיצה בגודל 48 נקודות לפחות בכפתורים ובפעולות הרגילים, ובכפתורים קטנים שמצאנו בבדיקה (מצלמה, נגן, מועדף, פיצקי, משחק החצים).</li>
-  <li>צבעי הבסיס של האפליקציה בניגודיות של 4.5:1 לפחות, ותיקנו מקומות עם טקסט בהיר מדי שמצאנו בבדיקה.</li>
-  <li>כפתור הצילום עובד גם עם קורא מסך (לחיצה כפולה מצלמת, מתחילה או עוצרת הקלטה), וכפתורים שמשנים מצב (מיקרופון, קול, מועדף, ניגון) מקריאים את המצב שלהם.</li>
-  <li>כשמגדילים את הגופן בטלפון, הכפתורים והכרטיסים שבדקנו גדלים איתו במקום לחתוך את הטקסט, וכתוביות פיצקי מקבלות עד ארבע שורות.</li>
-  <li>פיצקי מדבר בקול ובכתוביות בו־זמנית, וגם בסרט הלימוד יש כתוביות.</li>
-  <li>במשחקים יש תיאור טקסט למה שקורה על הלוח, ולכפתורי החצים יש שמות.</li>
+  <li>גודל הטקסט עוקב אחרי הגדרת גודל הגופן בטלפון, והכפתורים והכרטיסים שבדקנו גדלים איתו.</li>
+  <li>לכפתורים ולפעולות יש תוויות לקורא המסך (TalkBack). כותרות המסכים מסומנות ככותרות, ותמונות קישוטיות לא מוקראות.</li>
+  <li>אזורי לחיצה בגודל 48 נקודות לפחות בכפתורים הרגילים, בכפתור הסגירה של כל מסך, בתיבות הסימון של המסכים החדשים ובכפתורים קטנים שמצאנו (מצלמה, נגן, מועדף, פיצקי, משחק החצים).</li>
+  <li>צבעי הבסיס בניגודיות של 4.5:1 לפחות, כולל הבחירה הפעילה בכפתורי בחירה וכוכבי הדירוג בקהילה.</li>
+  <li>כפתור הצילום עובד עם קורא מסך. כפתורים שמשנים מצב (מיקרופון, קול, מועדף, ניגון, השהיה) מקריאים את המצב, ומצב החיבור עם בן או בת הזוג נאמר גם במילים ("פועל" או "כבוי") ולא רק בסימן.</li>
+  <li>צפייה ברגעים כסטורי: יש כפתורים לרגע הקודם, להשהיה ולרגע הבא, לכל המשתמשים. כל רגע מוכרז. כשקורא מסך פעיל, תמונה לא מתחלפת לבד.</li>
+  <li>הודעות חשובות מוצגות במסך ומוקראות: התקדמות הגיבוי ותוצאתו, מצב הגלריה המשותפת, קריאת דוח חיסכון והערות עליו.</li>
+  <li>בחלונות הסכמה, ההסבר הוא חלק מתיבת הסימון עצמה, כך שהוא מוקרא יחד איתה, ואפשרויות שיתוף לא מסומנות מראש.</li>
+  <li>פיצקי מדבר בקול ובכתוביות בו־זמנית, וגם בסרט הלימוד יש כתוביות. במשחקים יש תיאור טקסט למה שקורה על הלוח, ולכפתורי החצים יש שמות.</li>
+  <li>משיכה למטה לרענון מכריזה "עודכן" בסיום.</li>
 </ul>
 
 <h2>מה עוד לא נגיש (מגבלות ידועות)</h2>
 <ul>
-  <li>חלק ממשחקי פיצקי בנויים על גרירה ונגיעה בתמונות (למשל להחזיר חיה לבית שלה). בעתיד נוסיף דרך חלופית בלחיצה.</li>
+  <li>בחלק מהמסכים, אחרי בחירה (למשל צ'יפ בחירה), המסך נבנה מחדש והפוקוס של קורא המסך חוזר לראש המסך. במסך "מי ברגעים האלה?" זה כבר תוקן.</li>
+  <li>כפתורי בחירה (צ'יפים) מוקראים ככפתורים ולא כבחירה אחת מתוך כמה, ותוויות של חלק משדות הטקסט במסכי החיסכון לא מקושרות לשדה.</li>
+  <li>לגרפים במסך החיסכון אין עדיין תיאור מלא לקורא מסך. הסכומים עצמם מופיעים כטקסט מתחתם.</li>
+  <li>משמעות הטבעת סביב תמונות האנשים במסך הבית מוסברת בלחיצה ארוכה (ולקורא מסך כפעולה בשם "מה הטבעת אומרת").</li>
+  <li>חלק ממשחקי פיצקי בנויים על גרירה ונגיעה בתמונות. בעתיד נוסיף דרך חלופית בלחיצה.</li>
   <li>סרטונים ותמונות שבני המשפחה מעלים הם תוכן של המשפחה, ואין לנו שליטה על כתוביות או תיאור שלהם.</li>
   <li>הסרטים המצוירים שנוצרים בבינה מלאכותית הם חזותיים, ואין בהם תיאור קולי.</li>
-  <li>עוד לא בדקנו כל מסך באפליקציה עם קורא מסך, ועוד לא מדדנו את הניגודיות בכל מסך. ייתכנו מקומות בודדים שעוד לא עומדים בדרישות, ואנחנו ממשיכים לבדוק ולתקן.</li>
+  <li>חלק מהניסוחים כתובים בלשון זכר ונקבה יחד (למשל "יבחר/תבחר"), וקורא מסך מקריא את הלוכסן.</li>
 </ul>
+<p>אם אחת המגבלות מונעת מכם להשתמש בשירות, פנו אלינו ונעזור לבצע את הפעולה בדרך אחרת.</p>
 
-<div class="card">
-  <h2 style="margin-top:0">רכז הנגישות</h2>
-  <p>נתקלתם בבעיית נגישות, או צריכים את המידע בדרך אחרת? פנו אלינו ונחזור אליכם בהקדם:</p>
-  <p>יוסף רביבו · מייל: <a href="mailto:yossefrevivo@gmail.com?subject=%D7%A0%D7%92%D7%99%D7%A9%D7%95%D7%AA%20Moments">yossefrevivo@gmail.com</a></p>
-  <p class="soft">כדאי לכתוב באיזה מסך או דף הייתה הבעיה, מה ניסיתם לעשות, ובאיזה מכשיר ותוכנה (למשל TalkBack).</p>
-</div>
-</main>
+<h2>רכז הנגישות, ואיך מבקשים התאמה</h2>
+<p>נתקלתם בבעיית נגישות, צריכים את המידע בדרך אחרת (למשל מדיניות הפרטיות כקובץ טקסט, או רגע כקובץ להורדה), או צריכים עזרה בפעולה מסוימת? פנו לרכז הנגישות:</p>
+<p><strong>יוסף רביבו</strong> · מייל: <a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a></p>
+<p>כדאי לכתוב באיזה מסך או דף הייתה הבעיה, מה ניסיתם לעשות, ובאיזה מכשיר ותוכנה (למשל TalkBack). נחזור אליכם תוך 14 ימי עבודה לכל היותר.</p>
 
 <hr>
 
-<section lang="en">
-<h1>Accessibility statement</h1>
-<p>We want Moments to work for the whole family, including people with disabilities. We work to make the website and the app
-accessible under Israel's Equal Rights for Persons with Disabilities (Service Accessibility Adjustments) Regulations, 2013, and
-the Israeli standard SI 5568 (based on WCAG 2.0) at level AA. Accessibility is ongoing work: if something isn't accessible to you,
-please tell us and we'll fix it.</p>
-<p>Done: keyboard use with visible focus and a skip link, labels for screen readers, alt text, accessible dialogs, live status
-messages, a feed that doesn't refresh while you type or watch, 4.5:1 contrast in the site and the app's base colors, reduced motion,
-text that follows the phone's font size, 48dp touch targets on regular controls and on the small ones we found, a capture button
-that works with a screen reader, toggles that say their state, subtitles for Pitzki's voice.</p>
-<p>Known limitations: some Pitzki games rely on dragging; videos and photos families upload are their own content; AI-made
-cartoon films have no audio description; not every app screen has been tested with a screen reader or measured for contrast yet.</p>
-<p>Accessibility contact: Yossef Revivo, <a href="mailto:yossefrevivo@gmail.com?subject=Moments%20accessibility">yossefrevivo@gmail.com</a>.</p>
+<section lang="en" aria-labelledby="en-title">
+<h2 id="en-title">Accessibility statement</h2>
+<p class="soft">Moments (com.regaim.app) and its website · Last updated October 29, 2026</p>
+<p>We work to make the website and the app accessible under Israel's Equal Rights for Persons with Disabilities (Service Accessibility Adjustments) Regulations, 2013, and the Israeli standard SI 5568 (based on WCAG 2.0) at level AA. <strong>Conformance: partial.</strong></p>
+<p><strong>How we checked:</strong> on October 29, 2026, a review of the app's code against the standard (screen-reader labels, contrast, touch targets, headings, status messages, gestures) and automated tests of main screens on an emulator. The app hasn't been fully tested by hand with a screen reader yet.</p>
+<p><strong>Done:</strong> keyboard use with visible focus and skip links on the long pages, labels and alt text, accessible dialogs, announced status messages, 4.5:1 contrast (including selected choices and rating stars), reduced motion, text that follows the phone's font size, 48dp touch targets (including each screen's Close button and the new screens' checkboxes), toggles and connection state said in words, story viewing with previous / pause / next buttons for everyone and no automatic moving on while a screen reader is on, consent explanations read together with their checkboxes and sharing options not ticked in advance, subtitles for Pitzki's voice.</p>
+<p><strong>Known limitations:</strong> on some screens focus returns to the top after a choice; choice chips are read as buttons and some savings fields' labels aren't linked; savings charts have no full text description (the amounts are shown as text); the meaning of the ring around people's pictures is explained on long-press (a named action for screen readers); some Pitzki games rely on dragging; family-uploaded media is the family's own content; AI-made cartoon films have no audio description; some wording uses both genders with a slash. If a limitation stops you, contact us and we'll help another way.</p>
+<p><strong>Accessibility coordinator:</strong> Yossef Revivo, <a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a>. Tell us the screen, what you tried and your device and assistive technology. We'll reply within 14 business days, and can provide information in another format.</p>
 </section>
+</main>
 
 <nav class="foot" aria-label="קישורים">
   <a href="index.html">מעגל המשפחה</a>
   <a href="privacy.html">מדיניות פרטיות</a>
-  <a href="accessibility.html">הצהרת נגישות</a>
+  <a href="accessibility.html" aria-current="page">הצהרת נגישות</a>
   <a href="delete-account.html">מחיקת חשבון</a>
 </nav>
 </body>

@@ -56,6 +56,13 @@ class StoryViewerActivity : AppCompatActivity() {
     private var list: List<Item> = emptyList()
     private var at = 0
     private var paused = false
+    /** Paused by holding the screen (resumes on release), not by the pause button. */
+    private var heldPause = false
+    private var userPaused = false
+    private lateinit var pauseBtn: TextView
+    private val a11y by lazy { getSystemService(android.view.accessibility.AccessibilityManager::class.java) }
+    /** A screen reader is on: a photo waits for "next" instead of moving on by itself. */
+    private fun screenReader() = a11y?.isTouchExplorationEnabled == true
     private var photoShownAt = 0L
     private var photoElapsed = 0L
 
@@ -100,14 +107,17 @@ class StoryViewerActivity : AppCompatActivity() {
         meta = TextView(this).apply { setTextColor(Color.WHITE); textSize = 14f }
         row.addView(meta, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(TextView(this).apply {
-            text = "✕"; textSize = 20f; setTextColor(Color.WHITE); setPadding(dp(12), dp(4), dp(4), dp(4))
+            text = "✕"; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            minWidth = dp(48); minHeight = dp(48)
+            contentDescription = L.t("סגירה", "Close")
             setOnClickListener { finish() }
+            A11y.button(this)
         })
         top.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
         root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         title = TextView(this).apply {
             setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
-            setPadding(dp(20), dp(40), dp(20), dp(36))
+            setPadding(dp(20), dp(40), dp(20), dp(84))
             background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xAA000000.toInt(), 0))
             setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
         }
@@ -120,7 +130,7 @@ class StoryViewerActivity : AppCompatActivity() {
                 if (e.x < root.width / 2f) next() else previous()
                 return true
             }
-            override fun onLongPress(e: MotionEvent) { pause() }
+            override fun onLongPress(e: MotionEvent) { if (!paused) { heldPause = true; pause() } }
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 val dy = e2.y - (e1?.y ?: e2.y)
                 if (dy > dp(80) && abs(vy) > abs(vx)) { finish(); return true }
@@ -130,10 +140,24 @@ class StoryViewerActivity : AppCompatActivity() {
         val touch = View(this)
         touch.setOnTouchListener { _, ev ->
             gestures.onTouchEvent(ev)
-            if ((ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) && paused) resume()
+            if ((ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) && heldPause) { heldPause = false; resume() }
             true
         }
         root.addView(touch, 1 + root.indexOfChild(photo), FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        touch.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        // Buttons for everyone (screen readers, switch access, a hand that can't tap the edges): previous, pause, next.
+        fun ctrl(label: String, desc: String, act: () -> Unit) = TextView(this).apply {
+            text = label; textSize = 24f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            minWidth = dp(64); minHeight = dp(56); contentDescription = desc
+            setOnClickListener { act() }
+            A11y.button(this)
+        }
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        controls.addView(ctrl("‹", L.t("הרגע הקודם", "Previous moment")) { previous() })
+        pauseBtn = ctrl("⏸", L.t("השהיה", "Pause")) { if (paused) { userPaused = false; resume() } else { userPaused = true; pause() } }
+        controls.addView(pauseBtn)
+        controls.addView(ctrl("›", L.t("הרגע הבא", "Next moment")) { next() })
+        root.addView(controls, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = dp(12) })
         setContentView(root)
 
         // A video fills the screen like a story (no black bars); a photo is shown whole.
@@ -153,6 +177,9 @@ class StoryViewerActivity : AppCompatActivity() {
         bar.progress = 0
         meta.text = (cur.post?.let { p -> p.author.trim().substringBefore(' ') + "  ·  " }.orEmpty()) + "${Fmt.day(cur.time)}  ·  ${at + 1}/${list.size}"
         title.text = cur.title
+        userPaused = false; heldPause = false; pauseState()
+        // Said for screen readers: which moment this is.
+        window.decorView.announceForAccessibility(meta.text.toString() + ". " + cur.title)
         cur.post?.let { p -> PartnerStories.markSeen(this, p.id) }
         val m = cur.memory
         val p = cur.post
@@ -198,14 +225,23 @@ class StoryViewerActivity : AppCompatActivity() {
     private fun next() { if (at + 1 < list.size) { at++; show() } else finish() }
     private fun previous() { if (at > 0) { at--; show() } else show() }
 
+    /** The pause button says what it will do. */
+    private fun pauseState() {
+        if (!::pauseBtn.isInitialized) return
+        pauseBtn.text = if (paused) "▶" else "⏸"
+        pauseBtn.contentDescription = if (paused) L.t("המשך", "Resume") else L.t("השהיה", "Pause")
+    }
+
     private fun pause() {
         paused = true
+        pauseState()
         val m = list.getOrNull(at) ?: return
         if (m.isVideo) video.pause() else photoElapsed += System.currentTimeMillis() - photoShownAt
     }
 
     private fun resume() {
         paused = false
+        pauseState()
         val m = list.getOrNull(at) ?: return
         if (m.isVideo) video.start() else photoShownAt = System.currentTimeMillis()
     }
@@ -221,12 +257,12 @@ class StoryViewerActivity : AppCompatActivity() {
             } else {
                 val shown = photoElapsed + (System.currentTimeMillis() - photoShownAt)
                 bar.progress = (1000L * shown / PHOTO_MS).toInt().coerceAtMost(1000)
-                if (shown >= PHOTO_MS) next()
+                if (shown >= PHOTO_MS && !screenReader()) next()
             }
         }
         bar.postDelayed({ tick() }, 50)
     }
 
     override fun onPause() { super.onPause(); if (!paused) pause() }
-    override fun onResume() { super.onResume(); if (paused) resume() }
+    override fun onResume() { super.onResume(); if (paused && !userPaused) resume() }
 }

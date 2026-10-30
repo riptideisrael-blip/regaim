@@ -96,6 +96,8 @@ class SavingsActivity : AppCompatActivity() {
         if (hist.isNotEmpty()) content.addView(historyCard(hist))
         content.addView(calculator(funds, shownKids, today))
 
+        // While reading: a status line that's readable and announced (not only a greyed-out button).
+        if (busy) content.addView(ui.text(L.t("קוראים את הדוח… זה לוקח עד דקה", "Reading the report… up to a minute"), 14f, R.color.ink, top = 14).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE })
         content.addView(ui.button(if (busy) L.t("קוראים את הדוח…", "Reading the report…") else L.t("📄 העלאת דוח (קופה או קריפטו)", "📄 Upload a report (fund or crypto)"), primary = true, top = 14) {
             if (!busy) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !busy })

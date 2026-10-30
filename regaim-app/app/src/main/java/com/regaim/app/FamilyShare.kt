@@ -15,7 +15,8 @@ object FamilyShare {
 
     /** A fingerprint of what the other parent sees (the details and which file). */
     fun stamp(i: FamilyItems.Item, childName: String): String =
-        (FamilyItems.toJson(i.copy(created = 0)).put("childName", childName).toString()).hashCode().toUInt().toString(16)
+        // (Without the CVV, as sent: an item sent before the CVV stayed home gets a new stamp, so it's sent again without it.)
+        (FamilyItems.toJson(i.copy(created = 0, note = withoutCvv(i.note), title = withoutCvv(i.title))).put("childName", childName).toString()).hashCode().toUInt().toString(16)
 
     data class Plan(val send: List<FamilyItems.Item>, val remove: List<String>)
 
@@ -29,7 +30,13 @@ object FamilyShare {
 
     /** The row's details: the item without this phone's file name, with the child's name instead of its id. */
     fun data(i: FamilyItems.Item, childName: String): JSONObject =
-        FamilyItems.toJson(i).put("file", "").put("child", "").put("childName", childName)
+        FamilyItems.toJson(i).put("file", "").put("child", "").put("childName", childName).put("note", withoutCvv(i.note)).put("title", withoutCvv(i.title))
+
+    private val cvvAfter = Regex("""(?i)(CVV2?|CVC2?|CID|קוד\s*(?:ה)?אבטחה|3\s*ספרות(?:\s*בגב)?)\s*[:#=\-–]?\s*\d{3,4}""")
+    private val cvvBefore = Regex("""(?i)\b\d{3,4}\s*[:#=\-–]?\s*(CVV2?|CVC2?)\b""")
+
+    /** A card's security number stays on the phone that has it: the other parent sees "CVV •••". Pure, unit tested. */
+    fun withoutCvv(text: String): String = text.replace(cvvAfter, "CVV •••").replace(cvvBefore, "CVV •••")
 
     /** The other parent's row as an item here (its own id space, read-only, the child by name). */
     fun fromRow(itemId: String, data: JSONObject, childId: (String) -> String, localFile: String = ""): FamilyItems.Item =

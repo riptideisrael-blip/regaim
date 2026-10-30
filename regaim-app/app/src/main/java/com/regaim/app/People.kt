@@ -148,6 +148,8 @@ object FaceId {
     }
 
     fun embed(ctx: Context, face: Bitmap): FloatArray? {
+        // Biometric: no face print at all without the parent's yes (books, profile photos, scans alike).
+        if (!PeopleStore.faceConsent(ctx)) return null
         if (!ready(ctx)) return null
         val interp = interpreter ?: try {
             Interpreter(modelFile(ctx), Interpreter.Options().setNumThreads(2)).also { interpreter = it }
@@ -389,7 +391,31 @@ object PeopleStore {
         if (o.outWidth > 0) (minOf(o.outWidth, o.outHeight) / 1.36f).toInt() else 0
     } catch (_: Exception) { 0 }
 
-    fun peopleEnabled(ctx: Context) = ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).getBoolean("people_on", true)
+    /** On, and the parent agreed to face recognition (faces are biometric data: asked once, see [faceConsentText]). */
+    fun peopleEnabled(ctx: Context) = ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).getBoolean("people_on", true) && faceConsent(ctx)
+
+    fun faceConsent(ctx: Context) = ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).getBoolean("face_consent_v1", false)
+    /** The parent's answer (and when): yes turns recognition on; no turns it off. */
+    fun setFaceConsent(ctx: Context, yes: Boolean) = ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).edit()
+        .putBoolean("face_consent_v1", yes).putBoolean("face_consent_asked", true).putLong("face_consent_at", System.currentTimeMillis())
+        .putBoolean("people_on", yes).apply()
+    fun faceConsentAsked(ctx: Context) = ctx.getSharedPreferences("regaim", Context.MODE_PRIVATE).getBoolean("face_consent_asked", false)
+
+    /** What face recognition is, in plain words, asked before it starts (and once from parents who had it before). */
+    fun faceConsentText(): String = L.t(
+        "כדי לדעת מי מופיע בכל רגע (למשל נעם או אורי), Moments יוצר מכל פנים \"טביעה\" מספרית, כולל פנים של ילדים. זה מידע ביומטרי.\n\n" +
+            "• הזיהוי קורה בטלפון. הטביעות והשמות נשמרים בטלפון בלבד, מוצפנים, ולא נשלחים לשרת שלנו או לאף שירות.\n" +
+            "• אם תפעילו גיבוי לגוגל דרייב, גם הן בגיבוי, מוצפנות.\n" +
+            "• המטרה היחידה: לסמן מי ברגע, ולתאר רגעים רק כשיודעים מי בהם.\n" +
+            "• אפשר לכבות בכל רגע בהגדרות ← הגדרות נוספות ← אנשים וזיהוי פנים, ולמחוק שם את כל נתוני הפנים.\n\n" +
+            "בלי זיהוי פנים האפליקציה עובדת, ואת השמות אפשר לסמן ידנית.",
+        "To know who's in each moment (say, Noam or Uri), Moments makes a numeric \"print\" of each face, children's included. This is biometric data.\n\n" +
+            "• Recognition happens on the phone. The prints and names stay on this phone only, encrypted, and aren't sent to our server or any service.\n" +
+            "• If you turn on the Google Drive backup, they're in the backup too, encrypted.\n" +
+            "• The only purpose: marking who's in a moment, and describing moments only when we know who's in them.\n" +
+            "• You can turn it off any time in Settings → More settings → People and face recognition, and delete all face data there.\n\n" +
+            "Without face recognition the app still works, and names can be marked by hand.",
+    )
 
     private fun peopleFile(ctx: Context) = File(ctx.filesDir, "people.json")
     private fun facesFile(ctx: Context) = File(ctx.filesDir, "faces.json")

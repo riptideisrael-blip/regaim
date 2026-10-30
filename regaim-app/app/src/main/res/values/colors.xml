@@ -28,7 +28,7 @@
     <color name="ds_error_bg">#FCE8E6</color>
     <color name="ds_success">#1C7F46</color>
     <color name="ds_heart">#C8473F</color>
-    <color name="ds_star">#C98A12</color>
+    <color name="ds_star">#8A5D00</color>
     <color name="ds_scrim">#99000000</color>         <!-- dark layer over photos for legible text -->
     <color name="ds_scrim_soft">#40000000</color>
     <color name="ds_shadow">#140F1B2D</color>

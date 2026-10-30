@@ -306,6 +306,7 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
     }
     // The order: the two PDFs the phone uploaded to the "print" storage (only this account's folder) go to Lulu.
     if (action === "print_order") {
+      await removeOldPrintFiles(admin, uid);
       const interior = String(body.interior ?? ""), cover = String(body.cover ?? "");
       if (!interior.startsWith(uid + "/") || !cover.startsWith(uid + "/") || interior.includes("..") || cover.includes("..")) return json({ error: "קבצים לא תקינים." }, 400);
       const sign = async (p: string) => (await admin.storage.from("print").createSignedUrl(p, 60 * 60 * 24 * 14)).data?.signedUrl ?? "";
@@ -328,6 +329,7 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
       return json({ ok: true, id: r.j.id, status: r.j.status?.name ?? "" });
     }
     if (action === "print_status") {
+      await removeOldPrintFiles(admin, uid);
       const id = String(body.id ?? "");
       if (!/^\d{1,12}$/.test(id)) return json({ error: "מזהה לא תקין." }, 400);
       const r = await lulu("GET", `/print-jobs/${id}/`);
@@ -351,7 +353,8 @@ async function printAction(admin: any, uid: string, action: string, body: any, s
 
 /** Every file under [prefix] in [bucket] (folders are opened, a few levels deep). */
 async function listFiles(admin: any, bucket: string, prefix: string, depth = 0): Promise<string[]> {
-  if (depth > 3) return [];
+  // Deep enough for every folder we make (e.g. circle/user/p/partner/pitzki/<film>/file is 6 levels).
+  if (depth > 8) return [];
   const out: string[] = [];
   for (let offset = 0; offset < 10_000; offset += 1000) {
     const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000, offset });
@@ -363,6 +366,39 @@ async function listFiles(admin: any, bucket: string, prefix: string, depth = 0):
     if (data.length < 1000) break;
   }
   return out;
+}
+
+let printSweptAt = 0;
+/** All accounts' old print files (each account's folder in the "print" bucket), at most every 12 hours. */
+function sweepPrintFiles(admin: any) {
+  if (Date.now() - printSweptAt < 12 * 3_600_000) return;
+  printSweptAt = Date.now();
+  const work = (async () => {
+    try {
+      const { data } = await admin.storage.from("print").list("", { limit: 1000 });
+      for (const e of data ?? []) if (!e.id && e.name) await removeOldPrintFiles(admin, e.name);
+    } catch (_) { /* next time */ }
+  })();
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(work); } catch (_) { /* runs anyway */ }
+}
+
+/** This account's print files older than [days] (the order was made long ago; Lulu already printed it). */
+async function removeOldPrintFiles(admin: any, uid: string, days = 45) {
+  try {
+    const cutoff = Date.now() - days * 86_400_000;
+    const old: string[] = [];
+    const walk = async (prefix: string, depth: number) => {
+      if (depth > 4) return;
+      const { data } = await admin.storage.from("print").list(prefix, { limit: 1000 });
+      for (const e of data ?? []) {
+        const path = `${prefix}/${e.name}`;
+        if (!e.id) await walk(path, depth + 1);
+        else if (Date.parse(e.created_at ?? "") < cutoff) old.push(path);
+      }
+    };
+    await walk(uid, 0);
+    await removeFiles(admin, "print", old);
+  } catch (_) { /* next time */ }
 }
 
 async function removeFiles(admin: any, bucket: string, paths: string[]) {
@@ -410,11 +446,22 @@ async function deleteAccount(admin: any, uid: string): Promise<{ ok: boolean; er
         await admin.from("circles").delete().eq("id", c.id);
       }
     }
+    // What other parents shared only with this account: those posts and their folder for it (no one else can see them).
+    const { data: forMe } = await admin.from("posts").select("id,video,cover").eq("only_for", uid);
+    for (const p of forMe ?? []) famFiles.push(pathIn(p.video, "moments"), pathIn(p.cover, "moments"));
+    await admin.from("posts").delete().eq("only_for", uid);
+    for (const c of circles) {
+      const { data: others } = await admin.from("family_memberships").select("user_id").eq("circle_id", c).neq("user_id", uid);
+      for (const o of others ?? []) famFiles.push(...await listFiles(admin, "moments", `${c}/${o.user_id}/p/${uid}`));
+    }
     await removeFiles(admin, "moments", famFiles);
     // Community: every file in their folder (posts, book pages).
     await removeFiles(admin, "community", await listFiles(admin, "community", uid));
     await removeFiles(admin, "print", await listFiles(admin, "print", uid));
     await admin.from("ai_usage").delete().eq("budget_key", `user:${uid}`);
+    // Technical records tied to the account: crash reports and the cost log go too.
+    await admin.from("crash_reports").delete().eq("user_id", uid);
+    await admin.from("ai_costs").delete().eq("user_id", uid);
     // The account itself; the rest (memberships, community rows, credits, purchases, receipts, votes) goes with it.
     const { error } = await admin.auth.admin.deleteUser(uid);
     if (error) {
@@ -600,6 +647,8 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "");
+    // Every account's print files past 45 days, at most twice a day per server instance (in the background).
+    sweepPrintFiles(admin);
 
     if (action === "credits") {
       const { data } = await admin.rpc("film_balance", { p_user: uid });
