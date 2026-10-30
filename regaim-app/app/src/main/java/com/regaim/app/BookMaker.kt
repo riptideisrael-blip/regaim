@@ -250,7 +250,7 @@ object BookMaker {
         }
 
         private fun photos() {
-            val child = member ?: throw IllegalStateException(L.t("הילד/ה לא נמצא/ה בפרופיל המשפחה", "The child isn't in the family profile"))
+            val child = member ?: throw IllegalStateException(L.t("הילד לא נמצא בפרופיל המשפחה", "The child isn't in the family profile"))
             set(State.PHOTOS, L.t("בוחרים את התמונות הכי טובות של $childName...", "Choosing the best photos of $childName..."))
             val r = BookPhotos.pick(ctx, child) { p -> progress = p; changed() }
             if (cancelled.get()) return
@@ -546,7 +546,7 @@ object BookMaker {
             val b = book ?: return
             set(State.CHARACTER, L.t("מציירים את $childName כדמות בספר...", "Drawing $childName as the book's hero..."))
             val faces = (0 until 3).mapNotNull { i -> BookStore.image(ctx, b, "face_$i.jpg").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) } }
-            if (faces.isEmpty()) throw IllegalStateException(L.t("התמונות של הילד/ה לא נמצאו. התחילו ספר חדש.", "The child's photos are missing. Start a new book."))
+            if (faces.isEmpty()) throw IllegalStateException(L.t("התמונות של הילד לא נמצאו. התחילו ספר חדש.", "The child's photos are missing. Start a new book."))
             val uris = faces.map { CartoonFilm.dataUri(it) }
             val (url, req) = link.job(mapOf("kind" to "book_character", "image" to uris.first(), "refs" to JSONArray(uris.drop(1)),
                 "age" to b.ageDesc, "outfit" to b.outfit, "aspect" to "3:4"))

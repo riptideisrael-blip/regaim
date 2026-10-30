@@ -57,7 +57,7 @@ object Wording {
     fun familyNews(news: List<Pair<String, String>>): Pair<String, String> {
         val (author, title) = news.first()
         val who = author.ifBlank { L.t("מישהו מהמשפחה", "Someone in the family") }
-        return if (news.size == 1) L.t("$who שיתף/ה רגע חדש", "$who shared a new moment") to title.ifBlank { L.t("לחצו כדי לראות", "Tap to see it") }
+        return if (news.size == 1) L.t("רגע חדש מ$who", "$who shared a new moment") to title.ifBlank { L.t("לחצו כדי לראות", "Tap to see it") }
         else L.t("${news.size} רגעים חדשים במשפחה", "${news.size} new family moments") to L.t("האחרון מ$who", "The latest from $who")
     }
 

@@ -47,7 +47,7 @@ class SavingsActivity : AppCompatActivity() {
         if (!FamilyFile.consented(this)) AlertDialog.Builder(this)
             .setTitle(L.t("תיק המשפחה: מה נשמר ואיפה", "The family file: what's kept, and where"))
             .setMessage(FamilyFile.consentText())
-            .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); render() }
+            .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFile.setConsented(this); render() }
             .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> finish() }
             .setOnCancelListener { finish() }.show()
     }
@@ -250,6 +250,13 @@ class SavingsActivity : AppCompatActivity() {
             split.text = L.t("$whenText · הופקדו ${ils(end.deposited)} · תשואה ${ils(end.total - end.deposited)}",
                 "$whenText · deposited ${ils(end.deposited)} · growth ${ils(end.total - end.deposited)}")
             chart.startLabel = L.t("היום", "today"); chart.endLabel = whenText; chart.points = pts
+            // The chart in words, for a screen reader: a few years along the way, each with its total and deposits.
+            val bars = pts.filter { it.year > 0 }
+            val step = (bars.size / 4).coerceAtLeast(1)
+            val shown = (bars.indices.filter { it % step == step - 1 } + bars.lastIndex).distinct().filter { it >= 0 }.map { bars[it] }
+            chart.contentDescription = L.t("גרף צמיחה. ", "Growth chart. ") + shown.joinToString("; ") { p ->
+                L.t("אחרי ${p.year} שנים: ${ils(p.total)}, מתוכם הופקדו ${ils(p.deposited)}", "After ${p.year} years: ${ils(p.total)}, ${ils(p.deposited)} of it deposited")
+            }
             result.contentDescription = L.t("יכול להיות $whenText: ${ils(end.total)}", "Could be $whenText: ${ils(end.total)}")
         }
         monthlyField.addTextChangedListener(object : android.text.TextWatcher {

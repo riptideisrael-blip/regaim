@@ -68,7 +68,7 @@ object Community {
 
     /** The name others see: first name only. */
     fun displayName(ctx: Context): String =
-        Profile.parentName(ctx).ifEmpty { Account.name(ctx) }.ifEmpty { Circle.me(ctx) }.trim().split(" ").first().take(40).ifEmpty { L.t("חבר/ה", "Friend") }
+        Profile.parentName(ctx).ifEmpty { Account.name(ctx) }.ifEmpty { Circle.me(ctx) }.trim().split(" ").first().take(40).ifEmpty { L.t("חבר במעגל", "Friend") }
 
     // ---------- http ----------
 

@@ -142,7 +142,7 @@ class CommunityActivity : AppCompatActivity() {
                 ) + L.t("\n• הקהילה מיועדת להורים ולמבוגרים בני 18 ומעלה בלבד.", "\n• The community is for parents and adults aged 18 and over only."), 15f))
         // Age gate: the community is full of children's pictures, so it's for adults only.
         val adult = android.widget.CheckBox(this).apply {
-            text = L.t("אני בן/בת 18 ומעלה", "I'm 18 or older")
+            text = L.t("גילי 18 ומעלה", "I'm 18 or older")
             textSize = 15f
             setPadding(0, ui.dp(6), 0, 0)
         }

@@ -59,7 +59,7 @@ class ChildActivity : AppCompatActivity() {
         if (kid == null) {
             title.text = L.t("הילדים", "The kids")
             content.addView(ui.hint(L.t("עוד לא הוספתם ילדים בפרופיל המשפחה.", "You haven't added kids to the family profile yet."), top = 16))
-            content.addView(ui.action(L.t("הוספת ילד/ה ›", "Add a child ›")) { startActivity(Intent(this, ProfileActivity::class.java)) })
+            content.addView(ui.action(L.t("הוספת ילד או ילדה ›", "Add a child ›")) { startActivity(Intent(this, ProfileActivity::class.java)) })
             return
         }
         memberId = kid.id

@@ -72,7 +72,7 @@ class FamilyItemActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(L.t("תיק המשפחה: מה נשמר ואיפה", "The family file: what's kept, and where"))
             .setMessage(FamilyFile.consentText())
-            .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); then() }
+            .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFile.setConsented(this); then() }
             .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .show()
@@ -229,7 +229,7 @@ class FamilyItemActivity : AppCompatActivity() {
             if (item.source != FamilyShare.FROM_PARTNER) {
                 content.addView(ui.button(L.t("✓ מומש · הסרה מהארנק", "✓ Used · remove from the wallet"), primary = true, top = 16) { confirmUsed() })
                 content.addView(ui.button(L.t("עריכת פרטים", "Edit the details"), top = 8) { editing = true; render() })
-            } else content.addView(ui.hint(L.t("מהתיק של ההורה השני. סימון כמומש או עריכה נעשים בטלפון שלו/ה.", "From the other parent's file. Marking it used or editing it is done on their phone."), top = 14))
+            } else content.addView(ui.hint(L.t("מהתיק של ההורה השני. סימון כמומש או עריכה נעשים בטלפון של ההורה השני.", "From the other parent's file. Marking it used or editing it is done on their phone."), top = 14))
             content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
             return
         }
@@ -304,7 +304,7 @@ class FamilyItemActivity : AppCompatActivity() {
 
         if (item.source == FamilyShare.FROM_PARTNER) {
             // The other parent's item: changed only on their phone (a change here would be undone by the next sync).
-            content.addView(ui.hint(L.t("הפריט הזה הגיע מהתיק של ההורה השני. אפשר לשנות או למחוק אותו רק בטלפון שלו/ה.", "This item came from the other parent's file. It can be changed or deleted only on their phone."), top = 16))
+            content.addView(ui.hint(L.t("הפריט הזה הגיע מהתיק של ההורה השני. אפשר לשנות או למחוק אותו רק בטלפון של ההורה השני.", "This item came from the other parent's file. It can be changed or deleted only on their phone."), top = 16))
             if (item.file.isNotEmpty()) content.addView(ui.button(L.t("פתיחת הקובץ", "Open the file"), top = 8) { openFile() })
             content.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(1, ui.dp(24)) })
             return
