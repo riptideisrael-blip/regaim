@@ -276,6 +276,7 @@ object MemoryStore {
         try { Pets.scanPending(ctx) } catch (_: Throwable) {}
         // Once: moments already described with nobody recognized lose those words (they come back with names).
         try { clearUnnamedOnce(ctx) } catch (_: Exception) {}
+        try { redescribeOtherLanguageOnce(ctx) } catch (_: Exception) {}
         if (!ClaudeClient.hasKey(ctx)) return 0
         if (!analyzing.compareAndSet(false, true)) return 0
         try {
@@ -292,6 +293,21 @@ object MemoryStore {
         synchronized(this) {
             val list = read(ctx)
             if (list.any { NamedMoments.shouldClear(it) }) write(ctx, list.map { if (NamedMoments.shouldClear(it)) NamedMoments.clear(it) else it })
+        }
+        Settings.prefs(ctx).edit().putBoolean(key, true).apply()
+    }
+
+    /**
+     * Once per app language: AI words written in the other language (e.g. English titles from before the switch to
+     * Hebrew) are written again, in the app's language. Only moments with someone known; the parent's own words stay.
+     */
+    private fun redescribeOtherLanguageOnce(ctx: Context) {
+        val key = "words_language_fixed_" + L.lang
+        if (Settings.prefs(ctx).getBoolean(key, false)) return
+        synchronized(this) {
+            val list = read(ctx)
+            if (list.any { NamedMoments.wrongLanguage(it, L.isEn) })
+                write(ctx, list.map { if (NamedMoments.wrongLanguage(it, L.isEn)) it.copy(analyzed = false) else it })
         }
         Settings.prefs(ctx).edit().putBoolean(key, true).apply()
     }

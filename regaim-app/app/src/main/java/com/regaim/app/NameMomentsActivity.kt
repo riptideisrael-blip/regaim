@@ -36,7 +36,9 @@ class NameMomentsActivity : AppCompatActivity() {
 
     private lateinit var ui: Ui
     private lateinit var content: LinearLayout
-    private var list: List<Memory> = emptyList()
+    private var list: MutableList<Memory> = mutableListOf()
+    /** Every kept moment (for the names recognized a few minutes before or after). */
+    private var all: List<Memory> = emptyList()
     private var at = 0
     private var named = 0
 
@@ -47,7 +49,8 @@ class NameMomentsActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.screenTitle).text = L.t("מי ברגעים האלה?", "Who's in these moments?")
         content = findViewById(R.id.screenContent)
         ui = Ui(this)
-        list = waiting(this)
+        all = MemoryStore.kept(this)
+        list = waiting(this).toMutableList()
         render()
     }
 
@@ -77,7 +80,12 @@ class NameMomentsActivity : AppCompatActivity() {
         content.addView(image)
         content.addView(ui.text(L.t("מי ברגע הזה?", "Who's in this moment?"), 16f, bold = true, top = 14).apply { androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) })
         val people = Profile.members(this).map { it.name }.filter { it.isNotBlank() }.distinct()
-        val checks = people.map { n -> CheckBox(this).apply { text = n; textSize = 16f; minHeight = ui.dp(48); content.addView(this) } }
+        // Who was recognized a few minutes before or after (a back or legs here, a face there): ticked as a guess.
+        val guess = NamedMoments.suggest(m, all).filter { it in people }
+        if (guess.isNotEmpty()) content.addView(ui.hint(L.t(
+            "סימנו לפי מי שזוהה ברגעים מאותן דקות (${guess.joinToString(", ")}). בדקו ותקנו אם צריך.",
+            "Ticked from who was recognized in moments from the same minutes (${guess.joinToString(", ")}). Check and fix if needed."), top = 2))
+        val checks = people.map { n -> CheckBox(this).apply { text = n; textSize = 16f; minHeight = ui.dp(48); isChecked = n in guess; content.addView(this) } }
         if (people.isEmpty()) {
             content.addView(ui.hint(L.t("קודם מוסיפים את בני המשפחה בפרופיל.", "First add the family in the profile."), top = 4))
             content.addView(ui.button(L.t("להוספת בני המשפחה", "Add the family"), primary = true, top = 10) { startActivity(Intent(this, ProfileActivity::class.java)) })
@@ -86,28 +94,48 @@ class NameMomentsActivity : AppCompatActivity() {
         val save = ui.button(L.t("שמירה והבא", "Save and next"), primary = true, top = 14) {
             val names = checks.filter { it.isChecked }.map { it.text.toString() }
             if (names.isEmpty()) return@button
-            save(m, names)
-            named++; at++; render()
+            save(m, names, learn = true)
+            named++; list.removeAt(at); render()
         }
-        save.isEnabled = false
-        checks.forEach { c -> c.setOnCheckedChangeListener { _, _ -> save.isEnabled = checks.any { it.isChecked } } }
+        save.isEnabled = checks.any { it.isChecked }
+        // The same few minutes, waiting too: one answer for all of them (faces learn only from the one seen here).
+        val sequence = NamedMoments.sameSequence(m, list)
+        val saveAll = if (sequence.isEmpty()) null else ui.button(
+            L.t("שמירה לכל ${sequence.size + 1} הרגעים מאותן דקות", "Save for all ${sequence.size + 1} moments from these minutes"), top = 8) {
+            val names = checks.filter { it.isChecked }.map { it.text.toString() }
+            if (names.isEmpty()) return@button
+            // The others first (no learning, no description yet), then this one: its description run takes them all.
+            sequence.forEach { save(it, names, learn = false, describe = false) }
+            save(m, names, learn = true)
+            named += sequence.size + 1
+            val gone = (sequence.map { it.id } + m.id).toSet()
+            list.removeAll { it.id in gone }
+            at = at.coerceAtMost(list.size)
+            render()
+        }?.apply { isEnabled = checks.any { it.isChecked } }
+        checks.forEach { c -> c.setOnCheckedChangeListener { _, _ ->
+            val any = checks.any { it.isChecked }
+            save.isEnabled = any; saveAll?.isEnabled = any
+        } }
         content.addView(save)
+        saveAll?.let { content.addView(it) }
         val row = ui.horizontal(top = 6)
         row.addView(ui.action(L.t("דילוג", "Skip")) { at++; render() })
-        row.addView(ui.action(L.t("אין כאן אף אחד מהמשפחה", "Nobody from the family"), R.color.ink_soft) { skip(this, m.id); at++; render() })
+        row.addView(ui.action(L.t("אין כאן אף אחד מהמשפחה", "Nobody from the family"), R.color.ink_soft) { skip(this, m.id); list.removeAt(at); render() })
         content.addView(row)
     }
 
     /** The names onto the moment (as if marked on its own screen); the faces learn from it, then it's described. */
-    private fun save(m: Memory, names: List<String>) {
+    private fun save(m: Memory, names: List<String>, learn: Boolean, describe: Boolean = true) {
         val fresh = MemoryStore.get(this, m.id) ?: m
         val faces = fresh.people.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         if (!MemoryStore.saveFromUi(this) { MemoryStore.update(this, fresh.copy(extraPeople = names.filter { it !in faces }.joinToString(", "))) }) return
+        if (!learn && !describe) return
         val app = applicationContext
         Thread {
             // Faces learn only with the parent's yes to face recognition.
-            if (PeopleStore.faceConsent(app)) try { PeopleStore.learnFromMoment(app, m.id, emptyList(), names.filter { it !in faces }) } catch (_: Exception) { }
-            try { MemoryStore.analyzePending(app) } catch (_: Exception) { }
+            if (learn && PeopleStore.faceConsent(app)) try { PeopleStore.learnFromMoment(app, m.id, emptyList(), names.filter { it !in faces }) } catch (_: Exception) { }
+            if (describe) try { MemoryStore.analyzePending(app) } catch (_: Exception) { }
         }.start()
     }
 }
