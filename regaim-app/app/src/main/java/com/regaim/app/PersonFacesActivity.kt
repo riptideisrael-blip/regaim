@@ -52,7 +52,7 @@ class PersonFacesActivity : AppCompatActivity() {
         head.addView(ui.action(L.t("סגור", "Close")) { finish() })
         root.addView(head)
         root.addView(ui.hint(L.t(
-            "סמנו את הפנים שאינן שלו/ה, ותקנו את כולן בבת אחת. האפליקציה תלמד מזה ולא תטעה כך שוב.",
+            "סמנו את הפנים של אנשים אחרים, ותקנו את כולן בבת אחת. האפליקציה תלמד מזה ולא תטעה כך שוב.",
             "Tap the faces that aren't them, and fix them all at once. The app learns from it and won't make that mistake again.",
         )).apply { setPadding(ui.dp(20), 0, ui.dp(20), ui.dp(8)) })
         grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(12), 0, ui.dp(12), ui.dp(12)) }

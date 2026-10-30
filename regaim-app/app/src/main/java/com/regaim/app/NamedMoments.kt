@@ -25,4 +25,41 @@ object NamedMoments {
 
     /** A tag about a person ("ילד", "אמא", "baby"): left out when nobody is known. */
     fun aboutSomeone(tag: String): Boolean = someone.containsMatchIn(tag.lowercase())
+
+    /** Moments this close in time (the same walk around the house) are one "sequence". */
+    const val SEQUENCE_GAP_MS = 10 * 60_000L
+
+    /**
+     * Who was recognized or marked in moments from the same few minutes as [m], most often first: a good guess for a
+     * moment where only a back or legs are seen. A suggestion only; the parent confirms it.
+     */
+    fun suggest(m: Memory, all: List<Memory>, gap: Long = SEQUENCE_GAP_MS): List<String> {
+        val near = all.filter { it.id != m.id && kotlin.math.abs(it.time - m.time) <= gap && named(it) }
+        return near.flatMap { it.allPeople.split(",").map { n -> n.trim() }.filter { n -> n.isNotEmpty() } }
+            .groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
+    }
+
+    /**
+     * The other waiting moments of the same sequence as [m] (each within [gap] of the next), in [waiting]'s order.
+     * One answer can then be given for all of them.
+     */
+    fun sameSequence(m: Memory, waiting: List<Memory>, gap: Long = SEQUENCE_GAP_MS): List<Memory> {
+        val sorted = (waiting + m).distinctBy { it.id }.sortedBy { it.time }
+        val i = sorted.indexOfFirst { it.id == m.id }
+        var lo = i; var hi = i
+        while (lo > 0 && sorted[lo].time - sorted[lo - 1].time <= gap) lo--
+        while (hi < sorted.size - 1 && sorted[hi + 1].time - sorted[hi].time <= gap) hi++
+        val ids = sorted.subList(lo, hi + 1).map { it.id }.toSet() - m.id
+        return waiting.filter { it.id in ids }
+    }
+
+    private val hebrew = Regex("[\u05D0-\u05EA]")
+
+    /** The AI's words on [m] are in the other language than the app's (written before the language changed). */
+    fun wrongLanguage(m: Memory, english: Boolean): Boolean {
+        if (!m.analyzed || m.titleByUser || m.descriptionByUser || !named(m)) return false
+        val words = (m.title + " " + m.description).trim()
+        if (words.isEmpty()) return false
+        return hebrew.containsMatchIn(words) == english
+    }
 }

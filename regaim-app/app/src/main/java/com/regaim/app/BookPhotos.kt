@@ -40,7 +40,7 @@ object BookPhotos {
         val people = PeopleStore.people(ctx)
         val person = people.firstOrNull { it.name.trim() == child.name.trim() }
         if (person == null || person.prints.isEmpty()) {
-            return Result(emptyList(), L.t("עוד לא זיהינו את ${child.name} ברגעים. בחרו תמונה ברורה שלו/ה, או הוסיפו תמונת פרופיל.", "We haven't recognized ${child.name} in your moments yet. Pick a clear photo, or add a profile photo."))
+            return Result(emptyList(), L.t("עוד לא זיהינו את ${child.name} ברגעים. בחרו תמונה ברורה של ${child.name}, או הוסיפו תמונת פרופיל.", "We haven't recognized ${child.name} in your moments yet. Pick a clear photo, or add a profile photo."))
         }
         // The moments where this child was found, newest first.
         val ids = PeopleStore.faces(ctx).filter { it.personId == person.id }.map { it.memoryId }.toSet()

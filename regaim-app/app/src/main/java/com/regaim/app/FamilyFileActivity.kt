@@ -126,7 +126,7 @@ class FamilyFileActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(L.t("עדכנו את ההסבר על התיק", "We updated what the file says"))
             .setMessage(FamilyFile.consentText())
-            .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
+            .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFile.setConsented(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
             .setNegativeButton(L.t("לא עכשיו", "Not now"), null)
             .show()
     }
@@ -243,7 +243,7 @@ class FamilyFileActivity : AppCompatActivity() {
             fun askShare() = AlertDialog.Builder(this)
                 .setTitle(L.t("לשתף את התיק עם $who?", "Share the file with $who?"))
                 .setMessage(FamilyFileSync.shareConsentText(who))
-                .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFileSync.turnOn(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
+                .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFileSync.turnOn(this); FamilyFileSync.kick(this, force = true) { runOnUiThread { if (!isDestroyed) render() } }; render() }
                 .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
                 .setOnCancelListener { render() }
                 .show()
@@ -253,7 +253,7 @@ class FamilyFileActivity : AppCompatActivity() {
                 if (want && !FamilyFile.consented(this)) AlertDialog.Builder(this)
                     .setTitle(L.t("תיק המשפחה: מה נשמר ואיפה", "The family file: what's kept, and where"))
                     .setMessage(FamilyFile.consentText())
-                    .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); askShare() }
+                    .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFile.setConsented(this); askShare() }
                     .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> render() }
                     .setOnCancelListener { render() }
                     .show()
@@ -266,7 +266,7 @@ class FamilyFileActivity : AppCompatActivity() {
                     .setOnCancelListener { render() }
                     .show()
             })
-            content.addView(ui.hint(if (FamilyFileSync.on(this)) L.t("הפריטים שלך נשלחים ל$who. הפריטים של $who יופיעו כאן כשגם $who יפעיל/תפעיל שיתוף.", "Your items go to $who. $who's items appear here once $who turns sharing on too.")
+            content.addView(ui.hint(if (FamilyFileSync.on(this)) L.t("הפריטים שלך נשלחים ל$who. הפריטים של $who יופיעו כאן אחרי שגם $who יפעילו שיתוף.", "Your items go to $who. $who's items appear here once $who turns sharing on too.")
                 else L.t("כרגע התיק נשמר רק בטלפון הזה.", "For now the file stays on this phone only."), top = 2))
         } else if (Account.signedIn(this)) {
             // No partner chosen yet: say where that's done (both parents choose each other in the family circle).

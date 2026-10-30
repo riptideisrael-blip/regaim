@@ -541,7 +541,7 @@ open class SettingsActivity : AppCompatActivity() {
         box.addView(photoButton)
         val birthBtn = ui.button("") {}
         fun showBirth() {
-            birthBtn.text = if (birth.isEmpty()) L.t("בחר תאריך לידה", "Choose birthday") else L.t("נולד/ה: ${birth.split("-").reversed().joinToString(".")}  (${Profile.ageText(birth)})", "Born ${birth.split("-").reversed().joinToString(".")}  (${Profile.ageText(birth)})")
+            birthBtn.text = if (birth.isEmpty()) L.t("בחר תאריך לידה", "Choose birthday") else L.t("תאריך לידה: ${birth.split("-").reversed().joinToString(".")}  (${Profile.ageText(birth)})", "Born ${birth.split("-").reversed().joinToString(".")}  (${Profile.ageText(birth)})")
         }
         showBirth()
         birthBtn.setOnClickListener {
@@ -797,7 +797,7 @@ open class SettingsActivity : AppCompatActivity() {
             if (on && !PeopleStore.faceConsent(this)) AlertDialog.Builder(this)
                 .setTitle(L.t("זיהוי פנים", "Face recognition"))
                 .setMessage(PeopleStore.faceConsentText())
-                .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> PeopleStore.setFaceConsent(this, true); FaceScan.kick(this); render() }
+                .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> PeopleStore.setFaceConsent(this, true); FaceScan.kick(this); render() }
                 .setNegativeButton(L.t("ביטול", "Cancel")) { _, _ -> render() }
                 .setOnCancelListener { render() }
                 .show()
@@ -939,7 +939,7 @@ open class SettingsActivity : AppCompatActivity() {
         val liked = Learning.liked(this).size
         val deleted = Learning.rejected(this).size
         card.addView(ui.row(L.t("תובנות על מה שחשוב לך", "Insights on what matters to you"), if (items.isEmpty()) L.t("עוד אין", "None yet") else "${items.size}", top = 0) { LearnedActivity.open(this) })
-        card.addView(ui.hint(L.t("נלמד מ-$liked רגעים ששמרת/אהבת ו-$deleted שמחקת. אפשר לראות על מה כל תובנה מבוססת ולתקן.", "Learned from $liked moments you saved or loved and $deleted you deleted. See what each insight is based on, and fix it."), top = 0))
+        card.addView(ui.hint(L.t("נלמד מ-$liked רגעים ששמרת או אהבת ו-$deleted שמחקת. אפשר לראות על מה כל תובנה מבוססת ולתקן.", "Learned from $liked moments you saved or loved and $deleted you deleted. See what each insight is based on, and fix it."), top = 0))
         card.addView(ui.action(L.t("שכח את כל מה שנלמד", "Forget everything learned"), R.color.danger) {
             AlertDialog.Builder(this)
                 .setTitle(L.t("לשכוח את כל מה ש-Moments למד?", "Forget everything Moments learned?"))

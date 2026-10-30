@@ -43,4 +43,29 @@ class NamedMomentsTest {
         assertFalse(NamedMoments.aboutSomeone("ים"))
         assertFalse(NamedMoments.aboutSomeone("ארוחת ערב"))
     }
+
+    private fun at(id: String, minute: Long, people: String = "", title: String = "ילד ליד שולחן", descr: String = "רואים ילד") =
+        memory(people = people).copy(id = id, time = minute * 60_000L, title = title, description = descr)
+
+    @Test fun guessesComeFromTheSameMinutes() {
+        val me = at("x", 100)
+        val all = listOf(me, at("a", 95, "אורי, אנבל"), at("b", 104, "אורי"), at("c", 300, "נעם"))
+        assertEquals(listOf("אורי", "אנבל"), NamedMoments.suggest(me, all))
+        assertEquals(emptyList<String>(), NamedMoments.suggest(at("y", 1000), all))
+    }
+
+    @Test fun aSequenceIsChainedByMinutes() {
+        val waiting = listOf(at("w1", 100), at("w2", 108), at("w3", 117), at("w4", 140))
+        assertEquals(listOf("w1", "w3"), NamedMoments.sameSequence(waiting[1], waiting).map { it.id })
+        assertEquals(emptyList<String>(), NamedMoments.sameSequence(waiting[3], waiting).map { it.id })
+    }
+
+    @Test fun wordsInTheOtherLanguageAreWrittenAgain() {
+        val en = at("e", 1, people = "אורי", title = "Anabel and Uri Natan at Home", descr = "Uri walks")
+        assertTrue(NamedMoments.wrongLanguage(en, english = false))
+        assertFalse(NamedMoments.wrongLanguage(en, english = true))
+        assertFalse(NamedMoments.wrongLanguage(at("h", 1, people = "אורי"), english = false))
+        assertFalse(NamedMoments.wrongLanguage(en.copy(titleByUser = true), english = false))
+        assertFalse(NamedMoments.wrongLanguage(en.copy(people = ""), english = false)) // nobody known: no words anyway
+    }
 }

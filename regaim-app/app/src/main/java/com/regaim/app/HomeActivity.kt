@@ -603,7 +603,7 @@ class HomeActivity : AppCompatActivity() {
         val prefs = Settings.prefs(this)
         if (!Account.signedIn(this) || !Circle.joined(this) || PartnerShare.partner(this).isNotEmpty() || prefs.getBoolean("connect_card_closed", false)) return
         val card = ui.card(top = 16)
-        card.addView(ui.text(L.t("💞 לחבר את בן/בת הזוג", "💞 Connect your partner"), 16f, bold = true))
+        card.addView(ui.text(L.t("💞 לחבר את בן או בת הזוג", "💞 Connect your partner"), 16f, bold = true))
         card.addView(ui.hint(L.t("בצעד אחד: הרגעים עוברים ביניכם, תיק המשפחה משותף, והתראה כשמשהו חדש מגיע.", "In one step: moments go between you, the family file is shared, and you're notified when something new arrives."), top = 4))
         val row = ui.horizontal(top = 6)
         row.addView(ui.action(L.t("לחבר ›", "Connect ›")) { startActivity(Intent(this, CircleActivity::class.java)) })

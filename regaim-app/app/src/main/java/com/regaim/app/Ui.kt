@@ -169,40 +169,49 @@ class Ui(private val a: Activity) {
         })
     }
 
-    /** A row of pill chips; tapping one selects it. */
+    /**
+     * A row of pill chips; tapping one selects it. Read as one choice out of several ("2 of 5, selected"), and the
+     * chips are repainted in place, so a screen reader stays on the chip that was tapped.
+     */
     fun chips(options: List<String>, selected: Int, top: Int = 8, onPick: (Int) -> Unit): View {
         val row = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
-        fun paint(sel: Int) {
-            row.removeAllViews()
-            options.forEachIndexed { i, o ->
-                row.addView(TextView(a).apply {
-                    text = o
-                    textSize = 14f
-                    gravity = Gravity.CENTER
-                    minWidth = dp(56)
-                    setPadding(dp(16), dp(9), dp(16), dp(9))
-                    val on = i == sel
-                    typeface = if (on) DS.emphasis else DS.body
-                    // (The pressed blue on the light-blue pill: 5.98:1; the brand blue was 4.40:1.)
-                    setTextColor(if (on) DS.buttonPressed(a) else DS.inkSoft(a))
-                    // A soft gray pill; the chosen one light blue with blue text (no heavy fill).
-                    background = DS.rounded(if (on) DS.selected(a) else DS.buttonSecondary(a), DS.radiusChip(a))
-                    isSelected = on
-                    minHeight = dp(48)
-                    androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר", "Selected") else null)
-                    A11y.button(this)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { marginEnd = dp(8) }
-                    setOnClickListener {
-                        paint(i)
-                        onPick(i)
-                        onChange?.invoke()
-                    }
-                })
+        var sel = selected
+        val views = ArrayList<TextView>()
+        fun paint() {
+            views.forEachIndexed { i, t ->
+                val on = i == sel
+                t.typeface = if (on) DS.emphasis else DS.body
+                // (The pressed blue on the light-blue pill: 5.98:1; the brand blue was 4.40:1.)
+                t.setTextColor(if (on) DS.buttonPressed(a) else DS.inkSoft(a))
+                // A soft gray pill; the chosen one light blue with blue text (no heavy fill).
+                t.background = DS.rounded(if (on) DS.selected(a) else DS.buttonSecondary(a), DS.radiusChip(a))
+                t.isSelected = on
             }
         }
-        paint(selected)
+        options.forEachIndexed { i, o ->
+            val t = TextView(a).apply {
+                text = o
+                textSize = 14f
+                gravity = Gravity.CENTER
+                minWidth = dp(56)
+                setPadding(dp(16), dp(9), dp(16), dp(9))
+                minHeight = dp(48)
+                A11y.choice(this, i, options.size) { sel == i }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = dp(8) }
+                setOnClickListener {
+                    if (sel == i) return@setOnClickListener
+                    sel = i
+                    paint()
+                    onPick(i)
+                    onChange?.invoke()
+                }
+            }
+            views.add(t); row.addView(t)
+        }
+        paint()
+        A11y.choiceGroup(row, options.size)
         return HorizontalScrollView(a).apply {
             isHorizontalScrollBarEnabled = false
             layoutParams = wrapLp(top)

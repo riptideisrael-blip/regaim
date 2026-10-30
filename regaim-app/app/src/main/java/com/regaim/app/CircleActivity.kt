@@ -299,12 +299,12 @@ class CircleActivity : AppCompatActivity() {
                     chosen == null -> L.t("כל רגע שאחד מכם שומר יעבור אוטומטית לשני, רק לשניכם (לא לשאר המשפחה). קטעים קצרים של 10 שניות.",
                         "Every moment one of you keeps goes automatically to the other, only to the two of you (not the rest of the family). Short 10-second clips.")
                     status.second -> L.t("✓ פעיל עם ${chosen.name}: רגעים חדשים עוברים ביניכם אוטומטית.", "✓ On with ${chosen.name}: new moments go between you automatically.")
-                    else -> L.t("בחרת ב${chosen.name}. מחכים ש${chosen.name} יבחר/תבחר בך באפליקציה שלו/שלה.", "You chose ${chosen.name}. Waiting for ${chosen.name} to choose you in their app.")
+                    else -> L.t("בחרת ב${chosen.name}. עכשיו מחכים לאישור של ${chosen.name} באפליקציה.", "You chose ${chosen.name}. Waiting for ${chosen.name} to choose you in their app.")
                 }
                 if (chosen == null) card.addView(ui.hint(alsoShared, top = 4))
                 if (chosen != null && status.second) PartnerShare.turnOn(app, chosen.userId)
-                actions.addView(ui.action(if (chosen == null) L.t("לבחור את בן/בת הזוג", "Choose your partner") else L.t("להחליף", "Change")) {
-                    if (others.isEmpty()) { toast(L.t("קודם הזמינו את בן/בת הזוג למעגל.", "First invite your partner to the circle.")); return@action }
+                actions.addView(ui.action(if (chosen == null) L.t("לבחור את בן או בת הזוג", "Choose your partner") else L.t("להחליף", "Change")) {
+                    if (others.isEmpty()) { toast(L.t("קודם הזמינו את בן או בת הזוג למעגל.", "First invite your partner to the circle.")); return@action }
                     AlertDialog.Builder(this).setTitle(L.t("עם מי לשתף את הגלריה?", "Share the gallery with?"))
                         .setItems(others.map { it.name.ifBlank { L.t("בן משפחה", "Family member") } }.toTypedArray()) { _, i ->
                             val who = others[i]
@@ -317,7 +317,7 @@ class CircleActivity : AppCompatActivity() {
                                     if (r == null) { toast(L.t("לא הצליח. נסו שוב.", "Didn't work. Try again.")); return@runOnUiThread }
                                     PartnerShare.turnOn(app, who.userId)
                                     applyConnect(choice)
-                                    if (!r) toast(L.t("נשאר רק ש$whoName יבחר/תבחר בך באפליקציה שלו/שלה.", "Now $whoName only needs to choose you in their app."))
+                                    if (!r) toast(L.t("נשאר רק האישור של $whoName באפליקציה.", "Now $whoName only needs to choose you in their app."))
                                     render()
                                 }
                             }.start() }

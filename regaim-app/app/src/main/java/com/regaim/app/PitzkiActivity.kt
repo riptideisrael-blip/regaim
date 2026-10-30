@@ -259,7 +259,7 @@ class PitzkiActivity : AppCompatActivity() {
         setupTitle?.text = if (PitzkiScript.isNumbers) L.t("סופרים עם פיצקי", "Counting with Pitzki") else if (PitzkiScript.isPlay) L.t("משחקים עם פיצקי", "Games with Pitzki") else if (PitzkiScript.isNight) L.t("לילה טוב עם פיצקי", "Good night with Pitzki") else if (PitzkiScript.isFarm) L.t("החווה של פיצקי", "Pitzki's farm") else if (PitzkiScript.isTrain) L.t("תחנת הרכבת של פיצקי", "Pitzki's train station") else L.t("היער של פיצקי", "Pitzki's forest")
         box.addView(ui.eyebrow(L.t("תוכנית למידה לילדים", "A learning program for kids"), top = 14))
         box.addView(ui.heading(L.t("שלום, אני פיצקי", "Hi, I'm Pitzki"), 28f, top = 4))
-        box.addView(ui.text(L.t("טיולים קצרים עם פיצקי, והילד/ה שלכם בתוך הסיפור. לגילאי 3–5, בלי פרסומות, בלי צ׳אט עם זרים ובלי AI בשיחה עם הילד.",
+        box.addView(ui.text(L.t("טיולים קצרים עם פיצקי, והילד או הילדה שלכם בתוך הסיפור. לגילאי 3–5, בלי פרסומות, בלי צ׳אט עם זרים ובלי AI בשיחה עם הילד.",
             "Short trips with Pitzki, with your child in the story. Ages 3–5, no ads, no chat with strangers, no AI talking to your child."), 15f, R.color.ink_soft, top = 6))
         box.addView(worldPicker())
         // The level in this world (when it has levels).
@@ -439,6 +439,22 @@ class PitzkiActivity : AppCompatActivity() {
             androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר", "Selected") else null)
             tag = c.memberId
             // A long press picks the child up, to drag to another place in the row (see [reorderable]).
+            // The same without dragging (screen readers' actions menu): one place earlier or later.
+            if (children.size > 1) {
+                val idx = children.indexOfFirst { it.memberId == c.memberId }
+                fun moveBy(d: Int): Boolean {
+                    val ids = children.map { it.memberId }.toMutableList()
+                    val to = (idx + d).coerceIn(0, ids.size - 1)
+                    if (to == idx) return false
+                    ids.removeAt(idx); ids.add(to, c.memberId)
+                    PitzkiStore.setKidsOrder(this@PitzkiActivity, ids)
+                    children = PitzkiStore.children(this@PitzkiActivity)
+                    main.post { if (!destroyed) renderSetup() }
+                    return true
+                }
+                if (idx > 0) androidx.core.view.ViewCompat.addAccessibilityAction(this, L.t("הזזה מקום אחד קודם", "Move one place earlier")) { _, _ -> moveBy(-1) }
+                if (idx < children.size - 1) androidx.core.view.ViewCompat.addAccessibilityAction(this, L.t("הזזה מקום אחד אחר כך", "Move one place later")) { _, _ -> moveBy(1) }
+            }
             if (children.size > 1) setOnLongClickListener { v ->
                 v.startDragAndDrop(android.content.ClipData.newPlainText("kid", c.memberId), View.DragShadowBuilder(v), c.memberId, 0)
                 v.alpha = 0.3f
@@ -907,7 +923,7 @@ class PitzkiActivity : AppCompatActivity() {
         val img = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(views[0]) }
         root.addView(img, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { topMargin = ui.dp(70); bottomMargin = ui.dp(110) })
         root.addView(TextView(this).apply {
-            text = L.t("$name מכל הצדדים · גררו באצבע ימינה ושמאלה", "$name from every side · drag left and right"); textSize = 16f; gravity = Gravity.CENTER
+            text = L.t("$name מכל הצדדים · גררו באצבע או לחצו על \"סיבוב\"", "$name from every side · drag, or tap \"Turn\""); textSize = 16f; gravity = Gravity.CENTER
             setTextColor(DS.ink(this@PitzkiActivity)); setPadding(ui.dp(16), ui.dp(24), ui.dp(16), 0)
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         val dots = TextView(this).apply { textSize = 22f; gravity = Gravity.CENTER; setTextColor(DS.ink(this@PitzkiActivity)) }
@@ -924,6 +940,15 @@ class PitzkiActivity : AppCompatActivity() {
             }
             true
         }
+        // Without dragging (and for screen readers): buttons that turn it, and each side said in words.
+        val sides = listOf(L.t("מלפנים", "front"), L.t("מהצד", "side"), L.t("מאחור", "back"), L.t("מהצד השני", "other side"))
+        img.contentDescription = "$name, ${sides[0]}"
+        fun turn(by: Int) { show(at + by); img.contentDescription = "$name, ${sides[at]}"; img.announceForAccessibility(sides[at]) }
+        val turns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        turns.addView(ui.button("‹ " + L.t("סיבוב", "Turn"), primary = false, top = 0) { turn(-1) }.apply { contentDescription = L.t("סיבוב לצד אחד", "Turn one way") })
+        turns.addView(View(this), LinearLayout.LayoutParams(ui.dp(140), 1))
+        turns.addView(ui.button(L.t("סיבוב", "Turn") + " ›", primary = false, top = 0) { turn(1) }.apply { contentDescription = L.t("סיבוב לצד השני", "Turn the other way") })
+        root.addView(turns, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = ui.dp(16) })
         root.addView(ui.button(L.t("סגירה", "Close"), primary = false, top = 0) { dlg.dismiss() }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = ui.dp(16) })
         dlg.setContentView(root)
         dlg.show()
@@ -3718,11 +3743,59 @@ class PitzkiActivity : AppCompatActivity() {
         }
         var left = if (b.only >= 0) 1 else n
         var misses = 0
+        // Without dragging: tap an animal (it's picked up), then tap its home. Screen readers use the same two taps.
+        var picked = -1
+        val pieces = ArrayList<View>()
+        val starts = ArrayList<Pair<Float, Float>>()
+        val done_ = BooleanArray(n)
+        fun lift(v: View, up: Boolean) {
+            v.animate().scaleX(if (up) 1.15f else 1f).scaleY(if (up) 1.15f else 1f).setDuration(120).start()
+            v.elevation = ui.dp(if (up) 14 else 6).toFloat()
+        }
+        /** Animal [i] put down at home [near] (-1: nowhere). */
+        fun land(i: Int, near: Int) {
+            val v = pieces[i]; val home = homes[i]; val c = b.items[i]
+            val wanted = b.only < 0 || b.only == i
+            lift(v, false)
+            if (near == i && wanted) {
+                done_[i] = true
+                v.animate().x(home.x).y(home.y).setDuration(180).start()
+                home.animate().alpha(0f).setDuration(200).start()
+                home.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                v.contentDescription = L.t("${c.label}, בבית", "${c.label}, home")
+                if (answered.add(b.id + "_" + i)) { scored(misses == 0); chosen?.let { PitzkiStore.remember(this, it.memberId, b.id + "_" + i, misses == 0) } }
+                starsNow++; starsLabel.text = "⭐ $starsNow"
+                playAnimalSound(c.label)
+                cheerClip()
+                left--
+                if (left <= 0) main.postDelayed({
+                    if (my != token) return@postDelayed
+                    celebrate()
+                    say(PitzkiScript.praise(kid, praiseN++)) { if (my == token && !paused) { clearGame(); done() } }
+                }, 900)
+            } else {
+                misses++
+                v.animate().x(starts[i].first).y(starts[i].second).setDuration(260).start()
+                if (near >= 0 || !wanted) say(if (!wanted) L.t("לא עכשיו. ", "Not now. ") + PitzkiScript.tryAgainPick(kid) else L.t("זה לא הבית שלו. ", "That's not its home. ") + PitzkiScript.tryAgainPick(kid)) {}
+                // Twice wrong: the home it's looking for blinks.
+                if (misses >= 2) pulse(homes[if (b.only >= 0) b.only else i])
+            }
+        }
+        fun ready() = my == token && !paused
+        homes.forEachIndexed { k, hv ->
+            hv.contentDescription = L.t("הבית של ${b.items[k].label}", "${b.items[k].label}'s home")
+            A11y.button(hv)
+            hv.setOnClickListener {
+                if (!ready() || picked < 0 || done_[picked]) return@setOnClickListener
+                val i = picked; picked = -1
+                land(i, k)
+            }
+        }
         for (i in 0 until n) {
             val c = b.items[i]
-            val home = homes[i]
             // The animals in the middle, the homes on the right: the child and Pitzki wait on the left (play_yard).
             val startX = w * 0.5f - size / 2f; val startY = yAt(i)
+            starts.add(startX to startY)
             val piece = TextView(this).apply {
                 text = c.emoji; textSize = big * c.scale; gravity = Gravity.CENTER
                 background = DS.rounded(android.graphics.Color.argb(235, 255, 252, 245), ui.dp(26).toFloat())
@@ -3731,36 +3804,34 @@ class PitzkiActivity : AppCompatActivity() {
                 x = startX; y = startY
                 contentDescription = c.label
             }
-            var dx = 0f; var dy = 0f; var homeNow = false
+            A11y.button(piece)
+            pieces.add(piece)
+            // A tap picks it up (or puts it back down); then a tap on a home puts it there.
+            piece.setOnClickListener { v ->
+                if (!ready() || done_[i]) return@setOnClickListener
+                if (picked >= 0 && picked != i) lift(pieces[picked], false)
+                picked = if (picked == i) -1 else i
+                lift(v, picked == i)
+                androidx.core.view.ViewCompat.setStateDescription(v, if (picked == i) L.t("נבחר. עכשיו בוחרים בית", "Picked. Now choose a home") else null)
+                if (picked == i) v.announceForAccessibility(L.t("${c.label} נבחר. עכשיו בוחרים את הבית שלו", "${c.label} picked. Now choose its home"))
+            }
+            var dx = 0f; var dy = 0f; var downX = 0f; var downY = 0f
             piece.setOnTouchListener { v, e ->
-                if (my != token || paused || homeNow) return@setOnTouchListener false
+                if (!ready() || done_[i]) return@setOnTouchListener false
                 when (e.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> { dx = v.x - e.rawX; dy = v.y - e.rawY; v.animate().scaleX(1.15f).scaleY(1.15f).setDuration(120).start(); v.elevation = ui.dp(14).toFloat() }
+                    android.view.MotionEvent.ACTION_DOWN -> { dx = v.x - e.rawX; dy = v.y - e.rawY; downX = e.rawX; downY = e.rawY; lift(v, true) }
                     android.view.MotionEvent.ACTION_MOVE -> { v.x = e.rawX + dx; v.y = e.rawY + dy }
                     android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1f).scaleY(1f).setDuration(120).start(); v.elevation = ui.dp(6).toFloat()
-                        val near = homes.indexOfFirst { hv -> kotlin.math.hypot((v.x - hv.x).toDouble(), (v.y - hv.y).toDouble()) < size * 0.75 }
-                        val wanted = b.only < 0 || b.only == i
-                        if (near == i && wanted) {
-                            homeNow = true
-                            v.animate().x(home.x).y(home.y).setDuration(180).start()
-                            home.animate().alpha(0f).setDuration(200).start()
-                            if (answered.add(b.id + "_" + i)) { scored(misses == 0); chosen?.let { PitzkiStore.remember(this, it.memberId, b.id + "_" + i, misses == 0) } }
-                            starsNow++; starsLabel.text = "⭐ $starsNow"
-                            playAnimalSound(c.label)
-                            cheerClip()
-                            left--
-                            if (left <= 0) main.postDelayed({
-                                if (my != token) return@postDelayed
-                                celebrate()
-                                say(PitzkiScript.praise(kid, praiseN++)) { if (my == token && !paused) { clearGame(); done() } }
-                            }, 900)
+                        val moved = kotlin.math.hypot((e.rawX - downX).toDouble(), (e.rawY - downY).toDouble()) > ui.dp(12)
+                        if (!moved && e.actionMasked == android.view.MotionEvent.ACTION_UP) {
+                            // A tap, not a drag: back in place, and picked up for a tap on a home.
+                            v.x = starts[i].first; v.y = starts[i].second
+                            lift(v, false)
+                            v.performClick()
                         } else {
-                            misses++
-                            v.animate().x(startX).y(startY).setDuration(260).start()
-                            if (near >= 0 || !wanted) say(if (!wanted) L.t("לא עכשיו. ", "Not now. ") + PitzkiScript.tryAgainPick(kid) else L.t("זה לא הבית שלו. ", "That's not its home. ") + PitzkiScript.tryAgainPick(kid)) {}
-                            // Twice wrong: the home it's looking for blinks.
-                            if (misses >= 2) pulse(homes[if (b.only >= 0) b.only else i])
+                            if (picked == i) picked = -1
+                            val near = homes.indexOfFirst { hv -> kotlin.math.hypot((v.x - hv.x).toDouble(), (v.y - hv.y).toDouble()) < size * 0.75 }
+                            land(i, near)
                         }
                     }
                 }

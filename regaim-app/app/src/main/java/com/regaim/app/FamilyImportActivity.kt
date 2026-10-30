@@ -83,7 +83,7 @@ class FamilyImportActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle(L.t("תיק המשפחה: מה נשמר ואיפה", "The family file: what's kept, and where"))
                 .setMessage(FamilyFile.consentText())
-                .setPositiveButton(L.t("מאשר/ת", "I agree")) { _, _ -> FamilyFile.setConsented(this); pick() }
+                .setPositiveButton(L.t("אישור", "I agree")) { _, _ -> FamilyFile.setConsented(this); pick() }
                 .setNegativeButton(L.t("לא עכשיו", "Not now")) { _, _ -> finish() }
                 .setOnCancelListener { finish() }
                 .show()

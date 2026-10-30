@@ -468,7 +468,7 @@ class BookActivity : AppCompatActivity() {
             return
         }
         if (moments.isEmpty()) {
-            content.addView(ui.hint(L.t("עוד אין רגעים מתויגים של ${s.childName}. תייגו אותו/ה במסך האנשים, או הוסיפו תמונת פרופיל ברורה.", "No moments are tagged with ${s.childName} yet. Tag them on the People screen, or add a clear profile photo."), top = 10))
+            content.addView(ui.hint(L.t("עוד אין רגעים מתויגים של ${s.childName}. תייגו את ${s.childName} במסך האנשים, או הוסיפו תמונת פרופיל ברורה.", "No moments are tagged with ${s.childName} yet. Tag them on the People screen, or add a clear profile photo."), top = 10))
             content.addView(ui.button(L.t("לפרופיל המשפחה", "Family profile"), primary = true, top = 12) {
                 s.cancel() // nothing was sent or paid yet
                 startActivity(Intent(this, FamilyActivity::class.java))
@@ -532,7 +532,7 @@ class BookActivity : AppCompatActivity() {
             content.addView(ui.text(c.name, 17f, bold = true, top = 18))
             val sheet = c.sheet.takeIf { it.isNotEmpty() }?.let { BookStore.image(this, b, it) }?.takeIf { it.exists() }
             if (sheet == null) {
-                content.addView(ui.hint(L.t("לא הצלחנו לצייר את ${c.name}. בעמודים יצויר/תצויר לפי התיאור.", "We couldn't draw ${c.name}. The pages will draw them from the description."), top = 4))
+                content.addView(ui.hint(L.t("לא הצלחנו לצייר את ${c.name}. בעמודים הציור יהיה לפי התיאור.", "We couldn't draw ${c.name}. The pages will draw them from the description."), top = 4))
             } else {
                 content.addView(ImageView(this).apply {
                     adjustViewBounds = true
@@ -594,7 +594,7 @@ class BookActivity : AppCompatActivity() {
                 savedRow(null, CharacterStore.versions(this, saved.member), if (ch.useSaved) ch.saved else null,
                     onPick = { s.useSavedCast(ch.cast.id, it); render() }, onNew = null, newChosen = false)
                 content.addView(ui.hint(if (ch.useSaved) L.t("משתמשים בדמות השמורה. כדי לצייר מחדש, בחרו תמונה למטה.", "Using the saved character. To draw anew, pick a photo below.")
-                    else L.t("יצויר/תצויר מחדש מהתמונה שבחרתם.", "Will be drawn anew from the photo you picked."), top = 2))
+                    else L.t("הדמות תצויר מחדש מהתמונה שבחרתם.", "Will be drawn anew from the photo you picked."), top = 2))
             }
             if (ch.options.isEmpty()) content.addView(ui.hint(L.t("לא מצאנו תמונות של ${ch.cast.name} ברגעים.", "We found no photos of ${ch.cast.name} in your moments."), top = 2))
             val row = ui.horizontal(top = 8)
@@ -702,7 +702,7 @@ class BookActivity : AppCompatActivity() {
         val lines = listOf(
             L.t("מערבבים צבעים...", "Mixing colors..."),
             L.t("מחדדים את העפרונות...", "Sharpening the pencils..."),
-            L.t("${s.childName} נכנס/ת לעמוד הבא...", "${s.childName} steps into the next page..."),
+            L.t("נכנסים לעמוד הבא...", "${s.childName} steps into the next page..."),
             L.t("מוסיפים קצת אור של שקיעה...", "Adding a little sunset light..."),
             L.t("מוודאים שכולם מחייכים...", "Making sure everyone is smiling..."),
             L.t("מפזרים קצת קסם בין השורות...", "Sprinkling a little magic between the lines..."),
