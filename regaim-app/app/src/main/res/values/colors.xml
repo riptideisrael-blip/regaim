@@ -9,6 +9,7 @@
     <color name="ds_card">#FFFFFF</color>            <!-- cards: warm beige -->
     <color name="ds_card_alt">#EEF3F9</color>        <!-- secondary background: champagne -->
     <color name="ds_line">#E4E9F0</color>            <!-- lines and borders -->
+    <color name="ds_field_line">#8A96A6</color>      <!-- a text field's edge: 3:1 on white, so the field is seen -->
     <!-- Brand -->
     <color name="ds_primary">#1A6FCC</color>         <!-- mocha: brand, active, pressed buttons -->
     <color name="ds_button">#1A6FCC</color>          <!-- primary buttons -->

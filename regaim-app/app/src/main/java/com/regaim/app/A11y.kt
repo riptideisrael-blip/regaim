@@ -226,7 +226,9 @@ object A11y {
         return out
     }
 
-    private fun keyOf(v: View): String = (v.contentDescription ?: (v as? TextView)?.text ?: "").toString().trim()
+    /** A screen's own stable name for a view (R.id.tagA11yKey), else its words. */
+    private fun keyOf(v: View): String = (v.getTag(R.id.tagA11yKey) as? String)
+        ?: (v.contentDescription ?: (v as? TextView)?.text ?: "").toString().trim()
 
     /** A tickable item (a moment in selection, a face to correct): said with "ticked" / "not ticked". */
     fun check(v: View, on: () -> Boolean) = ViewCompat.setAccessibilityDelegate(v, object : AccessibilityDelegateCompat() {

@@ -6,4 +6,5 @@
     <item name="tagA11yApplied" type="id" />
     <item name="tagA11yLabel" type="id" />
     <item name="tagA11yAuto" type="id" />
+    <item name="tagA11yKey" type="id" />
 </resources>

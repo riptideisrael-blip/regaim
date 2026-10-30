@@ -54,8 +54,10 @@ class DonutView(ctx: Context) : View(ctx) {
             }
         }
         // The total in the middle, and what it is under it.
-        big.color = ink; big.textSize = width * 0.13f
-        small.color = soft; small.textSize = width * 0.068f
+        // Grows with the phone's font size too (never smaller than 12sp for the caption).
+        val sp = resources.displayMetrics.scaledDensity
+        big.color = ink; big.textSize = maxOf(width * 0.13f, 18 * sp)
+        small.color = soft; small.textSize = maxOf(width * 0.068f, 12 * sp)
         val cy = height / 2f
         c.drawText(center, width / 2f, cy + big.textSize * 0.15f, big)
         c.drawText(caption, width / 2f, cy + big.textSize * 0.15f + small.textSize * 1.5f, small)
