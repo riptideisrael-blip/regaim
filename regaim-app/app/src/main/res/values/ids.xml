@@ -4,4 +4,6 @@
     <item name="fontApplied" type="id" />
     <item name="tagBarsApplied" type="id" />
     <item name="tagA11yApplied" type="id" />
+    <item name="tagA11yLabel" type="id" />
+    <item name="tagA11yAuto" type="id" />
 </resources>

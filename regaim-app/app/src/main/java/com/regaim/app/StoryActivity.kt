@@ -62,6 +62,14 @@ class StoryActivity : AppCompatActivity() {
     private var startedAt = 0L
     private var pausedAt = 0L
     private var paused = false
+    /** Paused with the pause button (stays paused until play), apart from a finger held on the screen. */
+    private var userPaused = false
+    private var muted = false
+    private lateinit var playBtn: TextView
+    private lateinit var muteBtn: TextView
+    private val a11y by lazy { getSystemService(android.view.accessibility.AccessibilityManager::class.java) }
+    /** A screen reader is on: slides wait for "next" instead of moving on by themselves. */
+    private fun screenReader() = a11y?.isTouchExplorationEnabled == true
     private var mood = Music.Mood.WARM
     private lateinit var moodBtn: TextView
     @Volatile private var destroyed = false
@@ -76,7 +84,7 @@ class StoryActivity : AppCompatActivity() {
                 val len = if (slide < 0) INTRO_MS else SLIDE_MS
                 val p = ((System.currentTimeMillis() - startedAt).toFloat() / len).coerceIn(0f, 1f)
                 fills.getOrNull(slide + 1)?.scaleX = p
-                if (p >= 1f && slide < moments.size) go(slide + 1)
+                if (p >= 1f && slide < moments.size && !screenReader()) go(slide + 1)
             }
             ui.postDelayed(this, 50)
         }
@@ -126,10 +134,10 @@ class StoryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (paused && ::video.isInitialized) {
+        if (paused && !userPaused && ::video.isInitialized) {
             startedAt += System.currentTimeMillis() - pausedAt
             paused = false
-            Music.resume(); LicensedMusic.resume()
+            if (!muted) { Music.resume(); LicensedMusic.resume() }
             if (slide in moments.indices && moments[slide].isVideo && moments[slide].previewWindow?.isFallback == false) video.start()
         }
     }
@@ -146,6 +154,8 @@ class StoryActivity : AppCompatActivity() {
     private fun startMusic() {
         val piece = LicensedMusic.forMood(mood)
         moodBtn.text = piece?.let { "♪ " + it.title } ?: mood.title
+        moodBtn.contentDescription = L.t("מוזיקה: ", "Music: ") + (piece?.title ?: mood.title) + L.t(". לחצו להחלפה", ". Tap to change")
+        if (muted) return
         worker.execute {
             // A real recorded piece when one fits the mood; the music composed on the phone otherwise.
             try {
@@ -182,7 +192,7 @@ class StoryActivity : AppCompatActivity() {
         texts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_LOCALE
-            setPadding(dp(24), 0, dp(24), dp(56))
+            setPadding(dp(24), 0, dp(24), dp(96))
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
         }
         root.addView(texts)
@@ -223,7 +233,10 @@ class StoryActivity : AppCompatActivity() {
             text = "✕"
             textSize = 20f
             setTextColor(Color.WHITE)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            gravity = Gravity.CENTER
+            minWidth = dp(48); minHeight = dp(48)
+            contentDescription = L.t("סגירה", "Close")
+            A11y.button(this)
             setOnClickListener { finish() }
         })
         top.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
@@ -232,6 +245,8 @@ class StoryActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0x40FFFFFF) }
             setPadding(dp(12), dp(6), dp(12), dp(6))
+            minHeight = dp(48); gravity = Gravity.CENTER
+            A11y.button(this)
             setOnClickListener {
                 mood = Music.Mood.values()[(mood.ordinal + 1) % Music.Mood.values().size]
                 startMusic()
@@ -239,6 +254,32 @@ class StoryActivity : AppCompatActivity() {
         }
         top.addView(moodBtn)
         root.addView(top)
+
+        // Bottom: previous / pause / next and music on/off, for everyone (and the only way with a screen reader).
+        val ctrl = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutDirection = View.LAYOUT_DIRECTION_LOCALE
+            setPadding(dp(8), 0, dp(8), dp(14))
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
+        }
+        fun control(label: String, said: String, onClick: () -> Unit) = TextView(this).apply {
+            text = label; textSize = 18f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            minWidth = dp(56); minHeight = dp(56)
+            background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0x66000000) }
+            contentDescription = said
+            A11y.button(this)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8); marginEnd = dp(8) }
+            setOnClickListener { onClick() }
+        }
+        // In Hebrew "previous" is on the right and points right (the reading direction).
+        ctrl.addView(control(if (L.isEn) "‹" else "›", L.t("הקודם", "Previous")) { go((slide - 1).coerceAtLeast(-1)) })
+        playBtn = control("⏸", L.t("השהיה", "Pause")) { setUserPaused(!userPaused) }
+        ctrl.addView(playBtn)
+        ctrl.addView(control(if (L.isEn) "›" else "‹", L.t("הבא", "Next")) { go((slide + 1).coerceAtMost(moments.size)) })
+        muteBtn = control("🔊", L.t("השתקת המוזיקה", "Mute the music")) { setMuted(!muted) }
+        ctrl.addView(muteBtn)
+        root.addView(ctrl)
 
         // Tap left / right, hold to pause.
         root.setOnTouchListener { v, e ->
@@ -279,7 +320,23 @@ class StoryActivity : AppCompatActivity() {
         }
     }
 
+    private fun setUserPaused(on: Boolean) {
+        userPaused = on
+        if (on) pause(true) else { paused = true; pause(false) }
+        playBtn.text = if (on) "▶" else "⏸"
+        playBtn.contentDescription = if (on) L.t("המשך", "Play") else L.t("השהיה", "Pause")
+        playBtn.announceForAccessibility(if (on) L.t("מושהה", "Paused") else L.t("ממשיך", "Playing"))
+    }
+
+    private fun setMuted(on: Boolean) {
+        muted = on
+        if (on) { Music.pause(); LicensedMusic.pause() } else startMusic()
+        muteBtn.text = if (on) "🔇" else "🔊"
+        muteBtn.contentDescription = if (on) L.t("הפעלת המוזיקה", "Turn the music on") else L.t("השתקת המוזיקה", "Mute the music")
+    }
+
     private fun pause(on: Boolean) {
+        if (!on && userPaused) return
         if (on == paused) return
         paused = on
         if (on) {
@@ -303,6 +360,13 @@ class StoryActivity : AppCompatActivity() {
             index < moments.size -> moment(moments[index])
             else -> ending()
         }
+        // Said to a screen reader: where we are and what's on it.
+        val said = when {
+            index < 0 -> "$title. " + L.t("${moments.size} רגעים", "${moments.size} moments")
+            index < moments.size -> L.t("${index + 1} מתוך ${moments.size}. ", "${index + 1} of ${moments.size}. ") + Fmt.title(moments[index])
+            else -> L.t("הסוף", "The end")
+        }
+        texts.announceForAccessibility(said)
         texts.alpha = 0f
         texts.translationY = dp(16).toFloat()
         texts.animate().alpha(1f).translationY(0f).setDuration(450).start()

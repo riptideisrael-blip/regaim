@@ -35,7 +35,8 @@ object Motion {
         override fun sizeOf(key: String, value: List<Bitmap>) = value.sumOf { it.byteCount }
     }
 
-    fun enabled(ctx: Context) = Settings.prefs(ctx).getBoolean("motion_on", true)
+    /** Off in the app's settings, or when the phone is set to remove animations (accessibility). */
+    fun enabled(ctx: Context) = Settings.prefs(ctx).getBoolean("motion_on", true) && android.animation.ValueAnimator.areAnimatorsEnabled()
 
     private fun key(m: Memory) = "v2_${m.id}_${m.uri.hashCode()}_${m.durationMs}_${m.previewWindow?.startMs}_${m.previewWindow?.endMs}"
     private fun dir(ctx: Context) = File(ctx.filesDir, "motion").apply { mkdirs() }

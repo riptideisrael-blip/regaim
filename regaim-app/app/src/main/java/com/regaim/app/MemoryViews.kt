@@ -88,7 +88,7 @@ class MemoryViews(private val a: Activity) {
     /** Soft pulse for "we're understanding the moment...". */
     fun pulse(v: View) {
         stopPulse(v)
-        pulses[v] = ObjectAnimator.ofFloat(v, "alpha", 1f, 0.4f).apply {
+        pulses[v] = ObjectAnimator.ofFloat(v, "alpha", 1f, 0.75f).apply {
             duration = 900
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
@@ -577,6 +577,7 @@ class MemoryViews(private val a: Activity) {
 
     fun sectionTitle(text: String, top: Int = 30, icon: Int = 0) = TextView(a).apply {
         this.text = text
+        androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
         textSize = 24f
         typeface = Fonts.display
         setTextColor(color(R.color.ink))
