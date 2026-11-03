@@ -104,8 +104,9 @@ open class SettingsActivity : AppCompatActivity() {
     private fun markSaved() {
         saveBar?.apply {
             text = L.t("✓ הכל שמור", "✓ All saved")
-            backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFEEF3F9.toInt())
-            setTextColor(ui.color(R.color.accent_dark))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(DS.buttonSecondary(this@SettingsActivity))
+            // The darker blue on the light fill (6:1; the brand blue was 4.49:1).
+            setTextColor(DS.buttonPressed(this@SettingsActivity))
         }
     }
 
@@ -158,7 +159,7 @@ open class SettingsActivity : AppCompatActivity() {
             hint = L.t("הקלידו: $word", "Type: $word")
             val p = ui.dp(20); setPadding(p, p / 2, p, p / 2)
         }
-        AlertDialog.Builder(this)
+        val deleteDialog = AlertDialog.Builder(this)
             .setTitle(L.t("למחוק את החשבון לצמיתות?", "Delete your account for good?"))
             .setMessage(L.t(
                 "יימחקו מהשרת של Moments: החשבון; מה ששיתפתם למעגל המשפחה ולהורה השני (רגעים, תמונות הילדים, הסרטים של פיצקי, עם התגובות וההודעות שלכם); הפריטים ששלחתם לתיק המשפחה המשותף; הפוסטים והספרים בקהילה; קובצי הדפסה; קרדיטים ורכישות; דוחות קריסה; ומפתח הגיבוי. מעגל משפחה שאתם מנהלים יעבור לבן המשפחה שהצטרף ראשון, ואם אין אף אחד, יימחק.\n\n" +
@@ -169,11 +170,16 @@ open class SettingsActivity : AppCompatActivity() {
                     "What the other parent kept on their phone stays with them. The memories on this phone stay on it: to delete them too, uninstall the app.\n\nThis can't be undone.",
             ))
             .setView(field)
-            .setPositiveButton(L.t("מחיקה לצמיתות", "Delete for good")) { _, _ ->
+            // Checked below: a wrong word keeps the window open, with the error on the field.
+            .setPositiveButton(L.t("מחיקה לצמיתות", "Delete for good"), null)
+            .setNegativeButton(L.t("ביטול", "Cancel"), null)
+            .show()
+        deleteDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (field.text.toString().trim() != word) {
-                    Toast.makeText(this, L.t("לא נמחק: צריך להקליד \"$word\"", "Not deleted: type \"$word\""), Toast.LENGTH_LONG).show()
-                    return@setPositiveButton
+                    ErrorLine.field(field, L.t("לא נמחק: צריך להקליד \"$word\"", "Not deleted: type \"$word\""))
+                    return@setOnClickListener
                 }
+                deleteDialog.dismiss()
                 Toast.makeText(this, L.t("מוחקים את החשבון...", "Deleting your account..."), Toast.LENGTH_SHORT).show()
                 worker.execute {
                     val err = try {
@@ -190,13 +196,15 @@ open class SettingsActivity : AppCompatActivity() {
                     }
                     runOnUiThread {
                         if (isFinishing) return@runOnUiThread
-                        Toast.makeText(this, err ?: L.t("החשבון נמחק", "Your account was deleted"), Toast.LENGTH_LONG).show()
+                        // A failure stays on the screen (a toast disappears); the result is said either way.
+                        if (err != null) AlertDialog.Builder(this).setTitle(L.t("החשבון לא נמחק", "The account wasn't deleted")).setMessage(err)
+                            .setPositiveButton(L.t("הבנתי", "OK"), null).show()
+                        else Toast.makeText(this, L.t("החשבון נמחק", "Your account was deleted"), Toast.LENGTH_LONG).show()
+                        content.announceForAccessibility(err ?: L.t("החשבון נמחק", "Your account was deleted"))
                         render()
                     }
                 }
             }
-            .setNegativeButton(L.t("ביטול", "Cancel"), null)
-            .show()
     }
 
     private fun render() {
@@ -215,7 +223,7 @@ open class SettingsActivity : AppCompatActivity() {
             phrasesField?.let { Settings.putString(this, "phrases", it.text.toString()) }
             advanced = !advanced
             render()
-        })
+        }.apply { A11y.expanded(this, advanced) })
         if (advanced || this !is ProfileActivity) {
             triggersSection()
             cameraSection()
@@ -227,6 +235,18 @@ open class SettingsActivity : AppCompatActivity() {
             findViewById<View>(R.id.screenScroll).scrollTo(0, y)
             rendering = false
         }
+        quietEmoji(content)
+    }
+
+    /**
+     * The emoji at the start of rows and switches ("🌐 שפה", "🤗 חיבוק") are left out of what a screen reader says:
+     * it read their long names before every word.
+     */
+    private fun quietEmoji(v: View) {
+        val cd = v.contentDescription
+        if (cd != null) A11y.spoken(cd)?.let { v.contentDescription = it }
+        else if (v is android.widget.CompoundButton) A11y.spoken(v.text)?.let { v.contentDescription = it }
+        if (v is android.view.ViewGroup) for (i in 0 until v.childCount) quietEmoji(v.getChildAt(i))
     }
 
     // ---------- language ----------
@@ -280,6 +300,8 @@ open class SettingsActivity : AppCompatActivity() {
 
     private enum class Upd { IDLE, CHECKING, NONE, FOUND, DOWNLOADING, READY, FAILED }
     private var upd = Upd.IDLE
+    /** The update state last said to a screen reader. */
+    private var updSaid: Upd? = null
     private var updInfo: AppUpdate.Info? = null
     private var updFile: File? = null
     private var updProgress = 0
@@ -300,7 +322,7 @@ open class SettingsActivity : AppCompatActivity() {
         val card = updCard ?: return
         card.removeAllViews()
         val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "" }
-        card.addView(ui.text("⬆️ " + L.t("עדכון גרסה", "App updates"), 16f, top = 0).apply { typeface = DS.emphasis })
+        card.addView(ui.text("⬆️ " + L.t("עדכון גרסה", "App updates"), 16f, top = 0).apply { typeface = DS.emphasis; A11y.heading(this) })
         card.addView(ui.hint(L.t("מותקנת: ${UpdatePrompt.shown(version)}", "Installed: ${UpdatePrompt.shown(version)}"), top = 2))
         // Admin only: try the protected (R8: smaller, its code scrambled) build here first, before the families get it.
         if (Account.isAdmin(this)) {
@@ -321,7 +343,7 @@ open class SettingsActivity : AppCompatActivity() {
         when (upd) {
             Upd.IDLE, Upd.NONE, Upd.FAILED -> {
                 if (upd == Upd.NONE) card.addView(ui.text(L.t("✓ יש לך את הגרסה הכי חדשה", "✓ You have the newest version"), 14f, top = 8))
-                if (upd == Upd.FAILED) card.addView(ui.text(updError, 14f, R.color.ink_soft, top = 8))
+                if (upd == Upd.FAILED) card.addView(ErrorLine.make(this, top = 8).also { ErrorLine.show(it, updError) })
                 card.addView(ui.button(L.t("לבדוק אם יש גרסה חדשה", "Check for a new version"), top = 8) { checkUpdate() })
             }
             Upd.CHECKING -> card.addView(ui.text(L.t("בודקים…", "Checking…"), 14f, top = 8))
@@ -334,6 +356,20 @@ open class SettingsActivity : AppCompatActivity() {
                 card.addView(ui.text(L.t("הגרסה ירדה. באישור של אנדרואיד היא תותקן, והזיכרונות נשארים.", "Downloaded. Once Android approves, it installs, and your memories stay."), 14f, top = 8))
                 card.addView(ui.button(L.t("להתקין עכשיו", "Install now"), primary = true, top = 8) { updFile?.let { installUpdate(it) } })
             }
+        }
+        // Said once when the state changes (the card is drawn again for each step of the download).
+        if (upd != updSaid) {
+            updSaid = upd
+            val said = when (upd) {
+                Upd.CHECKING -> L.t("בודקים אם יש גרסה חדשה", "Checking for a new version")
+                Upd.NONE -> L.t("יש לך את הגרסה הכי חדשה", "You have the newest version")
+                Upd.FAILED -> updError
+                Upd.FOUND -> L.t("יש גרסה חדשה", "A new version is available")
+                Upd.DOWNLOADING -> L.t("מורידים את הגרסה", "Downloading the update")
+                Upd.READY -> L.t("הגרסה ירדה", "The update downloaded")
+                else -> ""
+            }
+            if (said.isNotEmpty()) card.announceForAccessibility(said)
         }
     }
 
@@ -348,7 +384,8 @@ open class SettingsActivity : AppCompatActivity() {
                     upd = if (AppUpdate.isNewer(info, AppUpdater.installed(this))) Upd.FOUND else Upd.NONE
                 }.onFailure {
                     upd = Upd.FAILED
-                    updError = it.message ?: L.t("אין חיבור לרשת", "No connection")
+                    updError = if (it is java.io.IOException) L.t("אין חיבור לרשת. נסו שוב כשיש אינטרנט.", "No connection. Try again when you're online.")
+                        else L.t("לא הצלחנו לבדוק אם יש גרסה חדשה. נסו שוב.", "Couldn't check for a new version. Try again.")
                 }
                 fillUpdate()
             }
@@ -362,7 +399,8 @@ open class SettingsActivity : AppCompatActivity() {
             var last = -1
             val result = try {
                 Result.success(AppUpdater.download(this, info) { p ->
-                    if (p != last) { last = p; runOnUiThread { if (upd == Upd.DOWNLOADING) { updProgress = p; fillUpdate() } } }
+                    // Shown in steps of 10% (drawing it on every percent moved a screen reader's place each time).
+                    if (p != last && (p % 10 == 0 || p >= 100)) { last = p; runOnUiThread { if (upd == Upd.DOWNLOADING) { updProgress = p; fillUpdate() } } }
                 })
             } catch (e: Exception) { Result.failure(e) }
             runOnUiThread {
@@ -451,7 +489,7 @@ open class SettingsActivity : AppCompatActivity() {
         val all = MemoryStore.kept(this)
         accountCard()
         val card = ui.card(top = 8)
-        card.addView(ui.text(Profile.homeTitle(this), 22f, bold = true))
+        card.addView(ui.text(Profile.homeTitle(this), 22f, bold = true).apply { A11y.heading(this) })
         val members = Profile.members(this)
         val line = listOf(
             L.t("${all.size} זיכרונות", "${all.size} memories"),
@@ -479,12 +517,13 @@ open class SettingsActivity : AppCompatActivity() {
         content.addView(ui.hint(L.t("עוזר ל-AI לכתוב עליכם נכון, ולזהות אבני דרך שמתאימות לגיל.", "Helps the AI write about you accurately and spot age-appropriate milestones.")))
         val card = ui.card()
         card.addView(ui.text(L.t("שם המשפחה", "Family name"), 14f, R.color.ink_soft))
-        familyField = ui.field(L.t("שם המשפחה שלכם", "Your family name"), Profile.familyName(this), top = 4).also { card.addView(it) }
+        familyField = ui.field(L.t("שם המשפחה שלכם", "Your family name"), Profile.familyName(this), top = 4, kind = Ui.Kind.NAME).also { card.addView(it) }
         card.addView(ui.text(L.t("השם שלך", "Your name"), 14f, R.color.ink_soft, top = 10))
-        parentField = ui.field(L.t("איך לקרוא לך?", "What should we call you?"), Profile.parentName(this), top = 4).also { card.addView(it) }
+        parentField = ui.field(L.t("איך לקרוא לך?", "What should we call you?"), Profile.parentName(this), top = 4, kind = Ui.Kind.NAME).also { card.addView(it) }
         role = Profile.role(this)
         val roles = listOf("אני", "אבא", "אמא", "סבא", "סבתא", "אחר")
-        card.addView(ui.chips(roles.map { Profile.relationLabel(it) }, roles.indexOf(role), top = 10) { i ->
+        card.addView(ui.text(L.t("מי אתם במשפחה", "Who you are in the family"), 14f, R.color.ink_soft, top = 10))
+        card.addView(ui.chips(roles.map { Profile.relationLabel(it) }, roles.indexOf(role), top = 4, label = L.t("מי אתם במשפחה", "Who you are in the family")) { i ->
             role = roles[i]
             saveParent()
         })
@@ -514,10 +553,12 @@ open class SettingsActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(ui.dp(20), ui.dp(8), ui.dp(20), 0)
         }
-        val name = ui.field(L.t("שם", "Name"), old?.name ?: "")
+        val name = ui.field(L.t("שם", "Name"), old?.name ?: "", kind = Ui.Kind.NAME)
+        box.addView(ui.text(L.t("שם (חובה)", "Name (required)"), 14f, R.color.ink_soft, top = 4).apply { setTag(R.id.tagA11yLabel, true) })
         box.addView(name)
         val relations = listOf("בן זוג", "בת זוג", "ילד", "ילדה", "אבא", "אמא", "סבא", "סבתא", "אח", "אחות", "בן משפחה", "בת משפחה", "כלב", "חתול", "חיית מחמד")
-        box.addView(ui.chips(relations.map { Profile.relationLabel(it) }, relations.indexOf(relation), top = 8) { relation = relations[it] })
+        box.addView(ui.text(L.t("קרבה", "Relation"), 14f, R.color.ink_soft, top = 10))
+        box.addView(ui.chips(relations.map { Profile.relationLabel(it) }, relations.indexOf(relation), top = 4, label = L.t("קרבה", "Relation")) { relation = relations[it] })
         // The profile photo itself, shown (round), so it's clear which photo is set.
         val avatar = android.widget.ImageView(this).apply {
             scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
@@ -571,8 +612,7 @@ open class SettingsActivity : AppCompatActivity() {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val n = name.text.toString().trim()
             if (n.isEmpty()) {
-                name.error = L.t("צריך לכתוב שם", "Please write a name")
-                name.requestFocus()
+                ErrorLine.field(name, L.t("צריך לכתוב שם", "Please write a name"))
                 return@setOnClickListener
             }
             // Moments find people by name: two people with the same name would get mixed up everywhere.
@@ -581,7 +621,7 @@ open class SettingsActivity : AppCompatActivity() {
                     "כבר יש במשפחה \"${other.name}\". הוסיפו משהו שמבדיל, למשל \"$n סבא\" או \"$n הקטן\".",
                     "There's already \"${other.name}\" in the family. Add something that tells them apart, like \"Grandpa $n\".",
                 )
-                name.requestFocus()
+                ErrorLine.field(name, name.error.toString())
                 return@setOnClickListener
             }
             val updated = FamilyMember(memberId, n, relation, birth, photo)
@@ -629,6 +669,8 @@ open class SettingsActivity : AppCompatActivity() {
         val bar = SeekBar(this).apply {
             max = 55
             progress = ((0.6f - Status.threshold) * 100).roundToInt().coerceIn(0, 55)
+            contentDescription = L.t("רגישות לזיהוי צחוק", "Laughter sensitivity")
+            minimumHeight = ui.dp(48)
         }
         fun showLabel() {
             val p = bar.progress
@@ -639,6 +681,8 @@ open class SettingsActivity : AppCompatActivity() {
                 else -> L.t("נמוכה", "low")
             }
             label.text = L.t("רגישות: $word (שומר כשהצחוק מעל ${(Status.threshold * 100).roundToInt()}%)", "Sensitivity: $word (saves when laughter is above ${(Status.threshold * 100).roundToInt()}%)")
+            // The level in words for a screen reader (not the bar's raw percent).
+            androidx.core.view.ViewCompat.setStateDescription(bar, word)
         }
         bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
@@ -652,10 +696,10 @@ open class SettingsActivity : AppCompatActivity() {
         showLabel()
         card.addView(label)
         card.addView(bar)
-        card.addView(ui.hint(L.t("נשמרים רגעים מיותרים? הזז שמאלה. מפספס צחוקים? הזז ימינה.", "Saving too much? Slide left. Missing laughs? Slide right.")))
+        card.addView(ui.hint(L.t("נשמרים רגעים מיותרים? הורידו את הרגישות. מפספס צחוקים? העלו אותה.", "Saving too much? Lower the sensitivity. Missing laughs? Raise it.")))
         card.addView(ui.text(L.t("זמן מינימלי בין רגעים אוטומטיים", "Minimum time between automatic moments"), 15f, top = 14))
         val gaps = listOf(1, 3, 5, 10)
-        card.addView(ui.chips(gaps.map { L.t("$it דק׳", "$it min") }, gaps.indexOf(Status.gapMin).coerceAtLeast(0), top = 6) { i ->
+        card.addView(ui.chips(gaps.map { L.t("$it דקות", "$it min") }, gaps.indexOf(Status.gapMin).coerceAtLeast(0), top = 6, label = L.t("זמן מינימלי בין רגעים", "Minimum time between moments")) { i ->
             Status.gapMin = gaps[i]
             Settings.putInt(this, "gap_min", gaps[i])
         })

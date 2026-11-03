@@ -82,7 +82,7 @@ class FamilyFileActivity : AppCompatActivity() {
         ui = Ui(this)
         child = intent.getStringExtra(EXTRA_CHILD).orEmpty()
         // The search box stays put; everything under it is redrawn.
-        screen.addView(ui.field(L.t("🔍 חיפוש: רשת, קוד, סכום, ילד, תאריך…", "🔍 Search: chain, code, amount, child, date…"), "", top = 12).apply {
+        screen.addView(ui.field(L.t("חיפוש: רשת, קוד, סכום, ילד, תאריך…", "Search: chain, code, amount, child, date…"), "", top = 12).apply {
             isSingleLine = true
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             addTextChangedListener(object : android.text.TextWatcher {
@@ -114,6 +114,8 @@ class FamilyFileActivity : AppCompatActivity() {
     }
 
     private var consentAsked = false
+    /** The search's count last said to a screen reader. */
+    private var lastFoundSaid = ""
 
     /**
      * What the file does changed (sharing, savings reports, backup): a parent who agreed to the earlier words reads
@@ -156,7 +158,7 @@ class FamilyFileActivity : AppCompatActivity() {
         if (kids.isNotEmpty()) {
             val labels = listOf(L.t("כולם", "Everyone")) + kids.map { it.name }
             val sel = kids.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
-            content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
+            content.addView(ui.chips(labels, sel, top = 12, label = L.t("של מי", "Whose")) { i -> child = if (i == 0) "" else kids[i - 1].id; render() })
         }
         if (query.isNotEmpty()) { searchResults(byChild, names, today); return }
 
@@ -175,12 +177,12 @@ class FamilyFileActivity : AppCompatActivity() {
         if (cats.size > 1 && (tile == FamilyItems.Tile.RECEIPTS || tile == FamilyItems.Tile.DOCUMENTS)) {
             val labels = listOf(L.t("כל הקטגוריות", "All categories")) + cats.map { it.label }
             val sel = cats.indexOfFirst { it.id == category }.let { if (it < 0) 0 else it + 1 }
-            content.addView(ui.chips(labels, sel, top = 6) { i -> category = if (i == 0) "" else cats[i - 1].id; render() })
+            content.addView(ui.chips(labels, sel, top = 6, label = L.t("קטגוריה", "Category")) { i -> category = if (i == 0) "" else cats[i - 1].id; render() })
         }
 
         if (shown.isEmpty()) {
             content.addView(ui.card(top = 16).apply {
-                addView(ui.text(L.t("התיק עוד ריק", "The file is empty"), 17f, bold = true))
+                addView(ui.text(L.t("התיק עוד ריק", "The file is empty"), 17f, bold = true).apply { A11y.heading(this) })
                 addView(ui.hint(L.t("שתפו לכאן קבלה, תעודת אחריות, זיכוי, פתק החלפה, קופון או שובר. נזכיר לכם לפני שהתוקף נגמר. הכול נשמר רק בטלפון הזה, מוצפן.", "Share a receipt, a warranty, a store credit, an exchange slip, a coupon or a voucher here. We'll remind you before it runs out. Everything stays on this phone, encrypted."), top = 4))
             })
             addButtons()
@@ -216,7 +218,11 @@ class FamilyFileActivity : AppCompatActivity() {
             if (running.isNotEmpty()) content.addView(list(running.sortedBy { it.expires.ifEmpty { "9999" } }, names, today))
             if (ended.isNotEmpty()) {
                 val isOpen = "#ended" in open
-                content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("הסתיימו · ${ended.size}", "Ended · ${ended.size}"), R.color.ink_soft) { toggle("#ended") })
+                content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("הסתיימו · ${ended.size}", "Ended · ${ended.size}"), R.color.ink_soft) { toggle("#ended") }.apply {
+                    contentDescription = L.t("הסתיימו, ${ended.size}", "Ended, ${ended.size}")
+                    A11y.expanded(this, isOpen)
+                    setTag(R.id.tagA11yKey, "fold:ended")
+                })
                 if (isOpen) content.addView(list(ended.sortedByDescending { it.expires }, names, today))
             }
         }
@@ -232,7 +238,7 @@ class FamilyFileActivity : AppCompatActivity() {
 
     private fun addButtons() {
         // The file's settings, together and quiet at the end.
-        content.addView(ui.text(L.t("הגדרות התיק", "File settings"), 13f, R.color.ink_soft, bold = true, top = 26))
+        content.addView(ui.text(L.t("הגדרות התיק", "File settings"), 13f, R.color.ink_soft, bold = true, top = 26).apply { A11y.heading(this) })
         content.addView(ui.hint(L.t("אפשר גם לשתף לכאן מכל אפליקציה (וואטסאפ, מייל, גלריה): שתף ← Moments · תיק המשפחה.", "You can also share here from any app (WhatsApp, email, gallery): Share → Moments · family file."), top = 6))
         if (FamilyFile.all(this).isNotEmpty()) content.addView(ui.switch(L.t("תזכורת לפני שאחריות, זיכוי, שובר או פתק החלפה נגמרים", "Remind me before a warranty, credit, voucher or exchange slip runs out"), FamilyFileReminders.on(this), top = 14) { on -> FamilyFileReminders.setOn(this, on) })
         // Sharing with the other parent: each of them turns it on, after reading what it means.
@@ -481,22 +487,32 @@ class FamilyFileActivity : AppCompatActivity() {
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ui.dp(8) }
                 })
-                contentDescription = (listOf(c.name) + sub + listOfNotNull(c.total.takeIf { it > 0 }?.let { FamilyItems.money(it) }) +
-                    (if (isOpen) L.t("פתוח", "Open") else L.t("סגור", "Closed"))).joinToString(", ")
+                contentDescription = (listOf(c.name) + sub + listOfNotNull(c.total.takeIf { it > 0 }?.let { FamilyItems.money(it) })).joinToString(", ")
+                // Open / closed as a state (the words stay the same, so the reader keeps its place after the tap).
+                A11y.expanded(this, isOpen)
+                setTag(R.id.tagA11yKey, "chain:${c.name}")
+                A11y.button(this)
                 setOnClickListener { toggle(c.name) }
                 setOnLongClickListener { deleteChain(c); true }
+                A11y.longPress(this, L.t("מחיקת כל ${c.name}", "Delete all of ${c.name}"))
             })
             if (isOpen) {
                 c.items.forEach { i -> card.addView(divider(52)); card.addView(voucherRow(i, today)) }
                 card.addView(divider(0))
-                card.addView(ui.action(L.t("🗑 מחיקת כל ${c.name}", "🗑 Delete all of ${c.name}"), R.color.ds_error) { deleteChain(c) })
+                card.addView(ui.action(L.t("🗑 מחיקת כל ${c.name}", "🗑 Delete all of ${c.name}"), R.color.ds_error) { deleteChain(c) }.apply {
+                    contentDescription = L.t("מחיקת כל ${c.name}", "Delete all of ${c.name}")
+                })
             }
             content.addView(card)
         }
 
         if (expired.isNotEmpty()) {
             val isOpen = "" in open
-            content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("פג תוקף · ${expired.size}", "Expired · ${expired.size}"), R.color.ink_soft) { toggle("") })
+            content.addView(ui.action((if (isOpen) "⌃ " else "⌄ ") + L.t("פג תוקף · ${expired.size}", "Expired · ${expired.size}"), R.color.ink_soft) { toggle("") }.apply {
+                contentDescription = L.t("פג תוקף, ${expired.size}", "Expired, ${expired.size}")
+                A11y.expanded(this, isOpen)
+                setTag(R.id.tagA11yKey, "fold:expired")
+            })
             if (isOpen) content.addView(list(expired.sortedByDescending { it.expires }, names, today))
         }
     }
@@ -542,7 +558,8 @@ class FamilyFileActivity : AppCompatActivity() {
             val w = FamilyItems.worth(i)
             if (w > 0) addView(amount(FamilyItems.money(w), 15f, DS.ink(this@FamilyFileActivity)))
             addView(View(this@FamilyFileActivity).apply { layoutParams = LinearLayout.LayoutParams(ui.dp(22), 1) })
-            contentDescription = (listOf(title) + meta + listOfNotNull(w.takeIf { it > 0 }?.let { FamilyItems.money(it) })).joinToString(", ")
+            contentDescription = (listOf(title) + meta.map { it.removePrefix("📷 ") } + listOfNotNull(w.takeIf { it > 0 }?.let { FamilyItems.money(it) })).joinToString(", ")
+            A11y.button(this)
             setOnClickListener { FamilyItemActivity.open(this@FamilyFileActivity, i.id) }
         }
     }
@@ -584,14 +601,18 @@ class FamilyFileActivity : AppCompatActivity() {
                     orientation = LinearLayout.VERTICAL
                     setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12)); minimumHeight = ui.dp(88)
                     background = DS.rounded(if (on) DS.selected(this@FamilyFileActivity) else DS.card(this@FamilyFileActivity), ui.dp(16).toFloat(), ui.dp(1), if (on) DS.primary(this@FamilyFileActivity) else DS.line(this@FamilyFileActivity))
-                    val ink = if (on) DS.primary(this@FamilyFileActivity) else DS.ink(this@FamilyFileActivity)
-                    val soft = if (on) DS.primary(this@FamilyFileActivity) else DS.inkSoft(this@FamilyFileActivity)
+                    val ink = if (on) DS.buttonPressed(this@FamilyFileActivity) else DS.ink(this@FamilyFileActivity)
+                    val soft = if (on) DS.buttonPressed(this@FamilyFileActivity) else DS.inkSoft(this@FamilyFileActivity)
                     addView(TextView(this@FamilyFileActivity).apply { text = t.label; textSize = 14f; setTextColor(soft); typeface = DS.emphasis })
                     addView(amount(big, 22f, ink).apply { setPadding(0, ui.dp(4), 0, 0) })
-                    addView(TextView(this@FamilyFileActivity).apply { text = small; textSize = 12.5f; setTextColor(soft) })
+                    addView(TextView(this@FamilyFileActivity).apply { text = small; textSize = 13f; setTextColor(soft) })
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (n == 0) marginEnd = ui.dp(10) }
                     isClickable = true
-                    contentDescription = listOf(t.label, big, small, if (on) L.t("נבחר. נגיעה מציגה הכול", "Selected. Tap to show everything") else L.t("נגיעה מציגה רק את זה", "Tap to show only this")).joinToString(", ")
+                    contentDescription = listOf(t.label, big, small).joinToString(", ")
+                    // Selected or not as a state; the hint of what a tap does stays the same, so the place is kept.
+                    isSelected = on
+                    androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר. נגיעה מציגה הכול", "Selected. Tap to show everything") else null)
+                    setTag(R.id.tagA11yKey, "tile:${t.name}")
                     A11y.button(this)
                     setOnClickListener { tile = if (on) null else t; category = ""; render() }
                 })
@@ -615,7 +636,11 @@ class FamilyFileActivity : AppCompatActivity() {
             })
             if (picked.isNotEmpty()) content.addView(list(picked, names, today))
         }
-        content.addView(header(if (found.isEmpty()) L.t("אין התאמה מדויקת", "No exact match") else L.t("נמצאו ${found.size}", "${found.size} found"), ""))
+        content.addView(header(if (found.isEmpty()) L.t("אין התאמה מדויקת", "No exact match") else L.t("נמצאו ${found.size}", "${found.size} found"), "").apply {
+            // The count is read out as the search changes (said once per count, not on every letter).
+            val said = if (found.isEmpty()) L.t("אין התאמה מדויקת", "No exact match") else L.t("נמצאו ${found.size}", "${found.size} found")
+            if (said != lastFoundSaid) { lastFoundSaid = said; post { announceForAccessibility(said) } }
+        })
         if (found.isNotEmpty()) content.addView(list(found.sortedWith(compareBy<FamilyItems.Item> { FamilyItems.expired(it, today) }.thenByDescending { it.date.ifEmpty { it.expires } }).take(60), names, today))
         if (ai == null) {
             content.addView(ui.button(if (smartBusy) L.t("מחפשים…", "Searching…") else L.t("✨ חיפוש חכם: \"$query\"", "✨ Smart search: \"$query\""), top = 14) { smartSearch() }.apply { isEnabled = !smartBusy })
@@ -651,7 +676,7 @@ class FamilyFileActivity : AppCompatActivity() {
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 smartBusy = false
-                r.onSuccess { smart = it; smartFor = q }.onFailure {
+                r.onSuccess { smart = it; smartFor = q; content.announceForAccessibility(it.first.ifBlank { L.t("החיפוש החכם הסתיים", "Smart search finished") }) }.onFailure {
                     android.widget.Toast.makeText(this, Wording.forParent(it.message, admin = false, fallback = L.t("החיפוש החכם לא הצליח הפעם. החיפוש הרגיל עובד.", "Smart search didn't work this time. The regular search works.")), android.widget.Toast.LENGTH_LONG).show()
                 }
                 render()
@@ -669,7 +694,7 @@ class FamilyFileActivity : AppCompatActivity() {
         )
         acts.forEachIndexed { n, (icon, label, go) ->
             val main = n == 0
-            val ink = DS.primary(this)
+            val ink = if (main) DS.buttonPressed(this) else DS.primary(this)
             row.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                 setPadding(ui.dp(6), ui.dp(12), ui.dp(6), ui.dp(12)); minimumHeight = ui.dp(76)
@@ -709,7 +734,8 @@ class FamilyFileActivity : AppCompatActivity() {
             if (monthly > 0) addView(TextView(this@FamilyFileActivity).apply { text = L.t("+${FamilyItems.money(monthly)} בחודש", "+${FamilyItems.money(monthly)} a month"); textSize = 12f; setTextColor(DS.inkSoft(this@FamilyFileActivity)) })
         })
         addView(TextView(this@FamilyFileActivity).apply { text = "›"; textSize = 24f; setTextColor(DS.inkSoft(this@FamilyFileActivity)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
-        contentDescription = L.t("חיסכון והשקעות, ${FamilyItems.money(Math.rint(total))}", "Savings and investments, ${FamilyItems.money(Math.rint(total))}")
+        contentDescription = L.t("חיסכון והשקעות, ${FamilyItems.money(Math.rint(total))}", "Savings and investments, ${FamilyItems.money(Math.rint(total))}") +
+            (if (monthly > 0) L.t(", +${FamilyItems.money(monthly)} בחודש", ", +${FamilyItems.money(monthly)} a month") else "")
         A11y.button(this)
         setOnClickListener { SavingsActivity.open(this@FamilyFileActivity, child) }
     }

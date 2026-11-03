@@ -181,7 +181,7 @@ class FamilyImportActivity : AppCompatActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(0, ui.dp(10), 0, ui.dp(10)); minimumHeight = ui.dp(56)
-            alpha = if (d.expired(today) || isIn) 0.6f else 1f
+            // (Not faded: the words "expired" / "already in the file" say it, and faded text was too faint to read.)
             background = android.util.TypedValue().let { tv -> theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true); getDrawable(tv.resourceId) }
             addView(box)
             addView(LinearLayout(this@FamilyImportActivity).apply {
@@ -198,7 +198,10 @@ class FamilyImportActivity : AppCompatActivity() {
                 })
             })
             d.value?.let { addView(amount(FamilyItems.money(it), 15f, DS.ink(this@FamilyImportActivity))) }
-            contentDescription = (listOf(if (box.isChecked) L.t("מסומן", "Ticked") else L.t("לא מסומן", "Not ticked"), title) + meta + listOfNotNull(d.value?.let { FamilyItems.money(it) })).joinToString(", ")
+            // Ticked or not as the checkbox's own state (the words stay the same, so the reader keeps its place).
+            contentDescription = (listOf(title) + meta.map { it.removePrefix("⚠ ") } + listOfNotNull(d.value?.let { FamilyItems.money(it) })).joinToString(", ")
+            A11y.check(this) { idx in chosen }
+            setTag(R.id.tagA11yKey, "draft:$idx")
             setOnClickListener {
                 if (idx in chosen) chosen -= idx else chosen += idx
                 val y = (content.parent as? View)?.scrollY ?: 0
@@ -222,7 +225,12 @@ class FamilyImportActivity : AppCompatActivity() {
                 r.onSuccess { n ->
                     Toast.makeText(this, L.t("נוספו $n פריטים לתיק המשפחה ✓", "Added $n items to the family file ✓"), Toast.LENGTH_SHORT).show()
                     finish()
-                }.onFailure { Toast.makeText(this, L.t("לא הצלחנו לשמור (אולי אין מקום בטלפון)", "Couldn't save (maybe the phone is full)"), Toast.LENGTH_LONG).show() }
+                }.onFailure {
+                    // Stays on the screen (not only a toast) and is read out.
+                    androidx.appcompat.app.AlertDialog.Builder(this).setTitle(L.t("הייבוא לא נשמר", "The import wasn't saved"))
+                        .setMessage(L.t("לא הצלחנו לשמור (אולי אין מקום בטלפון). נסו שוב.", "Couldn't save (maybe the phone is full). Try again."))
+                        .setPositiveButton(L.t("הבנתי", "OK"), null).show()
+                }
             }
         }
     }

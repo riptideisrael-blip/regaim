@@ -176,6 +176,7 @@ class BackupActivity : AppCompatActivity() {
                 if (isFinishing) return@runOnUiThread
                 if (why != null && !why.startsWith(L.t("שוחזר", "Restored"))) { say(why); return@runOnUiThread }
                 AlertDialog.Builder(this)
+                    .setTitle(L.t("הגיבוי שוחזר", "Backup restored"))
                     .setMessage(why ?: L.t("✓ שוחזר. האפליקציה תיפתח מחדש.", "✓ Restored. The app will restart."))
                     .setCancelable(false)
                     .setPositiveButton(L.t("אישור", "OK")) { _, _ ->

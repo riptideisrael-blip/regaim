@@ -70,7 +70,8 @@ class SavingsActivity : AppCompatActivity() {
 
     private fun amount(text: String, size: Float, color: Int) = TextView(this).apply {
         this.text = text; textSize = size; setTextColor(color); typeface = Typeface.create(DS.emphasis, Typeface.BOLD)
-        textDirection = View.TEXT_DIRECTION_LTR; maxLines = 1
+        // Two lines when the font is large (one line cut big amounts off).
+        textDirection = View.TEXT_DIRECTION_LTR; maxLines = 2
     }
 
     private fun render() {
@@ -86,7 +87,7 @@ class SavingsActivity : AppCompatActivity() {
         if (choosable.size > 1) {
             val labels = listOf(L.t("כולם", "Everyone")) + choosable.map { it.name }
             val sel = choosable.indexOfFirst { it.id == child }.let { if (it < 0) 0 else it + 1 }
-            content.addView(ui.chips(labels, sel, top = 12) { i -> child = if (i == 0) "" else choosable[i - 1].id; render() })
+            content.addView(ui.chips(labels, sel, top = 12, label = L.t("של מי", "Whose")) { i -> child = if (i == 0) "" else choosable[i - 1].id; render() })
         }
 
         // The portfolio at a glance: a ring of what it's made of, and the three numbers that matter.
@@ -212,18 +213,18 @@ class SavingsActivity : AppCompatActivity() {
         val years = calcYears ?: to18 ?: 18.0
         val card = ui.card(top = 12)
         card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
-        card.addView(ui.text(L.t("מחשבון: כמה יהיה בקופה", "Calculator: how much there could be"), 16f, bold = true))
+        card.addView(ui.text(L.t("מחשבון: כמה יהיה בקופה", "Calculator: how much there could be"), 16f, bold = true).apply { A11y.heading(this) })
 
         card.addView(ui.text(L.t("תשואה שנתית", "Yearly return"), 13f, R.color.ink_soft, bold = true, top = 10))
         val rates = listOf(4.0, 6.0, 8.0, 10.0)
-        card.addView(ui.chips(rates.map { "${it.toInt()}%" }, rates.indexOf(calcRate), top = 4) { i -> calcRate = rates[i]; render() })
+        card.addView(ui.chips(rates.map { "${it.toInt()}%" }, rates.indexOf(calcRate), top = 4, label = L.t("תשואה שנתית", "Yearly return")) { i -> calcRate = rates[i]; render() })
         card.addView(ui.text(L.t("לכמה זמן", "For how long"), 13f, R.color.ink_soft, bold = true, top = 10))
         val spans: List<Pair<String, Double?>> = listOfNotNull(
             to18?.let { L.t("עד גיל 18", "Until 18") to null },
             L.t("5 שנים", "5 years") to 5.0, L.t("10 שנים", "10 years") to 10.0, L.t("18 שנים", "18 years") to 18.0, L.t("25 שנים", "25 years") to 25.0,
         )
         val selected = spans.indexOfFirst { it.second == calcYears }.let { if (it < 0) 0 else it }
-        card.addView(ui.chips(spans.map { it.first }, selected, top = 4) { i -> calcYears = spans[i].second; render() })
+        card.addView(ui.chips(spans.map { it.first }, selected, top = 4, label = L.t("לכמה זמן", "For how long")) { i -> calcYears = spans[i].second; render() })
 
         val monthlyNow = funds.sumOf { it.perMonth }
         card.addView(ui.text(L.t("הפקדה חודשית ב-₪", "Each month in ₪"), 13f, R.color.ink_soft, bold = true, top = 10))
@@ -233,7 +234,8 @@ class SavingsActivity : AppCompatActivity() {
         card.addView(monthlyField)
 
         val result = amount("", 28f, DS.ink(this)).apply { setPadding(0, ui.dp(14), 0, 0) }
-        val split = ui.hint("", top = 2)
+        // The result in words, read out as it changes.
+        val split = ui.hint("", top = 2).apply { A11y.live(this) }
         val chart = GrowthChartView(this).apply {
             deposits = 0xFFD6E4F5.toInt(); growth = DS.primary(this@SavingsActivity); soft = DS.inkSoft(this@SavingsActivity)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
@@ -310,7 +312,7 @@ class SavingsActivity : AppCompatActivity() {
 
         val card = ui.card(top = 12)
         card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16))
-        card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של המשפחה", "The family's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true))
+        card.addView(ui.text(if (child.isEmpty()) L.t("תיק החיסכון של המשפחה", "The family's savings") else L.t("התיק של ${kids.firstOrNull()?.name.orEmpty()}", "${kids.firstOrNull()?.name.orEmpty()}'s savings"), 16f, bold = true).apply { A11y.heading(this) })
 
         // One part only: the amount, big (a ring of one colour says nothing).
         if (parts.size <= 1) {
@@ -357,9 +359,9 @@ class SavingsActivity : AppCompatActivity() {
             setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10))
             background = DS.rounded(DS.cardAlt(this@SavingsActivity), ui.dp(14).toFloat())
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (n < 2) marginEnd = ui.dp(8) }
-            addView(TextView(this@SavingsActivity).apply { text = label; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity)) })
+            addView(TextView(this@SavingsActivity).apply { text = label; textSize = 13f; setTextColor(DS.inkSoft(this@SavingsActivity)) })
             addView(amount(value, 17f, color).apply { setPadding(0, ui.dp(4), 0, 0) })
-            if (sub.isNotEmpty()) addView(TextView(this@SavingsActivity).apply { text = sub; textSize = 11f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0) })
+            if (sub.isNotEmpty()) addView(TextView(this@SavingsActivity).apply { text = sub; textSize = 12f; setTextColor(DS.inkSoft(this@SavingsActivity)); setPadding(0, ui.dp(2), 0, 0) })
             contentDescription = listOf(label, value, sub).filter { it.isNotBlank() }.joinToString(", ")
         })
         stat(L.t("יש בתיק", "In the portfolio"), ils(total), DS.ink(this), L.t("הערכה להיום", "estimate for today"), 0)
@@ -371,6 +373,12 @@ class SavingsActivity : AppCompatActivity() {
             if (funds.any { f -> f.coins.any { it.monthly > 0 } }) L.t("קניית קריפטו", "crypto buys") else null,
         ).joinToString(" + ")
         stat(L.t("הפקדה חודשית", "Each month"), ils(monthly), DS.ink(this), who, 2)
+        // A large font: the three numbers one under the other (side by side they were cut off).
+        if (resources.configuration.fontScale >= 1.3f) {
+            stats.orientation = LinearLayout.VERTICAL
+            for (k in 0 until stats.childCount) stats.getChildAt(k).layoutParams =
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { if (k > 0) topMargin = ui.dp(8) }
+        }
         card.addView(stats)
 
         // What the total is made of: the balances in the reports, what was deposited since, and the gain or loss since.
@@ -453,7 +461,7 @@ class SavingsActivity : AppCompatActivity() {
     private fun historyCard(points: List<Pair<String, Double>>): View {
         val card = ui.card(top = 12)
         card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(14))
-        card.addView(ui.text(L.t("איך התיק גדל", "How it grew"), 16f, bold = true))
+        card.addView(ui.text(L.t("איך התיק גדל", "How it grew"), 16f, bold = true).apply { A11y.heading(this) })
         val first = points.first(); val last = points.last()
         val change = last.second - first.second
         card.addView(ui.hint(L.t("מ-${FamilyItems.short(first.first)}: ${sign(change)}${ils(kotlin.math.abs(change))} (כולל הפקדות)", "Since ${FamilyItems.short(first.first)}: ${sign(change)}${ils(kotlin.math.abs(change))} (deposits included)"), top = 2))
