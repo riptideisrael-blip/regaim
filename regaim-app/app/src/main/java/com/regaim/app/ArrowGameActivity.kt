@@ -66,7 +66,7 @@ class ArrowGameActivity : AppCompatActivity() {
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(TextView(this).apply { text = "✕"; textSize = 22f; setTextColor(ink); setPadding(ui.dp(4), 0, ui.dp(12), 0); contentDescription = L.t("סגירה", "Close"); minWidth = ui.dp(48); minHeight = ui.dp(48); gravity = Gravity.CENTER; setOnClickListener { finish() } })
         top.addView(TextView(this).apply {
-            text = L.t("פיצקי הולך לפי החצים", "Pitzki follows the arrows"); textSize = 18f; typeface = DS.heading; setTextColor(ink)
+            text = L.t("פיצקי הולך לפי החצים", "Pitzki follows the arrows"); textSize = 18f; typeface = DS.heading; setTextColor(ink); A11y.heading(this)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         for (i in ArrowGame.LEVELS.indices) {
@@ -93,10 +93,11 @@ class ArrowGameActivity : AppCompatActivity() {
         root.addView(modes)
         // The plan: the arrows lined up, go and undo.
         planBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; visibility = View.GONE; setPadding(0, ui.dp(8), 0, 0) }
-        slots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutDirection = View.LAYOUT_DIRECTION_LTR }
+        // The plan reads in the reading direction: the first step on the right in Hebrew.
+        slots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutDirection = if (L.isEn) View.LAYOUT_DIRECTION_LTR else View.LAYOUT_DIRECTION_RTL }
         planBox.addView(slots)
         val runRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, ui.dp(8), 0, 0) }
-        runRow.addView(bigButton("▶ " + L.t("יאללה!", "Go!"), Color.rgb(95, 143, 62), Color.WHITE) { run() })
+        runRow.addView(bigButton("▶ " + L.t("יאללה!", "Go!"), Color.rgb(56, 102, 40), Color.WHITE) { run() }) // darker green: white text 6.8:1
         runRow.addView(bigButton("⌫", Color.argb(40, 255, 255, 255), ink) { if (!busy && plan.isNotEmpty()) { plan.removeAt(plan.size - 1); drawPlan() } })
         planBox.addView(runRow)
         root.addView(planBox)
@@ -105,7 +106,7 @@ class ArrowGameActivity : AppCompatActivity() {
         // The arrows (a cross, as on a remote) and the frog jump.
         val pad = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(170)).apply { topMargin = ui.dp(10) } }
         fun arrow(label: String, d: ArrowGame.Dir, g: Int, dx: Int, dy: Int) = pad.addView(TextView(this).apply {
-            text = label; textSize = 34f; gravity = Gravity.CENTER
+            text = label; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, 34f); gravity = Gravity.CENTER
             background = DS.rounded(Color.rgb(255, 207, 74), ui.dp(20).toFloat()); elevation = ui.dp(4).toFloat()
             layoutParams = FrameLayout.LayoutParams(ui.dp(74), ui.dp(74), g).apply { leftMargin = dx; topMargin = dy }
             contentDescription = d.word
@@ -116,7 +117,7 @@ class ArrowGameActivity : AppCompatActivity() {
         arrow("⬅️", ArrowGame.Dir.LEFT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, -ui.dp(84), 0)
         arrow("➡️", ArrowGame.Dir.RIGHT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, ui.dp(84), 0)
         pad.addView(TextView(this).apply {
-            text = "🐸"; textSize = 32f; gravity = Gravity.CENTER
+            text = "🐸"; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, 32f); gravity = Gravity.CENTER
             background = DS.rounded(Color.rgb(123, 211, 137), ui.dp(37).toFloat()); elevation = ui.dp(4).toFloat()
             layoutParams = FrameLayout.LayoutParams(ui.dp(74), ui.dp(74), Gravity.TOP or Gravity.START)
             contentDescription = L.t("קפיצה", "Jump")
@@ -158,6 +159,9 @@ class ArrowGameActivity : AppCompatActivity() {
         text = label; textSize = 18f; typeface = DS.heading; gravity = Gravity.CENTER; setTextColor(color)
         background = DS.rounded(fill, ui.dp(16).toFloat())
         setPadding(ui.dp(20), ui.dp(10), ui.dp(20), ui.dp(10))
+        minHeight = ui.dp(48); minWidth = ui.dp(48)
+        if (label == "⌫") contentDescription = L.t("מחיקת הצעד האחרון", "Delete the last step")
+        A11y.button(this)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ui.dp(6); marginEnd = ui.dp(6) }
         setOnClickListener { go() }
     }
@@ -213,7 +217,14 @@ class ArrowGameActivity : AppCompatActivity() {
             val p = plan.getOrNull(i)
             slots.addView(TextView(this).apply {
                 text = p?.let { (if (it.second) "🐸" else "") + when (it.first) { ArrowGame.Dir.FORWARD -> "⬆️"; ArrowGame.Dir.BACK -> "⬇️"; ArrowGame.Dir.LEFT -> "⬅️"; else -> "➡️" } } ?: ""
-                textSize = if (p?.second == true) 13f else 20f; gravity = Gravity.CENTER
+                // Pictures (arrow emoji) in a fixed box: sized in dp so a large phone font doesn't cut them.
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, if (p?.second == true) 13f else 20f); gravity = Gravity.CENTER
+                // Each step said in words, and the one running now said as "now" (it's only framed in yellow).
+                if (p == null) importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                else {
+                    contentDescription = L.t("צעד ${i + 1}: ", "Step ${i + 1}: ") + (if (p.second) L.t("קפיצה ", "jump ") else "") + p.first.word
+                    androidx.core.view.ViewCompat.setStateDescription(this, if (i == now) L.t("עכשיו", "Now") else null)
+                }
                 background = android.graphics.drawable.GradientDrawable().apply {
                     cornerRadius = ui.dp(10).toFloat()
                     setColor(if (p != null) Color.rgb(255, 248, 231) else Color.argb(20, 255, 255, 255))
