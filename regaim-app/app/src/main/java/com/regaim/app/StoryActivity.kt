@@ -446,7 +446,7 @@ class StoryActivity : AppCompatActivity() {
         poster.visibility = View.VISIBLE
         poster.alpha = 0.45f
         cover(moments.last())
-        texts.addView(bigText("❤️", 40f))
+        texts.addView(bigText("❤️", 40f).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
         texts.addView(bigText(Profile.homeTitle(this), 26f))
         texts.addView(bigText(title, 16f, bold = false, alpha = 0xDD))
         val row = LinearLayout(this).apply {
@@ -460,10 +460,12 @@ class StoryActivity : AppCompatActivity() {
             setTypeface(typeface, Typeface.BOLD)
             background = GradientDrawable().apply { cornerRadius = dp(22).toFloat(); setColor(0x40FFFFFF) }
             setPadding(dp(18), dp(10), dp(18), dp(10))
+            minHeight = dp(48); gravity = Gravity.CENTER
+            A11y.button(this)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(10) }
             setOnClickListener { onClick() }
         }
-        row.addView(pill(L.t("↺ שוב", "↺ Replay")) { go(-1) })
+        row.addView(pill(L.t("↺ שוב", "↺ Replay")) { go(-1) }.apply { contentDescription = L.t("לצפות שוב", "Replay") })
         row.addView(pill(L.t("סגור", "Close")) { finish() })
         texts.addView(row)
     }

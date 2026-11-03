@@ -16,7 +16,8 @@
         android:text="@string/milestones"
         android:textColor="@color/ink"
         android:textSize="24sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
     <TextView
         android:layout_width="match_parent"
@@ -67,7 +68,8 @@
                 android:text="@string/milestones_empty"
                 android:textColor="@color/ink"
                 android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
             <TextView
                 android:layout_width="wrap_content"

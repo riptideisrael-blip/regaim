@@ -16,9 +16,10 @@
 
         <ImageView
             android:id="@+id/dayCheck"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="8dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:layout_marginEnd="4dp"
             android:contentDescription="@string/select_whole_day"
             android:visibility="gone" />
 
@@ -30,6 +31,7 @@
 
             <TextView
                 android:id="@+id/dayTitle"
+                android:accessibilityHeading="true"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/ink"
@@ -41,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/ink_soft"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <TextView
@@ -53,9 +55,11 @@
             android:paddingTop="6dp"
             android:paddingEnd="12dp"
             android:paddingBottom="6dp"
+            android:minHeight="48dp"
+            android:gravity="center"
             android:text="@string/comic_from_day"
             android:textColor="@color/ink"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
