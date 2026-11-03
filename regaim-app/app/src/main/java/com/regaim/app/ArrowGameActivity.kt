@@ -106,7 +106,7 @@ class ArrowGameActivity : AppCompatActivity() {
         // The arrows (a cross, as on a remote) and the frog jump.
         val pad = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(170)).apply { topMargin = ui.dp(10) } }
         fun arrow(label: String, d: ArrowGame.Dir, g: Int, dx: Int, dy: Int) = pad.addView(TextView(this).apply {
-            text = label; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, 34f); gravity = Gravity.CENTER
+            text = label; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 34f); gravity = Gravity.CENTER
             background = DS.rounded(Color.rgb(255, 207, 74), ui.dp(20).toFloat()); elevation = ui.dp(4).toFloat()
             layoutParams = FrameLayout.LayoutParams(ui.dp(74), ui.dp(74), g).apply { leftMargin = dx; topMargin = dy }
             contentDescription = d.word
@@ -117,7 +117,7 @@ class ArrowGameActivity : AppCompatActivity() {
         arrow("⬅️", ArrowGame.Dir.LEFT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, -ui.dp(84), 0)
         arrow("➡️", ArrowGame.Dir.RIGHT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, ui.dp(84), 0)
         pad.addView(TextView(this).apply {
-            text = "🐸"; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, 32f); gravity = Gravity.CENTER
+            text = "🐸"; setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 32f); gravity = Gravity.CENTER
             background = DS.rounded(Color.rgb(123, 211, 137), ui.dp(37).toFloat()); elevation = ui.dp(4).toFloat()
             layoutParams = FrameLayout.LayoutParams(ui.dp(74), ui.dp(74), Gravity.TOP or Gravity.START)
             contentDescription = L.t("קפיצה", "Jump")
@@ -218,7 +218,7 @@ class ArrowGameActivity : AppCompatActivity() {
             slots.addView(TextView(this).apply {
                 text = p?.let { (if (it.second) "🐸" else "") + when (it.first) { ArrowGame.Dir.FORWARD -> "⬆️"; ArrowGame.Dir.BACK -> "⬇️"; ArrowGame.Dir.LEFT -> "⬅️"; else -> "➡️" } } ?: ""
                 // Pictures (arrow emoji) in a fixed box: sized in dp so a large phone font doesn't cut them.
-                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DP, if (p?.second == true) 13f else 20f); gravity = Gravity.CENTER
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, if (p?.second == true) 13f else 20f); gravity = Gravity.CENTER
                 // Each step said in words, and the one running now said as "now" (it's only framed in yellow).
                 if (p == null) importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 else {

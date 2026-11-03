@@ -1584,7 +1584,7 @@ class PitzkiActivity : AppCompatActivity() {
         card.addView(ui.hint(L.t("🎨 להתאמן על הצבעים: לוחצים, ופיצקי אומר את הצבע בעברית ובאנגלית", "🎨 Practice the colors: tap, and Pitzki says the color in Hebrew and English"), top = 4))
         val colors = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, ui.dp(6), 0, 0) }
         for (col in PitzkiScript.ORDER) colors.addView(TextView(this).apply {
-            text = col.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, 26f); gravity = Gravity.CENTER
+            text = col.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER
             background = DS.pressable(this@PitzkiActivity, DS.rounded(DS.bg(this@PitzkiActivity), ui.dp(16).toFloat()))
             setPadding(ui.dp(8), ui.dp(6), ui.dp(8), ui.dp(6))
             minWidth = ui.dp(48); minHeight = ui.dp(48)
@@ -1631,7 +1631,7 @@ class PitzkiActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(6), ui.dp(10), ui.dp(6), ui.dp(10))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { marginStart = ui.dp(4); marginEnd = ui.dp(4) }
-            addView(TextView(this@PitzkiActivity).apply { text = emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, 26f); gravity = Gravity.CENTER; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+            addView(TextView(this@PitzkiActivity).apply { text = emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
             // The chosen world: a ✓ and darker blue (not by color alone), and said as selected.
             addView(ui.text((if (on) "✓ " else "") + title, 14f, if (on) R.color.ds_button_pressed else R.color.ink, bold = true).apply { gravity = Gravity.CENTER })
             isSelected = on
@@ -2727,7 +2727,7 @@ class PitzkiActivity : AppCompatActivity() {
         })
 
         objectView = TextView(this).apply {
-            setTextSize(TypedValue.COMPLEX_UNIT_DP, 70f) // a picture (emoji), in its fixed circle
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 70f) // a picture (emoji), in its fixed circle
             gravity = Gravity.CENTER
             background = DS.oval(DS.alpha(DS.bg(this@PitzkiActivity), 0.9f))
             elevation = ui.dp(6).toFloat()
@@ -2764,7 +2764,7 @@ class PitzkiActivity : AppCompatActivity() {
         }
         stage.addView(countBubble)
         burst = TextView(this).apply {
-            text = "⭐"; setTextSize(TypedValue.COMPLEX_UNIT_DP, 110f); gravity = Gravity.CENTER; visibility = View.GONE
+            text = "⭐"; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 110f); gravity = Gravity.CENTER; visibility = View.GONE
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             layoutParams = lp(wrap, wrap, Gravity.CENTER)
         }
@@ -2798,7 +2798,7 @@ class PitzkiActivity : AppCompatActivity() {
         // Like a book or stories: two small arrows at the bottom corners, and a swipe, move to the next / previous
         // scene. Hebrew goes right to left: the next scene is on the left.
         fun arrow(label: String, side: Int, desc: String, go: () -> Unit) = TextView(this).apply {
-            text = label; setTextSize(TypedValue.COMPLEX_UNIT_DP, 26f); gravity = Gravity.CENTER
+            text = label; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER
             setTextColor(DS.onPhoto(this@PitzkiActivity))
             background = DS.oval(ui.color(R.color.ds_photo_control_bg))
             contentDescription = desc
@@ -2846,7 +2846,7 @@ class PitzkiActivity : AppCompatActivity() {
                 A11y.button(this)
                 setOnClickListener { tap(c) }
             }
-            item.addView(TextView(this).apply { text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, 30f); gravity = Gravity.CENTER; emojiColor(this, c) })
+            item.addView(TextView(this).apply { text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30f); gravity = Gravity.CENTER; emojiColor(this, c) })
             item.addView(TextView(this).apply {
                 // The word in dark ink (readable on the light card), its color shown as a dot beside it.
                 text = colorWord(c); textSize = 13f; gravity = Gravity.CENTER; typeface = DS.heading
@@ -3731,7 +3731,7 @@ class PitzkiActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = ui.dp(10); marginEnd = ui.dp(10) }
                 contentDescription = ch.label
             }
-            cell.addView(TextView(this).apply { text = ch.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, 40f * ch.scale); gravity = Gravity.CENTER })
+            cell.addView(TextView(this).apply { text = ch.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 40f * ch.scale); gravity = Gravity.CENTER })
             cell.addView(TextView(this).apply { text = if (PitzkiScript.isFarm) FarmNiqqud.show(ch.label) else ch.label; textSize = 16f; typeface = DS.heading; gravity = Gravity.CENTER; setTextColor(DS.ink(this@PitzkiActivity)) })
             cell.setOnClickListener { chooseIn(b, i, cell, cells, my, { misses++; misses }, done) }
             cells.add(cell)
@@ -3836,7 +3836,7 @@ class PitzkiActivity : AppCompatActivity() {
                 x = w * 0.8f - size / 2f; y = yAt(order.indexOf(i))
             }
             home.addView(TextView(this).apply {
-                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, big * c.scale); gravity = Gravity.CENTER
+                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, big * c.scale); gravity = Gravity.CENTER
                 setLayerType(View.LAYER_TYPE_HARDWARE, silhouette)
                 layoutParams = FrameLayout.LayoutParams(size, size)
             })
@@ -3901,7 +3901,7 @@ class PitzkiActivity : AppCompatActivity() {
             val startX = w * 0.5f - size / 2f; val startY = yAt(i)
             starts.add(startX to startY)
             val piece = TextView(this).apply {
-                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DP, big * c.scale); gravity = Gravity.CENTER
+                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, big * c.scale); gravity = Gravity.CENTER
                 background = DS.rounded(android.graphics.Color.argb(235, 255, 252, 245), ui.dp(26).toFloat())
                 elevation = ui.dp(6).toFloat()
                 layoutParams = FrameLayout.LayoutParams(size, size)
@@ -4070,7 +4070,7 @@ class PitzkiActivity : AppCompatActivity() {
             x = w * 0.08f; y = h * 0.6f - basketSize / 2f
         }
         val inBasket = TextView(this).apply {
-            text = ""; setTextSize(TypedValue.COMPLEX_UNIT_DP, 26f); typeface = DS.heading; gravity = Gravity.CENTER
+            text = ""; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); typeface = DS.heading; gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
             background = DS.rounded(android.graphics.Color.rgb(46, 125, 50), ui.dp(18).toFloat())
             layoutParams = FrameLayout.LayoutParams(ui.dp(40), ui.dp(40))
@@ -4226,7 +4226,7 @@ class PitzkiActivity : AppCompatActivity() {
                 // Its number, small, on it.
                 val lpw = piece.layoutParams.width
                 layer.addView(TextView(this).apply {
-                    text = now.toString(); setTextSize(TypedValue.COMPLEX_UNIT_DP, 15f); typeface = DS.heading; gravity = Gravity.CENTER
+                    text = now.toString(); setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f); typeface = DS.heading; gravity = Gravity.CENTER
                     setTextColor(android.graphics.Color.WHITE)
                     background = DS.rounded(android.graphics.Color.rgb(46, 125, 50), ui.dp(13).toFloat())
                     elevation = ui.dp(8).toFloat()
@@ -4382,7 +4382,7 @@ class PitzkiActivity : AppCompatActivity() {
     private fun breatheGame(times: Int, my: Int, done: () -> Unit) {
         clearGame()
         val ball = TextView(this).apply {
-            text = "🫧"; setTextSize(TypedValue.COMPLEX_UNIT_DP, 60f); gravity = Gravity.CENTER
+            text = "🫧"; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 60f); gravity = Gravity.CENTER
             background = DS.oval(DS.alpha(DS.bg(this@PitzkiActivity), 0.7f))
             layoutParams = lp(ui.dp(170), ui.dp(170), Gravity.CENTER)
             scaleX = 0.6f; scaleY = 0.6f
@@ -4417,7 +4417,7 @@ class PitzkiActivity : AppCompatActivity() {
             return t
         }
         val light = TextView(this).apply {
-            text = face(false); setTextSize(TypedValue.COMPLEX_UNIT_DP, 96f); gravity = Gravity.CENTER
+            text = face(false); setTextSize(TypedValue.COMPLEX_UNIT_DIP, 96f); gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
             contentDescription = L.t("רמזור אדום. מחכים", "Red light. Wait")
             A11y.button(this)
