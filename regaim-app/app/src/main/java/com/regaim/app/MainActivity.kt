@@ -65,7 +65,12 @@ class MainActivity : AppCompatActivity() {
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 gravity = android.view.Gravity.CENTER
                 minWidth = (52 * d).toInt()
+                minHeight = (48 * d).toInt()
                 setPadding((10 * d).toInt(), (7 * d).toInt(), (10 * d).toInt(), (7 * d).toInt())
+                // Said in words, as one choice of five ("zoom 2 times, 3 of 5, selected").
+                contentDescription = if (z < 1f) L.t("עדשה רחבה 0.6", "Wide lens 0.6") else if (z == 1f) L.t("בלי הגדלה", "No zoom") else L.t("הגדלה פי ${z.toInt()}", "Zoom ${z.toInt()} times")
+                val index = zoomOptions.indexOf(z)
+                A11y.choice(this, index, zoomOptions.size) { kotlin.math.abs(z - Status.zoom) < 0.01f }
                 setTextColor(if (selected) ContextCompat.getColor(this@MainActivity, R.color.white) else ContextCompat.getColor(this@MainActivity, R.color.ink))
                 background = if (selected) android.graphics.drawable.GradientDrawable().apply {
                     cornerRadius = 20 * d
@@ -80,6 +85,7 @@ class MainActivity : AppCompatActivity() {
             }
             zoomChips.addView(chip)
         }
+        A11y.choiceGroup(zoomChips, zoomOptions.size)
     }
     private val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
 
@@ -119,6 +125,9 @@ class MainActivity : AppCompatActivity() {
         sensitivityLabel = findViewById(R.id.sensitivityLabel)
         btnSaveNow = findViewById(R.id.btnSaveNow)
         errorText = findViewById(R.id.errorText)
+        // Recording, a caught moment and a camera problem are said by themselves (the main thing this screen does).
+        A11y.live(statusText)
+        A11y.live(errorText, urgent = true)
 
         btnToggle.setOnClickListener {
             if (Status.running) sendToService(CaptureService.ACTION_STOP) else requestAndStart()
@@ -137,10 +146,16 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnHome).setOnClickListener {
             startActivity(Intent(this, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         }
+        // Open / closed said in words (not only by the arrow), and read as a button.
+        A11y.button(settingsHeader)
+        settingsHeader.minHeight = (48 * resources.displayMetrics.density).toInt()
+        settingsHeader.contentDescription = L.t("בדיקה והגדרות מהירות", "Check & quick settings")
+        A11y.expanded(settingsHeader, settingsBody.visibility == View.VISIBLE)
         settingsHeader.setOnClickListener {
             val open = settingsBody.visibility != View.VISIBLE
             settingsBody.visibility = if (open) View.VISIBLE else View.GONE
             settingsHeader.text = if (open) L.t("בדיקה והגדרות מהירות ⌃", "Check & quick settings ⌃") else L.t("בדיקה והגדרות מהירות ⌄", "Check & quick settings ⌄")
+            A11y.expanded(settingsHeader, open)
         }
         btnSaveNow.setOnClickListener { sendToService(CaptureService.ACTION_SAVE_NOW) }
         btnSaveBig = findViewById(R.id.btnSaveBig)
@@ -267,6 +282,9 @@ class MainActivity : AppCompatActivity() {
             else -> L.t("נמוכה", "low")
         }
         sensitivityLabel.text = L.t("רגישות לצחוק: $word (שומר מעל ${(Status.threshold * 100).roundToInt()}%)", "Laugh sensitivity: $word (saves above ${(Status.threshold * 100).roundToInt()}%)")
+        // The slider says what it sets and its level in words (not only a percent).
+        sensitivity.contentDescription = L.t("רגישות לצחוק", "Laugh sensitivity")
+        androidx.core.view.ViewCompat.setStateDescription(sensitivity, word)
         liveBubble.threshold = Status.threshold
     }
 
@@ -291,7 +309,8 @@ class MainActivity : AppCompatActivity() {
         if (s.running) {
             statusChip.text = L.t("● מקליט", "● Recording")
             statusChip.setBackgroundResource(R.drawable.chip_on)
-            statusChip.setTextColor(ContextCompat.getColor(this, R.color.ds_primary))
+            // The darker blue: 4.5:1 and more on the light chip (the brand blue was 4.42:1).
+            statusChip.setTextColor(ContextCompat.getColor(this, R.color.ds_button_pressed))
             btnToggle.text = L.t("עצור", "Stop")
         } else {
             statusChip.text = L.t("כבוי", "Off")
@@ -300,11 +319,13 @@ class MainActivity : AppCompatActivity() {
             btnToggle.text = L.t("התחל לתפוס רגעים", "Start catching moments")
         }
 
-        statusText.text = when {
+        // A live line: set only when it changes (this runs 5 times a second), so a screen reader says each change once.
+        val st = when {
             !s.running -> L.t("מוכן לתפוס רגעים", "Ready to catch moments")
             s.pending -> L.t("נתפס רגע! שומר את ההמשך...", "Moment caught! Saving what comes next...")
             else -> L.t("מאזין לצחוק...", "Listening for laughter...")
         }
+        if (statusText.text.toString() != st) statusText.text = st
         hearText.text = if (s.running) {
             val now = Labels.he(s.topLabel).ifEmpty { "..." }
             val laugh = (s.lastScore * 100).roundToInt()
@@ -339,8 +360,9 @@ class MainActivity : AppCompatActivity() {
         val err = s.error ?: if (s.running && runningFor > 6000 && s.videoFrames == 0L) {
             L.t("המצלמה לא שולחת וידאו. נסה לעצור ולהתחיל שוב, ולוודא שאף אפליקציה אחרת לא משתמשת במצלמה.", "The camera isn't sending video. Try stopping and starting again, and make sure no other app is using the camera.")
         } else null
-        errorText.text = err ?: ""
-        errorText.visibility = if (err == null) View.GONE else View.VISIBLE
+        if (errorText.text.toString() != (err ?: "")) errorText.text = err ?: ""
+        val ev = if (err == null) View.GONE else View.VISIBLE
+        if (errorText.visibility != ev) errorText.visibility = ev
         btnSaveNow.isEnabled = s.running && !s.pending
         diagText.text = if (s.running) {
             val words = if (s.wordsOn) L.t("\nמילים: ${s.wordsState.ifEmpty { "..." }}", "\nWords: ${s.wordsState.ifEmpty { "..." }}") +
@@ -360,6 +382,9 @@ class MainActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(size, size).apply { marginEnd = gap }
                 val bmp = if (m.thumb.isNotEmpty()) BitmapFactory.decodeFile(m.thumb) else null
                 if (bmp != null) setImageBitmap(bmp) else setImageResource(R.drawable.bubble_placeholder)
+                // Each one by what it is and when (not five times "picture").
+                contentDescription = Labels.he(m.label).ifEmpty { L.t("רגע", "Moment") } + ", " +
+                    java.text.SimpleDateFormat("HH:mm", L.locale).format(java.util.Date(m.time))
             }
             iv.setOnClickListener { MomentActivity.open(this, m.id) }
             bubblesRow.addView(iv)

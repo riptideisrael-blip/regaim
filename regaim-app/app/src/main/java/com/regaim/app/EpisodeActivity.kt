@@ -64,20 +64,47 @@ class EpisodeActivity : AppCompatActivity() {
         // What Pitzki says, as subtitles (a quiet room, or a phone with no Hebrew voice).
         caption = TextView(this).apply {
             textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            setShadowLayer(6f, 0f, 1f, Color.BLACK)
-            setPadding(ui.dp(24), 0, ui.dp(24), ui.dp(18))
+            // A solid dark box behind the words: readable over any frame.
+            background = GradientDrawable().apply { setColor(Color.argb(200, 0, 0, 0)); cornerRadius = ui.dp(14).toFloat() }
+            setPadding(ui.dp(16), ui.dp(6), ui.dp(16), ui.dp(8))
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
-        root.addView(caption, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
-        root.addView(TextView(this).apply {
-            text = "✕"; textSize = 22f; setTextColor(Color.argb(200, 255, 255, 255)); setPadding(ui.dp(18), ui.dp(12), ui.dp(18), ui.dp(12))
-            contentDescription = L.t("סגירת הסרט", "Close the film")
-            setOnClickListener { finish() }
-        }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.START))
+        root.addView(caption, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply {
+            leftMargin = ui.dp(16); rightMargin = ui.dp(16); bottomMargin = ui.dp(16)
+        })
+        // Top: close, pause / play and sound (not only "close").
+        val controls = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+        fun control(label: String, said: String, onClick: (TextView) -> Unit) = TextView(this).apply {
+            text = label; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            minWidth = ui.dp(48); minHeight = ui.dp(48)
+            background = GradientDrawable().apply { setColor(Color.argb(140, 0, 0, 0)); cornerRadius = ui.dp(24).toFloat() }
+            contentDescription = said
+            A11y.button(this)
+            layoutParams = android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }
+            setOnClickListener { onClick(this) }
+        }
+        controls.addView(control("✕", L.t("סגירת הסרט", "Close the film")) { finish() })
+        controls.addView(control("⏸", L.t("השהיה", "Pause")) { b ->
+            if (userPaused) { userPaused = false; at -= 1; next() } else { userPaused = true; token++; try { voice.stop() } catch (_: Exception) {}; try { video.pause() } catch (_: Exception) {} }
+            b.text = if (userPaused) "▶" else "⏸"
+            b.contentDescription = if (userPaused) L.t("המשך", "Play") else L.t("השהיה", "Pause")
+        })
+        controls.addView(control(if (voice.muted) "🔇" else "🔊", Wording.state(L.t("קול", "Sound"), !voice.muted)) { b ->
+            voice.muted = !voice.muted
+            b.text = if (voice.muted) "🔇" else "🔊"
+            b.contentDescription = Wording.state(L.t("קול", "Sound"), !voice.muted)
+        })
+        root.addView(controls, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.START).apply {
+            topMargin = ui.dp(12); marginStart = ui.dp(12)
+        })
         setContentView(root)
         if (!PitzkiStore.episodeReady(this)) {
             caption.text = L.t("הסרט עוד לא ירד לטלפון. נסו שוב בעוד רגע.", "The film isn't on the phone yet. Try again in a moment.")
             Thread { try { PitzkiStore.fetchShared(applicationContext) } catch (_: Exception) {} }.start()
+            // A way on from the black screen: try again (it opens once the film is on the phone).
+            root.addView(ui.button(L.t("לנסות שוב", "Try again"), primary = true, top = 0) {
+                if (PitzkiStore.episodeReady(this)) { recreate() } else { caption.text = L.t("עדיין יורד. נסו שוב בעוד רגע.", "Still downloading. Try again in a moment.") }
+            }.apply { layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER) })
             return
         }
         main.postDelayed({ next() }, 600)
@@ -119,6 +146,8 @@ class EpisodeActivity : AppCompatActivity() {
     }
 
     private var stopped = false
+    /** Paused with the pause button: stays paused when the screen comes back. */
+    private var userPaused = false
 
     override fun onPause() {
         super.onPause()
@@ -128,7 +157,7 @@ class EpisodeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (stopped && !destroyed) { stopped = false; at -= 1; next() }
+        if (stopped && !destroyed && !userPaused) { stopped = false; at -= 1; next() }
     }
 
     override fun onDestroy() {

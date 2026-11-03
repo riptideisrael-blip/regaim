@@ -131,12 +131,25 @@ class LearnedActivity : AppCompatActivity() {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             for (m in moments) {
                 val b = ui.bubble(m.thumb, 52)
+                // Said and reachable by screen readers (the bubble starts hidden from them as a decoration).
+                b.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                b.contentDescription = Fmt.title(m) + ", " + Fmt.day(m.time)
+                A11y.button(b)
+                b.minimumWidth = ui.dp(48); b.minimumHeight = ui.dp(48)
                 b.setOnClickListener { MomentActivity.open(this, m.id) }
                 b.setOnLongClickListener { excludeMoment(m); true }
+                A11y.longPress(b, L.t("לא ללמוד מהרגע", "Don't learn from it"))
                 row.addView(b)
             }
             card.addView(ui.scrollRow(row))
-            card.addView(ui.hint(L.t("לחץ על רגע כדי לראות אותו · לחיצה ארוכה: לא ללמוד ממנו", "Tap a moment to view it · Long-press to stop learning from it"), top = 2))
+            card.addView(ui.hint(L.t("לחיצה על רגע פותחת אותו · לחיצה ארוכה: לא ללמוד ממנו", "Tap a moment to view it · Long-press to stop learning from it"), top = 2))
+            // The same without a long press: choose which moment not to learn from.
+            card.addView(ui.action(L.t("לא ללמוד מאחד הרגעים ›", "Stop learning from one of them ›")) {
+                val names = moments.map { Fmt.title(it) + " · " + Fmt.day(it.time) }.toTypedArray()
+                androidx.appcompat.app.AlertDialog.Builder(this).setTitle(L.t("מאיזה רגע לא ללמוד?", "Which moment not to learn from?"))
+                    .setItems(names) { _, k -> excludeMoment(moments[k]) }
+                    .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
+            })
         }
         for (d in i.deleted) {
             val r = ui.horizontal(top = 6)

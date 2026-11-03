@@ -140,7 +140,8 @@ class WelcomeActivity : AppCompatActivity() {
                 textSize = 16f
                 gravity = Gravity.CENTER
                 setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.accent))
-            }.also { MemoryViews(this).pulse(it) })
+                A11y.live(this)
+            }.also { MemoryViews(this).pulse(it); it.post { it.announceForAccessibility(progress) } })
             return
         }
         when (mode) {
@@ -149,6 +150,15 @@ class WelcomeActivity : AppCompatActivity() {
             Mode.SIGN_IN -> form(signUp = false)
             Mode.CHECK_MAIL -> checkMail()
         }
+        // A new step (sign up, sign in, check your email): the screen reader starts at its title.
+        if (mode != Mode.START) focusTitle()
+    }
+
+    private var stepTitle: View? = null
+
+    private fun focusTitle() {
+        val t = stepTitle ?: return
+        t.post { t.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }
     }
 
     // ---------- landing ----------
@@ -183,6 +193,8 @@ class WelcomeActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(a, b)).apply { cornerRadius = radius }
             layoutParams = lp
+            // Decoration (stands in for a photo): not read.
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
     }
 
@@ -248,6 +260,8 @@ class WelcomeActivity : AppCompatActivity() {
             typeface = DS.logo
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
             setPadding(0, ui.dp(4), 0, 0)
+            // The welcome screen's title.
+            A11y.heading(this)
         })
         root.addView(TextView(this).apply {
             text = L.t("הרגעים הקטנים של המשפחה, נשמרים לבד", "Your family's little moments, saved on their own")
@@ -336,14 +350,47 @@ class WelcomeActivity : AppCompatActivity() {
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(ContextCompat.getColor(this@WelcomeActivity, colorRes))
         setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+        minHeight = ui.dp(48)
+        A11y.button(this)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(top) }
         setOnClickListener { onClick() }
+    }
+
+    /** A field's visible label (it stays when the field has text; tied to the field for screen readers). */
+    private fun label(text: String) = TextView(this).apply {
+        this.text = text
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
+        setPadding(0, ui.dp(12), 0, 0)
+        setTag(R.id.tagA11yLabel, true)
+    }
+
+    /** A labelled field: its label above it, linked to it. */
+    private fun labelled(label: String, hint: String, type: Int, autofill: String): EditText {
+        val l = label(label)
+        root.addView(l)
+        return input(hint, type).also {
+            it.id = View.generateViewId()
+            l.labelFor = it.id
+            it.setAutofillHints(autofill)
+            (it.layoutParams as? LinearLayout.LayoutParams)?.topMargin = ui.dp(4)
+            root.addView(it)
+        }
+    }
+
+    /** A field that's wrong: the message on the field itself, and the screen reader goes there. */
+    private fun wrong(field: EditText, message: String) {
+        field.error = message
+        field.requestFocus()
+        field.announceForAccessibility(message)
     }
 
     private fun input(hint: String, type: Int): EditText = EditText(this).apply {
         this.hint = hint
         inputType = type
         textSize = 16f
+        minHeight = ui.dp(48)
         setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
         background = GradientDrawable().apply {
             cornerRadius = ui.dp(16).toFloat()
@@ -362,21 +409,27 @@ class WelcomeActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
+            stepTitle = this
         })
-        val name = if (signUp) input(L.t("השם שלך", "Your name"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME).also { root.addView(it) } else null
-        val email = input(L.t("אימייל", "Email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).also { root.addView(it) }
+        // Each field with a label that stays visible above it (a hint alone disappears once you type), and the phone's
+        // password manager / autofill told what each one is.
+        val name = if (signUp) labelled(L.t("השם שלך", "Your name"), L.t("למשל: דנה", "For example: Dana"),
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME, View.AUTOFILL_HINT_NAME) else null
+        val email = labelled(L.t("אימייל", "Email"), "name@example.com",
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS, View.AUTOFILL_HINT_EMAIL_ADDRESS)
         if (!signUp && sentTo.isNotEmpty()) email.setText(sentTo)
-        val password = input(if (signUp) L.t("סיסמה (לפחות 8 תווים)", "Password (at least 8 characters)") else L.t("סיסמה", "Password"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD).also { root.addView(it) }
+        val password = labelled(if (signUp) L.t("סיסמה (לפחות 8 תווים)", "Password (at least 8 characters)") else L.t("סיסמה", "Password"), "",
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, if (signUp) "newPassword" else View.AUTOFILL_HINT_PASSWORD)
         root.addView(bigButton(if (signUp) L.t("יצירת חשבון", "Create account") else L.t("התחברות", "Sign in"), filled = true) {
             val e = email.text.toString().trim()
             val pw = password.text.toString()
             val n = name?.text?.toString()?.trim().orEmpty()
             when {
-                signUp && n.isEmpty() -> Toast.makeText(this, L.t("איך לקרוא לך?", "What should we call you?"), Toast.LENGTH_SHORT).show()
-                !e.contains("@") -> Toast.makeText(this, L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"), Toast.LENGTH_SHORT).show()
+                signUp && n.isEmpty() -> name?.let { wrong(it, L.t("איך לקרוא לך? כתבו שם.", "What should we call you? Write a name.")) }
+                !e.contains("@") -> wrong(email, L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"))
                 // New passwords: 8 at least (the server asks the same). Signing in still takes older, shorter ones.
-                signUp && pw.length < 8 -> Toast.makeText(this, L.t("הסיסמה צריכה להיות לפחות 8 תווים", "Password must be at least 8 characters"), Toast.LENGTH_SHORT).show()
-                pw.length < 6 -> Toast.makeText(this, L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters"), Toast.LENGTH_SHORT).show()
+                signUp && pw.length < 8 -> wrong(password, L.t("הסיסמה צריכה להיות לפחות 8 תווים", "Password must be at least 8 characters"))
+                pw.length < 6 -> wrong(password, L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters"))
                 signUp -> run(L.t("יוצרים את החשבון...", "Creating your account...")) {
                     // Not an error: the account is made and waits for the email link (its own screen, not a red toast).
                     if (!Account.signUp(applicationContext, n, e, pw)) { sentTo = e; mode = Mode.CHECK_MAIL }
@@ -394,7 +447,11 @@ class WelcomeActivity : AppCompatActivity() {
 
     /** "Forgot password": the email gets a link to a page where a new password is chosen. */
     private fun forgot(typed: String) {
-        val field = input(L.t("האימייל של החשבון", "Your account's email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).apply { setText(typed) }
+        val field = input(L.t("האימייל של החשבון", "Your account's email"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS).apply {
+            setText(typed)
+            setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS)
+            contentDescription = null
+        }
         val box = FrameLayout(this).apply { setPadding(ui.dp(20), 0, ui.dp(20), 0); addView(field) }
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(L.t("איפוס סיסמה", "Reset password"))
@@ -405,7 +462,13 @@ class WelcomeActivity : AppCompatActivity() {
             .show()
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val e = field.text.toString().trim()
-            if (!e.contains("@")) { field.error = L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"); return@setOnClickListener }
+            if (!e.contains("@")) {
+                val why = L.t("כתובת האימייל לא תקינה", "That email address doesn't look right")
+                field.error = why; field.requestFocus()
+                field.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
+                field.announceForAccessibility(why)
+                return@setOnClickListener
+            }
             dialog.dismiss()
             worker.execute {
                 val err = try { Account.recover(applicationContext, e); null } catch (x: Exception) { x.message }
@@ -421,11 +484,13 @@ class WelcomeActivity : AppCompatActivity() {
     private fun checkMail() {
         root.addView(TextView(this).apply {
             text = L.t("📬 בדקו את המייל", "📬 Check your email")
+            contentDescription = L.t("בדקו את המייל", "Check your email")
             textSize = 20f
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
             androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
+            stepTitle = this
         })
         root.addView(TextView(this).apply {
             text = L.t("החשבון נוצר. שלחנו קישור אישור אל $sentTo.\nלחצו על הקישור במייל, ואז חזרו לכאן והתחברו.\nלא הגיע? בדקו גם בתיקיית הספאם.",

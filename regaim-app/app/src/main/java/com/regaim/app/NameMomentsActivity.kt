@@ -98,6 +98,9 @@ class NameMomentsActivity : AppCompatActivity() {
             named++; list.removeAt(at); render()
         }
         save.isEnabled = checks.any { it.isChecked }
+        // Why it can't be pressed yet, said with it.
+        fun why(v: View) = androidx.core.view.ViewCompat.setStateDescription(v, if (v.isEnabled) null else L.t("קודם מסמנים לפחות אדם אחד", "First tick at least one person"))
+        why(save)
         // The same few minutes, waiting too: one answer for all of them (faces learn only from the one seen here).
         val sequence = NamedMoments.sameSequence(m, list)
         val saveAll = if (sequence.isEmpty()) null else ui.button(
@@ -112,10 +115,11 @@ class NameMomentsActivity : AppCompatActivity() {
             list.removeAll { it.id in gone }
             at = at.coerceAtMost(list.size)
             render()
-        }?.apply { isEnabled = checks.any { it.isChecked } }
+        }?.apply { isEnabled = checks.any { it.isChecked }; why(this) }
         checks.forEach { c -> c.setOnCheckedChangeListener { _, _ ->
             val any = checks.any { it.isChecked }
             save.isEnabled = any; saveAll?.isEnabled = any
+            why(save); saveAll?.let { why(it) }
         } }
         content.addView(save)
         saveAll?.let { content.addView(it) }

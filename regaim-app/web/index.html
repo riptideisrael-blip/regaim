@@ -59,7 +59,7 @@
   .sheet { position: fixed; inset: 0; background: rgba(31,29,43,.4); display: none; align-items: flex-end; justify-content: center; z-index: 5; }
   .sheet.open { display: flex; }
   .panel { background: var(--bg); width: 100%; max-width: 640px; border-radius: 24px 24px 0 0; padding: 20px 16px 28px; }
-  .panel h3 { margin: 0 0 6px; font-size: 20px; }
+  .panel h2 { margin: 0 0 6px; font-size: 20px; }
   .note { color: var(--soft); font-size: 13px; margin-top: 8px; }
   .fade { animation: fade .3s ease both; }
   @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -68,17 +68,21 @@
   .skip { position: absolute; right: 8px; top: -60px; background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 10px; z-index: 100; text-decoration: none; }
   .skip:focus { top: 8px; }
   .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-  button.link { background: none; border: 0; color: var(--accent); font: inherit; padding: 4px; cursor: pointer; text-decoration: underline; }
+  button.link { background: none; border: 0; color: var(--accent); font: inherit; padding: 10px 4px; min-height: 44px; display: inline-block; cursor: pointer; text-decoration: underline; }
   footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--soft); font-size: 14px; display: flex; gap: 14px; flex-wrap: wrap; }
-  footer a { color: var(--accent); }
+  footer a { color: var(--accent); display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
   .react, button.primary, .fab { min-height: 44px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
-    padding: 10px 16px; border-radius: 14px; font-size: 14px; display: none; z-index: 9; }
+    padding: 6px 6px 6px 16px; border-radius: 14px; font-size: 14px; display: none; z-index: 9; max-width: calc(100% - 32px);
+    align-items: center; gap: 8px; }
+  .toast.show { display: flex; }
+  .toast button { background: none; border: 0; color: #fff; font: inherit; font-size: 18px; min-width: 44px; min-height: 44px; cursor: pointer; }
+  .err { color: #B42318; font-size: 14px; margin-top: 6px; }
 </style>
 </head>
 <body>
-<a class="skip" href="#feed">דילוג לרגעים</a>
+<a class="skip" id="skipLink" href="#feed">דילוג לרגעים</a>
 <header>
   <h1 id="circleName">מעגל המשפחה</h1>
   <div class="sub">הרגעים שלנו, רק בשבילנו</div>
@@ -95,14 +99,15 @@
 <button class="fab" id="fab" style="display:none">＋ שתפו רגע</button>
 
 <div class="sheet" id="nameSheet" role="dialog" aria-modal="true" aria-labelledby="nameTitle"><div class="panel">
-  <h3 id="nameTitle">איך לקרוא לך?</h3>
+  <h2 id="nameTitle">איך לקרוא לך?</h2>
   <div class="note">כך כולם יראו מי הגיב. למשל: סבתא רחל</div>
   <div class="note">השם, התגובות וההודעות שלכם, ומה שתעלו, נשמרים בשרת של Moments וגלויים רק לבני המעגל. <a href="privacy.html#circle">פרטיות</a> · <a href="delete-account.html">מחיקה</a></div>
-  <div class="row"><input type="text" id="nameInput" placeholder="השם שלך" aria-labelledby="nameTitle" autocomplete="name"><button class="primary" id="nameSave">המשך</button></div>
+  <form id="nameForm" novalidate><div class="row"><input type="text" id="nameInput" placeholder="השם שלך" aria-labelledby="nameTitle" aria-describedby="nameError" autocomplete="name"><button class="primary" id="nameSave" type="submit">המשך</button></div>
+  <div class="err" id="nameError" role="alert"></div></form>
 </div></div>
 
 <div class="sheet" id="uploadSheet" role="dialog" aria-modal="true" aria-labelledby="uploadTitle"><div class="panel">
-  <h3 id="uploadTitle">שתפו רגע עם המשפחה</h3>
+  <h2 id="uploadTitle">שתפו רגע עם המשפחה</h2>
   <div class="row"><label class="sr" for="fileInput">בחירת תמונה או סרטון</label><input type="file" id="fileInput" accept="image/*,video/*"></div>
   <div class="row"><label class="sr" for="titleInput">מה קורה כאן? (לא חובה)</label><input type="text" id="titleInput" placeholder="מה קורה כאן? (לא חובה)"></div>
   <div class="row"><button class="primary" id="uploadBtn">שתפו</button><button class="primary" id="uploadCancel" style="background:var(--chip);color:var(--ink)">ביטול</button></div>
@@ -110,11 +115,12 @@
   <div class="note">מה שתעלו נשמר בשרת של Moments וגלוי רק לבני המעגל. העלו רק מה שמותר לכם לשתף. <a href="privacy.html#circle">פרטיות</a></div>
 </div></div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast"><span id="toastText"></span><button type="button" id="toastClose" aria-label="סגירת ההודעה">✕</button></div>
+<div class="sr" id="announce" role="status" aria-live="polite"></div>
 
 <div class="sheet" id="chatSheet" role="dialog" aria-modal="true" aria-labelledby="chatTitle"><div class="panel">
   <h2 id="chatTitle">שיחה במשפחה</h2><div class="note">רק לחברים המאושרים במעגל. מוצגות עד 100 הודעות אחרונות.</div>
-  <div id="chatMessages" style="max-height:45vh;overflow:auto"></div>
+  <div id="chatMessages" role="log" aria-live="polite" aria-label="הודעות" tabindex="0" style="max-height:45vh;overflow:auto"></div>
   <div class="row"><input id="chatInput" placeholder="כתבו למשפחה..." aria-label="הודעה למשפחה" maxlength="4000"><button class="primary" id="chatSend">שליחה</button></div>
   <div id="chatStatus" class="note" role="status" aria-live="polite"></div><button class="primary" id="chatClose">סגירה</button>
 </div></div>
@@ -185,7 +191,8 @@
     b.href = "intent://join?" + q + "#Intent;scheme=moments;package=com.regaim.app;S.browser_fallback_url=" + encodeURIComponent(back) + ";end";
     b.setAttribute("style", "background:#fff;color:#2B2B2B;border-radius:999px;padding:8px 14px;text-decoration:none;font-weight:600;white-space:nowrap");
     bar.appendChild(t); bar.appendChild(b);
-    document.body.insertBefore(bar, document.body.firstChild);
+    const skip = $("skipLink");
+    document.body.insertBefore(bar, skip && skip.nextSibling ? skip.nextSibling : document.body.firstChild);
   }
 
   let me = store.get("m_name") || "";
@@ -224,10 +231,16 @@
     history.replaceState(null, "", location.pathname + location.search);
     setTimeout(() => toast("האפליקציה עוד לא מותקנת בטלפון הזה. אפשר להמשיך כאן: לראות את הרגעים ולהגיב. להתקנה, בקשו ממי ששלח לכם את ההזמנה."), 400);
   }
+  // A message: shown long enough to read (longer for longer messages), with a close button, and always read out
+  // (the live region stays on the page; only the box comes and goes).
   function toast(msg) {
-    const t = $("toast"); t.textContent = msg; t.style.display = "block";
-    clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = "none"; }, 2600);
+    const t = $("toast");
+    $("toastText").textContent = msg;
+    t.classList.add("show");
+    const a = $("announce"); a.textContent = ""; setTimeout(() => { a.textContent = msg; }, 50);
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.classList.remove("show"); }, Math.max(4000, msg.length * 60));
   }
+  $("toastClose").onclick = () => { clearTimeout(toast.t); $("toast").classList.remove("show"); };
   function headers(extra) {
     const h = Object.assign({ apikey: KEY }, extra || {});
     if (!session || !session.access_token) throw new Error("יש להיכנס מהזמנה מאובטחת");
@@ -295,7 +308,10 @@
     return e;
   }
 
-  async function load() {
+  let lastSig = "";
+  // Media links expire after 15 minutes: the feed is drawn again with new links before that, even with no news.
+  let drawnAt = 0;
+  async function load(force) {
     if (!URL_BASE || !KEY || !code) {
       $("feed").innerHTML = "";
       const e = el("div", "empty");
@@ -328,7 +344,12 @@
       reactions = await rest("GET", "reactions?post_id=in.(" + ids + ")&select=*");
       comments = await rest("GET", "comments?post_id=in.(" + ids + ")&order=created_at.asc&select=*");
     }
-    data = { posts, reactions, comments };
+    const next = { posts, reactions, comments };
+    const sig = JSON.stringify([posts.map((p) => [p.id, p.title, p.caption, p.story, p.videoPath, p.coverPath]), reactions, comments]);
+    data = next;
+    if (sig === lastSig && !force && Date.now() - drawnAt < 12 * 60 * 1000) return;
+    lastSig = sig;
+    drawnAt = Date.now();
     render();
   }
 
@@ -343,12 +364,16 @@
   function renderFeed(feed) {
     feed.innerHTML = "";
     $("fab").style.display = circle ? "block" : "none";
-    $("who").innerHTML = "";
-    if (me) {
-      $("who").append("נכנסת בתור " + me + " · חשבון אורח בדפדפן הזה · ");
-      const chat = el("button","react","שיחה במשפחה"); chat.onclick = () => openConversation(null,circle.name); $("who").appendChild(chat);
-      const change = el("button", "link", "שינוי השם"); change.type = "button"; change.onclick = () => askName();
-      $("who").appendChild(change);
+    const whoFor = me + "|" + (circle ? circle.id : "");
+    if (whoFor !== renderFeed.whoFor) {
+      renderFeed.whoFor = whoFor;
+      $("who").innerHTML = "";
+      if (me) {
+        $("who").append("נכנסת בתור " + me + " · חשבון אורח בדפדפן הזה · ");
+        const chat = el("button","react","שיחה במשפחה"); chat.type = "button"; chat.dataset.key = "w|chat"; chat.onclick = () => openConversation(null,circle.name); $("who").appendChild(chat);
+        const change = el("button", "link", "שינוי השם"); change.type = "button"; change.dataset.key = "w|name"; change.onclick = () => askName();
+        $("who").appendChild(change);
+      }
     }
     if (!data.posts.length) {
       const e = el("div", "empty");
@@ -370,6 +395,7 @@
         // A video: a real button for keyboards and screen readers.
         media.setAttribute("role", "button");
         media.tabIndex = 0;
+        media.dataset.key = "v|" + p.id;
         media.setAttribute("aria-label", "ניגון סרטון" + (p.title ? ": " + p.title : ""));
         const play = () => {
           media.innerHTML = "";
@@ -384,6 +410,7 @@
       card.appendChild(media);
       const body = el("div", "body");
       if (p.title) body.appendChild(el("h2", "title", (p.style === "party" ? "🎉 " : "") + p.title));
+      else body.appendChild(el("h2", "sr", "רגע ששיתף " + (p.author || "בן משפחה")));
       if (p.caption) body.appendChild(el("p", "caption", p.caption));
       const metaBits = [p.author, (p.taken_at ? when(p.taken_at) : "שותף: " + when(p.created_at)), p.people, p.place].filter(Boolean);
       body.appendChild(el("div", "meta", metaBits.join(" · ")));
@@ -411,7 +438,9 @@
       toggle.onclick = () => { openComments.has(p.id) ? openComments.delete(p.id) : openComments.add(p.id); render(); };
       reacts.appendChild(toggle);
       body.appendChild(reacts);
-      const talk = el("button", "react", "שיחה על הזיכרון"); talk.onclick = () => openConversation(p.id,p.title); body.appendChild(talk);
+      const talk = el("button", "react", "שיחה על הזיכרון"); talk.type = "button"; talk.dataset.key = "c|" + p.id;
+      talk.setAttribute("aria-label", "שיחה על הזיכרון" + (p.title ? ": " + p.title : ""));
+      talk.onclick = () => openConversation(p.id,p.title); body.appendChild(talk);
 
       if (openComments.has(p.id) || cs.length) {
         const box = el("div", "comments");
@@ -464,12 +493,20 @@
     $("nameInput").value = me;
     openSheet("nameSheet", "nameInput");
   }
-  $("nameSave").onclick = () => {
+  $("nameForm").onsubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const v = $("nameInput").value.trim();
-    if (!v) return;
+    if (!v) {
+      $("nameInput").setAttribute("aria-invalid", "true");
+      $("nameError").textContent = "כתבו שם, כדי שכולם יידעו מי הגיב.";
+      $("nameInput").focus();
+      return;
+    }
+    $("nameInput").removeAttribute("aria-invalid");
+    $("nameError").textContent = "";
     me = v; store.set("m_name", v);
     closeSheet("nameSheet");
-    load().catch(e => toast(e.message));
+    load(true).catch(e => toast(e.message));
   };
 
   // ---- sharing from the web (grandparents can add their own photos and videos) ----
@@ -538,9 +575,18 @@
     try {
       const filter = conversationPost ? "post_id=eq." + enc(conversationPost) : "post_id=is.null";
       const rows = await rest("GET", "family_messages?circle_id=eq." + circle.id + "&" + filter + "&order=created_at.desc&limit=100&select=*");
-      const box = $("chatMessages"); box.replaceChildren();
-      if (!rows.length) box.appendChild(el("p","note","עוד לא התחילה שיחה ❤️"));
-      rows.reverse().forEach(message => { const line = el("div","comment"); line.appendChild(el("b",null,message.author + ": ")); line.append(message.body); box.appendChild(line); });
+      const box = $("chatMessages");
+      const forKey = conversationPost || "family";
+      if (loadConversation.forKey !== forKey) { loadConversation.forKey = forKey; loadConversation.seen = new Set(); box.replaceChildren(); }
+      const seen = loadConversation.seen;
+      // The "no messages yet" line is added once (in a log, adding it again would be read out every 30 seconds).
+      if (!rows.length && !seen.size && !box.querySelector("p.note")) { box.replaceChildren(); box.appendChild(el("p","note","עוד לא התחילה שיחה ❤️")); }
+      const fresh = rows.reverse().filter((m) => !seen.has(m.id || (m.author + m.created_at + m.body)));
+      if (fresh.length && !seen.size) box.replaceChildren();
+      fresh.forEach(message => {
+        seen.add(message.id || (message.author + message.created_at + message.body));
+        const line = el("div","comment"); line.appendChild(el("b",null,message.author + ": ")); line.append(message.body); box.appendChild(line);
+      });
       $("chatStatus").textContent = "";
     } catch (e) { $("chatStatus").textContent = e.message; }
   }
@@ -563,7 +609,7 @@
     const a = document.activeElement;
     if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return true;
     if ([...document.querySelectorAll("video")].some((v) => !v.paused && !v.ended)) return true;
-    if (["nameSheet", "uploadSheet"].some((id) => $(id).classList.contains("open"))) return true;
+    if (["nameSheet", "uploadSheet", "chatSheet"].some((id) => $(id).classList.contains("open"))) return true;
     return Object.values(drafts).some((d) => d && d.trim());
   }
   setInterval(() => {

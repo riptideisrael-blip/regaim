@@ -152,9 +152,10 @@ class DetectionLabActivity : AppCompatActivity() {
 
         val busy = running
         if (busy != null) {
-            content.addView(ui.text(busy, 15f, bold = true, top = 18))
+            content.addView(ui.text(busy, 15f, bold = true, top = 18).apply { A11y.live(this) })
             bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
                 max = 100
+                contentDescription = L.t("התקדמות הבדיקה", "Test progress")
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(8)).apply { topMargin = ui.dp(10) }
             }
             content.addView(bar)
@@ -168,7 +169,12 @@ class DetectionLabActivity : AppCompatActivity() {
             val title = CASES.getOrNull(i)?.let { L.t(it.first, it.second) } ?: ""
             val ok = if (c.hasMoment) LabScore.hit(c, Tier.GOOD) else !LabScore.alarm(c, Tier.GOOD)
             val okMaybe = if (c.hasMoment) LabScore.hit(c, Tier.MAYBE) else !LabScore.alarm(c, Tier.MAYBE)
-            card.addView(ui.text((if (ok) "✓ " else if (okMaybe) "~ " else "✗ ") + title, 15f, bold = true))
+            // The result in words too (a screen reader says "tilde" for "~").
+            val verdict = if (ok) L.t("נמצא", "found") else if (okMaybe) L.t("נמצא חלקית", "partly found") else L.t("פוספס", "missed")
+            card.addView(ui.text((if (ok) "✓ " else if (okMaybe) "~ " else "✗ ") + title, 15f, bold = true).apply {
+                contentDescription = "$title: $verdict"
+                A11y.heading(this)
+            })
             card.addView(ui.hint(o.optString("name") + (if (c.atMs >= 0) L.t(" · הרגע בשנייה ${c.atMs / 1000}", " · moment at ${c.atMs / 1000}s") else "") + " · ${o.optLong("took") / 1000}s", top = 2))
             val found = o.optJSONArray("found") ?: JSONArray()
             if (found.length() == 0) card.addView(ui.hint(L.t("לא נמצא כלום", "Nothing found"), top = 4))
@@ -194,6 +200,9 @@ class DetectionLabActivity : AppCompatActivity() {
                 val keep = JSONArray()
                 for (k in 0 until a.length()) if (a.optJSONObject(k)?.optString("id") != o.optString("id")) keep.put(a.get(k))
                 store(keep); render()
+            }.apply {
+                // Each button says which video it removes (they'd all sound the same otherwise).
+                contentDescription = L.t("הסירו מהבדיקה: ", "Remove from the test: ") + title + ", " + o.optString("name")
             })
             content.addView(card)
         }

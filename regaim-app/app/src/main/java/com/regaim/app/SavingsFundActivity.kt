@@ -55,6 +55,9 @@ class SavingsFundActivity : AppCompatActivity() {
     private var fState: EditText? = null
     private var fDate: EditText? = null
     private var fBalance: EditText? = null
+    /** Errors that stay on the screen: under "whose", and above Save. */
+    private var whoseError: TextView? = null
+    private var saveError: TextView? = null
     private var reading = false
     /** A note from the last reading, kept while this screen is open. */
     private var note: String? = null
@@ -195,11 +198,12 @@ class SavingsFundActivity : AppCompatActivity() {
             if (!reading) picker.launch(SavingsReports.TYPES)
         }.apply { isEnabled = !reading })
         content.addView(ui.hint(L.t("PDF או צילום, גם כמה קבצים יחד. הפרטים מתמלאים מהדוח, ואתם בודקים לפני שמירה.", "PDF or photo, several files together too. The details are filled in from it; you check before saving."), top = 4))
-        content.addView(ui.text(L.t("של מי?", "Whose?"), 15f, bold = true, top = 14))
-        if (kids.isNotEmpty()) content.addView(ui.chips(kids.map { it.name }, kids.indexOfFirst { it.id == fund.child }, top = 6) { i -> fromFields(); fund = fund.copy(child = kids[i].id); render() })
-        content.addView(ui.text(L.t("סוג החיסכון", "Kind of savings"), 15f, bold = true, top = 14))
+        content.addView(ui.text(L.t("של מי? (חובה)", "Whose? (required)"), 15f, bold = true, top = 14).apply { A11y.heading(this) })
+        if (kids.isNotEmpty()) content.addView(ui.chips(kids.map { it.name }, kids.indexOfFirst { it.id == fund.child }, top = 6, label = L.t("של מי הקופה", "Whose fund")) { i -> fromFields(); fund = fund.copy(child = kids[i].id); render() })
+        whoseError = ErrorLine.make(this, top = 4).also { content.addView(it) }
+        content.addView(ui.text(L.t("סוג החיסכון", "Kind of savings"), 15f, bold = true, top = 14).apply { A11y.heading(this) })
         val kinds = Savings.Kind.values().toList()
-        content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(fund.kind), top = 6) { i -> fromFields(); fund = fund.copy(kind = kinds[i]); render() })
+        content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(fund.kind), top = 6, label = L.t("סוג החיסכון", "Kind of savings")) { i -> fromFields(); fund = fund.copy(kind = kinds[i]); render() })
 
         fProvider = field(L.t("החברה המנהלת (למשל: מור, הראל, אלטשולר שחם)", "Managing company (e.g. Mor, Harel)"), fund.provider)
         coinFields.clear()
@@ -209,15 +213,24 @@ class SavingsFundActivity : AppCompatActivity() {
             // Each coin: how many units (as in the statement) and what's bought each month.
             content.addView(ui.section(L.t("המטבעות", "The coins")))
             for (c in fund.coins) {
-                content.addView(ui.text(coinName(c.symbol), 15f, bold = true, top = 12))
-                val units = field(L.t("כמה יחידות (כמו בדוח)", "Units (as in the statement)"), if (c.units > 0) c.units.toBigDecimal().stripTrailingZeros().toPlainString() else "", number = true)
-                val monthly = field(L.t("קנייה חודשית ב-₪ (הוראת קבע)", "Bought each month in ₪ (standing order)"), money(c.monthly), number = true)
+                content.addView(ui.text(coinName(c.symbol), 15f, bold = true, top = 12).apply { A11y.heading(this) })
+                // Each field says which coin it's for (the same two labels repeat for every coin).
+                val units = field(L.t("כמה יחידות ${coinName(c.symbol)} (כמו בדוח)", "Units of ${coinName(c.symbol)} (as in the statement)"), if (c.units > 0) c.units.toBigDecimal().stripTrailingZeros().toPlainString() else "", number = true)
+                val monthly = field(L.t("קנייה חודשית של ${coinName(c.symbol)} ב-₪ (הוראת קבע)", "${coinName(c.symbol)} bought each month in ₪ (standing order)"), money(c.monthly), number = true)
                 coinFields[c.symbol] = units to monthly
             }
             val more = listOf("BTC", "ETH", "SOL", "XRP", "ADA", "DOGE").filter { s -> fund.coins.none { it.symbol == s } }
             if (more.isNotEmpty()) {
                 content.addView(ui.text(L.t("+ הוספת מטבע", "+ Add a coin"), 13f, R.color.ink_soft, bold = true, top = 12))
-                content.addView(ui.chips(more.map { coinName(it) }, -1, top = 4) { i -> fromFields(); fund = fund.copy(coins = fund.coins + Savings.Coin(more[i])); render() })
+                // One-time actions (add this coin), so buttons, not a choice that stays selected.
+                val adds = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                more.forEach { sym ->
+                    adds.addView(ui.action("+ " + coinName(sym)) { fromFields(); fund = fund.copy(coins = fund.coins + Savings.Coin(sym)); render() }.apply {
+                        minHeight = ui.dp(48); setPadding(ui.dp(10), 0, ui.dp(10), 0)
+                        contentDescription = L.t("הוספת ${coinName(sym)}", "Add ${coinName(sym)}")
+                    })
+                }
+                content.addView(ui.scrollRow(adds, top = 4))
             }
         } else {
             fTrack = field(L.t("מסלול (למשל: מניות, כללי, הלכה)", "Track (e.g. stocks, general)"), fund.track)
@@ -233,7 +246,7 @@ class SavingsFundActivity : AppCompatActivity() {
                 content.addView(ui.hint(L.t("המדינה מפקידה ${FamilyItems.money(state)} בחודש לכל ילד (ביטוח לאומי, ${java.time.LocalDate.now().year}).", "The state deposits ${FamilyItems.money(state)} a month for every child (National Insurance, ${java.time.LocalDate.now().year})."), top = 2))
                 content.addView(ui.text(L.t("אתם מכפילים מקצבת הילדים?", "Do you match it from the child allowance?"), 13f, R.color.ink_soft, bold = true, top = 12))
                 val sel = when { fund.monthly == fund.stateMonthly && fund.monthly > 0 -> 0; fund.monthly == 0.0 -> 1; else -> -1 }
-                content.addView(ui.chips(listOf(L.t("כן, עוד ${FamilyItems.money(fund.stateMonthly)}", "Yes, another ${FamilyItems.money(fund.stateMonthly)}"), L.t("לא", "No")), sel, top = 4) { i ->
+                content.addView(ui.chips(listOf(L.t("כן, עוד ${FamilyItems.money(fund.stateMonthly)}", "Yes, another ${FamilyItems.money(fund.stateMonthly)}"), L.t("לא", "No")), sel, top = 4, label = L.t("מכפילים מקצבת הילדים", "Matching from the child allowance")) { i ->
                     fromFields(); fund = fund.copy(monthly = if (i == 0) fund.stateMonthly else 0.0); fresh = true; render()
                 })
                 fMonthly = field(L.t("כמה אתם מפקידים בחודש ב-₪ (אם זה סכום אחר)", "What you deposit each month in ₪ (if it's another amount)"), money(fund.monthly), number = true)
@@ -249,7 +262,7 @@ class SavingsFundActivity : AppCompatActivity() {
         if (p != null) {
             fDate = field(L.t("תאריך הדוח (יום.חודש.שנה)", "Report date (day.month.year)"), FamilyItems.short(p.date))
             content.addView(ui.text(L.t("המטבע בדוח", "The report's currency"), 13f, R.color.ink_soft, bold = true, top = 12))
-            content.addView(ui.chips(listOf("₪ " + L.t("שקלים", "Shekels"), "$ " + L.t("דולרים", "Dollars")), if (usdMode) 1 else 0, top = 4) { i -> fromFields(); usdMode = i == 1; fresh = true; render() })
+            content.addView(ui.chips(listOf("₪ " + L.t("שקלים", "Shekels"), "$ " + L.t("דולרים", "Dollars")), if (usdMode) 1 else 0, top = 4, label = L.t("המטבע בדוח", "The report's currency")) { i -> fromFields(); usdMode = i == 1; fresh = true; render() })
             fBalance = if (usdMode) field(L.t("היתרה בדוח ב-$", "Balance in the report in $"), p.usd?.let { String.format(java.util.Locale.US, "%.2f", it) }.orEmpty(), number = true)
                 else field(L.t("היתרה בדוח ב-₪", "Balance in the report in ₪"), money(p.balance), number = true)
             if (usdMode) {
@@ -268,12 +281,15 @@ class SavingsFundActivity : AppCompatActivity() {
             content.addView(ui.action(L.t("+ הוספת יתרה מדוח (ידנית)", "+ Add a balance from a report (by hand)")) { fromFields(); pending = Savings.Report("", Double.NaN); render() })
         }
         if (fund.reports.isNotEmpty()) {
-            content.addView(ui.text(L.t("דוחות קודמים", "Earlier reports"), 15f, bold = true, top = 14))
+            content.addView(ui.text(L.t("דוחות קודמים", "Earlier reports"), 15f, bold = true, top = 14).apply { A11y.heading(this) })
             val card = ui.card(top = 6)
             fund.reports.sortedByDescending { it.date }.forEach { r ->
                 val usd = r.usd?.let { " ($" + String.format(java.util.Locale.US, "%,.0f", it) + ")" }.orEmpty()
+                // Tappable only when there is a report to open (otherwise it was a button that did nothing).
+                val doc = docOf(r.doc)
+                val openDoc: (() -> Unit)? = doc?.let { d -> { FamilyItemActivity.open(this, d.id); Unit } }
                 card.addView(ui.row("${FamilyItems.short(r.date)} · ${FamilyItems.money(r.balance)}$usd",
-                    if (docOf(r.doc) != null) L.t("הדוח ›", "Report ›") else "", top = 0) { docOf(r.doc)?.let { FamilyItemActivity.open(this, it.id) } })
+                    if (doc != null) L.t("הדוח ›", "Report ›") else "", top = 0, onClick = openDoc))
             }
             content.addView(card)
         }
@@ -292,6 +308,7 @@ class SavingsFundActivity : AppCompatActivity() {
             else L.t("הקופה עוד לא זוהתה בגמל נט (לפי החברה והמסלול). עד אז: כמה יש היום = היתרה בדוח האחרון ועוד ההפקדות, בלי ניחוש תשואה.",
                 "Not found at Gemel-Net yet (by company and track). Until then: today = the last report's balance plus the deposits, no guessed return."), top = 10))
 
+        saveError = ErrorLine.make(this, top = 14).also { content.addView(it) }
         content.addView(ui.button(L.t("שמירה", "Save"), primary = true, top = 18) { save() })
         if (!isNew) content.addView(ui.action(L.t("מחיקת הקופה", "Delete the fund"), R.color.ds_error) {
             AlertDialog.Builder(this).setTitle(L.t("למחוק את הקופה?", "Delete the fund?"))
@@ -308,8 +325,16 @@ class SavingsFundActivity : AppCompatActivity() {
 
     private fun save() {
         fromFields()
-        if (fund.child.isEmpty()) { Toast.makeText(this, L.t("בחרו של מי הקופה", "Choose whose fund it is"), Toast.LENGTH_SHORT).show(); return }
-        if (fund.provider.isBlank() && fund.name.isBlank()) { Toast.makeText(this, L.t("כתבו את שם החברה או הקופה", "Write the company or fund name"), Toast.LENGTH_SHORT).show(); return }
+        // Errors stay on the screen, by what they're about, and are read out.
+        if (fund.child.isEmpty()) {
+            val msg = L.t("בחרו של מי הקופה", "Choose whose fund it is")
+            whoseError?.let { ErrorLine.show(it, msg) }; saveError?.let { ErrorLine.show(it, msg) }
+            return
+        }
+        if (fund.provider.isBlank() && fund.name.isBlank()) {
+            fProvider?.let { ErrorLine.field(it, L.t("כתבו את שם החברה או הקופה", "Write the company or fund name")) }
+            return
+        }
         // A crypto statement without a shekel balance: worked out from the coins' prices on its date.
         pending?.let { pr ->
             if (pr.balance.isNaN() && pr.usd != null && pr.date.isNotEmpty()) Savings.usdToIls(pr.usd, pr.date, CryptoPrices.cached(this))?.let { pending = pr.copy(balance = it) }
@@ -321,7 +346,9 @@ class SavingsFundActivity : AppCompatActivity() {
         }
         val p = pending
         if (p != null && (p.date.isEmpty() || p.balance.isNaN())) {
-            Toast.makeText(this, L.t("חסרים תאריך או יתרה בדוח (תאריך: יום.חודש.שנה)", "The report's date or balance is missing (date: day.month.year)"), Toast.LENGTH_LONG).show(); return
+            if (p.date.isEmpty()) fDate?.let { ErrorLine.field(it, L.t("חסר תאריך הדוח (יום.חודש.שנה)", "The report's date is missing (day.month.year)")) }
+            else fBalance?.let { ErrorLine.field(it, L.t("חסרה היתרה בדוח", "The report's balance is missing")) }
+            return
         }
         // A different company, track or kind: found again at Gemel-Net.
         val before = FamilyFile.savings(this).firstOrNull { it.id == fund.id }

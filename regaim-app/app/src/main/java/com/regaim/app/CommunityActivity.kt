@@ -61,6 +61,8 @@ class CommunityActivity : AppCompatActivity() {
         content = findViewById(R.id.screenContent)
         // Pull down for the newest posts.
         PullRefresh.attach(this, findViewById(R.id.screenScroll), work = { }) { reload() }
+        // Refresh without the pull gesture: a screen reader's action on the page.
+        androidx.core.view.ViewCompat.addAccessibilityAction(findViewById(R.id.screenScroll), L.t("רענון", "Refresh")) { _, _ -> reload(); true }
         // Posts reach the screen edges (negative side margins): don't cut them at the page padding.
         content.clipToPadding = false
         content.clipChildren = false
@@ -170,20 +172,22 @@ class CommunityActivity : AppCompatActivity() {
         postViews.clear()
         if (!Community.available(this)) {
             val card = ui.card(top = 16)
-            card.addView(ui.text(L.t("הקהילה של Moments", "The Moments community"), 20f, bold = true))
+            card.addView(ui.text(L.t("הקהילה של Moments", "The Moments community"), 20f, bold = true).apply { A11y.heading(this) })
             card.addView(ui.hint(L.t("רגעים שמשתמשים בחרו לפרסם לכולם. כדי לראות ולפרסם צריך חשבון.", "Moments people chose to share with everyone. You'll need an account to view and share."), top = 6))
             card.addView(ui.button(L.t("התחברות או הרשמה", "Sign in or sign up"), primary = true, top = 14) { WelcomeActivity.open(this) })
             content.addView(card)
             return
         }
         content.addView(composer())
+        // Refresh without the pull gesture (for anyone who can't pull down).
+        content.addView(ui.action(L.t("רענון", "Refresh")) { reload() }.apply { minHeight = ui.dp(48) })
         if (Account.isAdmin(this)) content.addView(ui.action(L.t("פוסט רשמי של Moments", "Official Moments post")) { officialPost() }.apply { setPadding(0, ui.dp(10), 0, 0) })
         content.addView(challengeCard())
         if (posts.isNotEmpty()) content.addView(peopleRow())
         content.addView(hairline(top = 12))
         if (error.isNotEmpty()) {
             val card = ui.card(top = 14)
-            card.addView(ui.text(error, 15f))
+            card.addView(ui.text("⚠️ $error", 15f, R.color.ds_error).apply { contentDescription = error; A11y.live(this) })
             card.addView(ui.button(L.t("נסו שוב", "Try again"), primary = true, top = 12) { reload() })
             content.addView(card)
         }
@@ -205,7 +209,7 @@ class CommunityActivity : AppCompatActivity() {
                 setColorFilter(ui.color(R.color.ink))
                 layoutParams = LinearLayout.LayoutParams(ui.dp(56), ui.dp(56))
             })
-            box.addView(ui.text(L.t("הקהילה רק מתחילה", "The community is just getting started"), 20f, bold = true, top = 12).apply { gravity = Gravity.CENTER })
+            box.addView(ui.text(L.t("הקהילה רק מתחילה", "The community is just getting started"), 20f, bold = true, top = 12).apply { gravity = Gravity.CENTER; A11y.heading(this) })
             box.addView(ui.hint(L.t("היו הראשונים לפרסם רגע טוב. רק מה שתבחרו מתפרסם.", "Be the first to share a great moment. Only what you choose gets shared."), top = 6).apply { gravity = Gravity.CENTER })
             box.addView(ui.button(L.t("פרסמו רגע", "Share a moment"), primary = true, top = 16) { pickMemory() })
             content.addView(box)
@@ -218,10 +222,12 @@ class CommunityActivity : AppCompatActivity() {
     private fun composer(): View {
         val row = ui.horizontal(top = 10)
         row.gravity = Gravity.CENTER_VERTICAL
-        row.addView(mv.avatar(Community.displayName(this), 40))
+        row.addView(mv.avatar(Community.displayName(this), 40).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
         row.addView(TextView(this).apply {
             text = L.t("איזה רגע תרצו לשתף?", "Which moment would you like to share?")
             textSize = 15f
+            minHeight = ui.dp(48)
+            A11y.button(this)
             setTextColor(ui.color(R.color.ink_soft))
             gravity = Gravity.CENTER_VERTICAL
             setPadding(ui.dp(16), ui.dp(11), ui.dp(16), ui.dp(11))
@@ -233,8 +239,8 @@ class CommunityActivity : AppCompatActivity() {
             setImageResource(R.drawable.ic_gallery)
             setColorFilter(ui.color(R.color.ink))
             contentDescription = L.t("בחרו רגע", "Choose a moment")
-            setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
-            layoutParams = LinearLayout.LayoutParams(ui.dp(40), ui.dp(40))
+            setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+            layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
             setBackgroundResource(android.R.drawable.list_selector_background)
             setOnClickListener { pickMemory() }
         })
@@ -262,9 +268,10 @@ class CommunityActivity : AppCompatActivity() {
             background = GradientDrawable().apply { cornerRadius = DS.radiusCard(this@CommunityActivity); setColor(DS.button(this@CommunityActivity)) }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(14) }
         }
-        card.addView(ui.text(L.t("האתגר של השבוע", "This week's challenge"), 12f, bold = true).apply { setTextColor(DS.alpha(DS.onButton(this@CommunityActivity), 0.85f)) })
-        card.addView(ui.text(L.t(c.first, c.second), 19f, bold = true, top = 4).apply { setTextColor(DS.onButton(this@CommunityActivity)) })
-        card.addView(ui.text(L.t("שתפו רגע עם $tag ונציג את היפים ביותר כאן בקהילה.", "Share a moment with $tag and we'll feature the best ones here."), 13f, top = 4).apply { setTextColor(DS.alpha(DS.onButton(this@CommunityActivity), 0.9f)) })
+        // Full white on the blue (5:1); see-through white was under 4.5:1.
+        card.addView(ui.text(L.t("האתגר של השבוע", "This week's challenge"), 13f, bold = true).apply { setTextColor(DS.onButton(this@CommunityActivity)) })
+        card.addView(ui.text(L.t(c.first, c.second), 19f, bold = true, top = 4).apply { setTextColor(DS.onButton(this@CommunityActivity)); A11y.heading(this) })
+        card.addView(ui.text(L.t("שתפו רגע עם $tag ונציג את היפים ביותר כאן בקהילה.", "Share a moment with $tag and we'll feature the best ones here."), 13f, top = 4).apply { setTextColor(DS.onButton(this@CommunityActivity)) })
         card.addView(TextView(this).apply {
             text = L.t("השתתפו", "Join in")
             textSize = 14f
@@ -272,6 +279,8 @@ class CommunityActivity : AppCompatActivity() {
             setTextColor(DS.primary(this@CommunityActivity))
             gravity = Gravity.CENTER
             setPadding(ui.dp(20), ui.dp(9), ui.dp(20), ui.dp(9))
+            minHeight = ui.dp(48)
+            A11y.button(this)
             background = GradientDrawable().apply { cornerRadius = DS.radiusButton(this@CommunityActivity); setColor(DS.bg(this@CommunityActivity)) }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
             setOnClickListener { pickMemory("$tag ") }
@@ -296,7 +305,7 @@ class CommunityActivity : AppCompatActivity() {
             .setPositiveButton(L.t("פרסום", "Post")) { _, _ ->
                 val h = head.text.toString().trim()
                 val b = body.text.toString().trim()
-                if (h.isEmpty()) return@setPositiveButton
+                if (h.isEmpty()) { Toast.makeText(this, L.t("חסרה כותרת.", "A headline is missing."), Toast.LENGTH_LONG).show(); return@setPositiveButton }
                 val app = applicationContext
                 Toast.makeText(this, L.t("מפרסם…", "Posting…"), Toast.LENGTH_SHORT).show()
                 worker.execute {
@@ -320,7 +329,9 @@ class CommunityActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(4), 0, ui.dp(10), 0)
-            addView(mv.avatar(p.author, 60, byName = false))
+            addView(mv.avatar(p.author, 60, byName = false).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
+            contentDescription = L.t("${p.author}, מעבר לרגע האחרון", "${p.author}, go to the latest moment")
+            A11y.button(this)
             addView(TextView(this@CommunityActivity).apply {
                 text = p.author
                 textSize = 12f
@@ -335,6 +346,8 @@ class CommunityActivity : AppCompatActivity() {
                 val target = postViews[p.authorId] ?: return@setOnClickListener
                 val scroll = findViewById<ScrollView>(R.id.screenScroll)
                 scroll.smoothScrollTo(0, target.top)
+                // The screen reader goes there too.
+                target.postDelayed({ target.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }, 350)
             }
         })
         return ui.scrollRow(row, top = 16)
@@ -389,7 +402,8 @@ class CommunityActivity : AppCompatActivity() {
             layoutDirection = View.LAYOUT_DIRECTION_LOCALE
             setPadding(ui.dp(16), ui.dp(16), ui.dp(16), ui.dp(24))
         }
-        box.addView(ui.text(L.t("בחרו רגע לפרסום", "Choose a moment to share"), 18f, bold = true))
+        box.addView(ui.text(L.t("בחרו רגע לפרסום", "Choose a moment to share"), 18f, bold = true).apply { A11y.heading(this) })
+        dialog.setTitle(L.t("בחרו רגע לפרסום", "Choose a moment to share"))
         val views = all.map { m ->
             mv.gridCard(m) { dialog.dismiss(); PublishSheet.show(this, m, Community.lastAudience(this).let { if (it == "family") "community" else it }, startCaption) { dirty = true; reload() } }
         }
@@ -420,7 +434,7 @@ class CommunityActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(side, 0, ui.dp(4), ui.dp(10))
         }
-        head.addView(mv.avatar(p.author, 34, byName = false))
+        head.addView(mv.avatar(p.author, 34, byName = false).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
         val names = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(ui.dp(10), 0, ui.dp(8), 0)
@@ -450,7 +464,9 @@ class CommunityActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTextColor(ui.color(R.color.ink))
             setPadding(ui.dp(12), 0, ui.dp(12), 0)
-            contentDescription = L.t("עוד אפשרויות", "More options")
+            minWidth = ui.dp(48); minHeight = ui.dp(48)
+            contentDescription = L.t("אפשרויות לפוסט של ${p.author}", "Options for ${p.author}'s post")
+            A11y.button(this)
             setOnClickListener { menu(it, p, me) }
         })
         box.addView(head)
@@ -507,6 +523,10 @@ class CommunityActivity : AppCompatActivity() {
         fun paintLike() {
             heart.setImageResource(if (st.liked) R.drawable.ic_heart else R.drawable.ic_heart_outline)
             heart.setColorFilter(ui.color(if (st.liked) R.color.heart else R.color.ink))
+            // Liked or not, in words (not only the filled red heart).
+            heart.contentDescription = if (st.liked) L.t("ביטול לייק", "Unlike") else L.t("לייק", "Like")
+            heart.isSelected = st.liked
+            androidx.core.view.ViewCompat.setStateDescription(heart, if (st.liked) L.t("עשיתם לייק", "Liked") else null)
             likesLine.text = when (st.likes) {
                 0 -> ""
                 1 -> L.t("לייק אחד", "1 like")
@@ -530,7 +550,7 @@ class CommunityActivity : AppCompatActivity() {
                 try { Community.setLike(applicationContext, p.id, want) } catch (e: Exception) {
                     runOnUiThread {
                         st.liked = !want; st.likes += if (want) -1 else 1; paintLike()
-                        Toast.makeText(this, e.message ?: L.t("לא הצלחנו", "Something went wrong"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, L.t("הלייק לא נשמר. נסו שוב.", "The like wasn't saved. Try again."), Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -551,6 +571,19 @@ class CommunityActivity : AppCompatActivity() {
             }
         })
         frame.setOnTouchListener { _, e -> gesture.onTouchEvent(e) }
+        // Screen readers, switch access and keyboards: a tap plays the video or opens the book; like is an action.
+        if (p.isVideo || p.isBook) {
+            frame.setOnClickListener {
+                if (p.isVideo) playVideo(frame, pic, badge, p)
+                else CommunityBookActivity.open(this@CommunityActivity, p)
+            }
+            frame.contentDescription = if (p.isVideo) L.t("ניגון הסרטון של ${p.author}", "Play ${p.author}'s video")
+                else L.t("פתיחת הספר של ${p.author}", "Open ${p.author}'s book")
+            A11y.button(frame)
+        } else {
+            frame.contentDescription = L.t("תמונה של ${p.author}", "${p.author}'s photo") + (p.title.takeIf { it.isNotBlank() }?.let { ": $it" } ?: "")
+        }
+        androidx.core.view.ViewCompat.addAccessibilityAction(frame, L.t("לייק", "Like")) { _, _ -> toggleLike(true); true }
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -560,7 +593,7 @@ class CommunityActivity : AppCompatActivity() {
         fun icon(v: ImageView, desc: String, go: () -> Unit) {
             v.contentDescription = desc
             v.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
-            v.layoutParams = LinearLayout.LayoutParams(ui.dp(42), ui.dp(42))
+            v.layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
             v.setBackgroundResource(android.R.drawable.list_selector_background)
             v.setOnClickListener { go() }
             bar.addView(v)
@@ -598,7 +631,10 @@ class CommunityActivity : AppCompatActivity() {
                 background = GradientDrawable().apply { cornerRadius = DS.radiusChip(this@CommunityActivity); setColor(ui.color(R.color.fill)) }
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(6) }
             }
-            if (p.rating > 0) r.addView(ui.text("★".repeat(p.rating) + "☆".repeat(5 - p.rating) + L.t("  חוות הדעת של ההורה", "  The parent's review"), 14f, bold = true).apply { setTextColor(DS.star(this@CommunityActivity)) })
+            if (p.rating > 0) r.addView(ui.text("★".repeat(p.rating) + "☆".repeat(5 - p.rating) + L.t("  חוות הדעת של ההורה", "  The parent's review"), 14f, bold = true).apply {
+                setTextColor(DS.star(this@CommunityActivity))
+                contentDescription = L.t("דירוג ${p.rating} מתוך 5, חוות הדעת של ההורה", "Rated ${p.rating} of 5, the parent's review")
+            })
             if (p.review.isNotBlank()) r.addView(ui.text("“${p.review.trim()}”", 14f).apply { setPadding(0, ui.dp(4), 0, 0) })
             if (p.verified) r.addView(ui.text(L.t("✓ ספר אמיתי שנוצר באפליקציה על ידי ${p.author}", "✓ A real book made in the app by ${p.author}"), 12f, R.color.ink_soft).apply { setPadding(0, ui.dp(6), 0, 0) })
             words.addView(r)
@@ -607,6 +643,8 @@ class CommunityActivity : AppCompatActivity() {
             textSize = 14f
             setTextColor(ui.color(R.color.ink_soft))
             setPadding(0, ui.dp(5), 0, ui.dp(2))
+            minHeight = ui.dp(48); gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            A11y.button(this)
             setOnClickListener { comments() }
         }
         words.addView(commentsLine)
@@ -743,7 +781,9 @@ class CommunityActivity : AppCompatActivity() {
             layoutDirection = View.LAYOUT_DIRECTION_LOCALE
             setPadding(ui.dp(16), ui.dp(16), ui.dp(16), ui.dp(16))
         }
-        root.addView(ui.text(L.t("תגובות", "Comments"), 18f, bold = true))
+        root.addView(ui.text(L.t("תגובות", "Comments"), 18f, bold = true).apply { A11y.heading(this) })
+        dialog.setTitle(L.t("תגובות", "Comments"))
+        androidx.core.view.ViewCompat.setAccessibilityPaneTitle(root, L.t("תגובות", "Comments"))
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scroll = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(300)).apply { topMargin = ui.dp(8) }
@@ -752,6 +792,7 @@ class CommunityActivity : AppCompatActivity() {
         root.addView(scroll)
         val input = EditText(this).apply {
             hint = L.t("כתבו תגובה...", "Add a comment…")
+            contentDescription = null
             textSize = 15f
             maxLines = 3
             setPadding(ui.dp(14), ui.dp(10), ui.dp(14), ui.dp(10))
@@ -764,10 +805,14 @@ class CommunityActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@CommunityActivity, R.color.accent))
             typeface = DS.emphasis
             setPadding(ui.dp(14), ui.dp(10), ui.dp(4), ui.dp(10))
+            minHeight = ui.dp(48); minWidth = ui.dp(48); gravity = Gravity.CENTER
+            A11y.button(this)
         }
+        val errText = ErrorLine.make(this, top = 4)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         row.addView(input); row.addView(send)
         root.addView(row)
+        root.addView(errText)
 
         var shown = emptyList<Community.Comment>()
         fun draw() {
@@ -778,7 +823,7 @@ class CommunityActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     setPadding(0, ui.dp(10), 0, ui.dp(2))
                 }
-                line.addView(mv.avatar(c.author, 32, byName = false))
+                line.addView(mv.avatar(c.author, 32, byName = false).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
                 val texts = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPaddingRelative(ui.dp(12), 0, 0, 0)
@@ -788,7 +833,7 @@ class CommunityActivity : AppCompatActivity() {
                 texts.addView(ui.text(c.body, 15f, top = 1))
                 line.addView(texts)
                 if (c.authorId == me || p.authorId == me || Account.isAdmin(this)) {
-                    line.setOnLongClickListener {
+                    fun askDelete() {
                         AlertDialog.Builder(this).setTitle(L.t("למחוק את התגובה?", "Delete this comment?"))
                             .setPositiveButton(L.t("מחיקה", "Delete")) { _, _ ->
                                 worker.execute {
@@ -796,8 +841,13 @@ class CommunityActivity : AppCompatActivity() {
                                     runOnUiThread { shown = shown.filter { it.id != c.id }; onCount(shown.size); draw() }
                                 }
                             }.setNegativeButton(L.t("ביטול", "Cancel"), null).show()
-                        true
                     }
+                    line.setOnLongClickListener { askDelete(); true }
+                    A11y.longPress(line, L.t("מחיקת התגובה", "Delete the comment"))
+                    // Visible too (not only a long press).
+                    line.addView(ui.action(L.t("מחיקה", "Delete"), R.color.ink_soft) { askDelete() }.apply {
+                        minHeight = ui.dp(48); contentDescription = L.t("מחיקת התגובה של ${c.author}", "Delete ${c.author}'s comment")
+                    })
                 }
                 list.addView(line)
             }
@@ -813,11 +863,15 @@ class CommunityActivity : AppCompatActivity() {
         }
         send.setOnClickListener {
             val body = input.text.toString().trim()
-            if (body.isEmpty()) return@setOnClickListener
+            if (body.isEmpty()) { ErrorLine.field(input, L.t("כתבו תגובה קודם", "Write a comment first")); return@setOnClickListener }
+            ErrorLine.show(errText, "")
             input.setText("")
             worker.execute {
                 val err = try { Community.addComment(applicationContext, p.id, body); null } catch (e: Exception) { e.message }
-                runOnUiThread { if (err != null) Toast.makeText(this, err, Toast.LENGTH_LONG).show() else load() }
+                runOnUiThread {
+                    if (err != null) { input.setText(body); ErrorLine.show(errText, L.t("התגובה לא נשלחה. נסו שוב.", "The comment wasn't sent. Try again.")) }
+                    else { load(); send.announceForAccessibility(L.t("התגובה נשלחה", "Comment sent")) }
+                }
             }
         }
         draw()

@@ -23,10 +23,15 @@
             android:src="@drawable/ic_tab_home" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_home"
             android:textSize="12sp" />
     </LinearLayout>
@@ -47,10 +52,15 @@
             android:src="@drawable/ic_tab_archive" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_archive"
             android:textSize="12sp" />
     </LinearLayout>
@@ -71,10 +81,15 @@
             android:src="@drawable/ic_tab_studio" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_studio"
             android:textSize="12sp" />
     </LinearLayout>
@@ -95,10 +110,15 @@
             android:src="@drawable/ic_tab_family" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_family"
             android:textSize="12sp" />
     </LinearLayout>
@@ -119,10 +139,15 @@
             android:src="@drawable/ic_tab_file" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_file"
             android:textSize="12sp" />
     </LinearLayout>
@@ -143,10 +168,15 @@
             android:src="@drawable/ic_tab_community" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:layout_height="16sp"
+            android:gravity="center"
             android:layout_marginTop="3dp"
             android:maxLines="1"
+            android:ellipsize="end"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="12sp"
             android:text="@string/nav_community"
             android:textSize="12sp" />
     </LinearLayout>

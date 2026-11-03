@@ -17,7 +17,7 @@
     <View
         android:id="@+id/bubbleScrim"
         android:layout_width="match_parent"
-        android:layout_height="120dp"
+        android:layout_height="match_parent"
         android:layout_gravity="bottom"
         android:background="@drawable/scrim_bottom"
         android:visibility="gone" />
@@ -48,8 +48,8 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="2"
-            android:shadowColor="#66000000"
-            android:shadowRadius="4"
+            android:shadowColor="#CC000000"
+            android:shadowRadius="6"
             android:textColor="@color/white"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -61,9 +61,9 @@
             android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:shadowColor="#66000000"
-            android:shadowRadius="4"
-            android:textColor="#E6FFFFFF"
+            android:shadowColor="#CC000000"
+            android:shadowRadius="6"
+            android:textColor="@color/white"
             android:textSize="13sp" />
     </LinearLayout>
 

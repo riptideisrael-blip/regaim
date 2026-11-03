@@ -42,16 +42,19 @@ class GooglePhotosActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_screen)
-        findViewById<TextView>(R.id.screenTitle).text = "Google Photos"
+        // An English name inside a Hebrew app: read with English pronunciation.
+        findViewById<TextView>(R.id.screenTitle).text = A11y.english("Google Photos")
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         val ui = Ui(this)
         val content = findViewById<LinearLayout>(R.id.screenContent)
-        content.addView(ui.text(L.t("להביא רגעים מ-Google Photos", "Bring in moments from Google Photos"), 19f, bold = true, top = 18))
+        content.addView(ui.text(L.t("להביא רגעים מ-Google Photos", "Bring in moments from Google Photos"), 19f, bold = true, top = 18).apply { A11y.heading(this) })
         content.addView(ui.hint(L.t("בחרו תמונות וסרטונים ב-Google Photos. טיפ: לחיצה על סימן ה-✓ ליד כותרת תאריך (יום או חודש) בוחרת את כולו בבת אחת. גוגל לא מאפשרת לאפליקציות לבחור אלבום שלם, אבל אפשר לבחור עד ${GooglePhotos.MAX_ITEMS} פריטים בכל פעם, ולחזור שוב להמשך. מה שכבר הועתק מדולג. הכול נשאר פרטי.", "Pick photos and videos in Google Photos. Tip: tap the ✓ next to a date header (day or month) to select all of it. Google doesn't let apps pick a whole album, but you can pick up to ${GooglePhotos.MAX_ITEMS} items at a time and come back for more. Already-copied items are skipped. Everything stays private."), top = 8))
         actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         actions.addView(ui.button(L.t("התחברו ובחרו מ-Google Photos", "Connect and choose from Google Photos"), primary = true, top = 20) { if (!busy) connect() })
         content.addView(actions)
         status = ui.hint("", top = 16)
+        // Connecting, progress and errors are said by themselves.
+        A11y.live(status)
         content.addView(status)
     }
 
@@ -72,7 +75,7 @@ class GooglePhotosActivity : AppCompatActivity() {
                     catch (_: Exception) { say(L.t("לא הצלחנו לפתוח את חלון ההרשאה.", "Couldn't open the sign-in window.")) }
                 } else onToken(r)
             }
-            .addOnFailureListener { say(L.t("ההתחברות ל-Google נכשלה. בדקו שהגדרות Google Cloud הושלמו (ראו את ההוראות).", "Couldn't connect to Google. Make sure the Google Cloud setup is complete (see the instructions).")) }
+            .addOnFailureListener { say(L.t("ההתחברות ל-Google לא הצליחה. נסו שוב בעוד רגע. אם זה חוזר, כתבו לנו.", "Couldn't connect to Google. Try again in a moment. If it keeps happening, write to us.")) }
     }
 
     private fun onToken(r: AuthorizationResult) {

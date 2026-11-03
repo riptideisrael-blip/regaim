@@ -58,7 +58,7 @@ class StoriesActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         val head = ui.horizontal(top = 0)
-        head.addView(TextView(this).apply { text = t.icon; textSize = 20f })
+        head.addView(TextView(this).apply { text = t.icon; textSize = 20f; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
         head.addView(TextView(this).apply {
             text = t.title
             textSize = 17f
@@ -66,6 +66,7 @@ class StoriesActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@StoriesActivity, R.color.ink))
             setPadding(mv.dp(10), 0, mv.dp(10), 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            A11y.heading(this)
         })
         head.addView(TextView(this).apply {
             text = L.t("${t.moments.size} רגעים", "${t.moments.size} moments")
@@ -74,6 +75,9 @@ class StoriesActivity : AppCompatActivity() {
         })
         head.addView(mv.icon(R.drawable.ic_chevron, 20, R.color.ink_soft))
         head.setOnClickListener { play(t) }
+        head.minimumHeight = mv.dp(48)
+        head.contentDescription = t.title + ", " + L.t("${t.moments.size} רגעים. לחצו לצפייה", "${t.moments.size} moments. Tap to watch")
+        A11y.button(head)
         box.addView(head)
 
         val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -105,6 +109,7 @@ class StoriesActivity : AppCompatActivity() {
             }
             strip.addView(frame)
         }
+        strip.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         box.addView(ui.scrollRow(strip, top = 12))
         box.addView(View(this).apply {
             setBackgroundColor(0xFFEEF3F9.toInt())

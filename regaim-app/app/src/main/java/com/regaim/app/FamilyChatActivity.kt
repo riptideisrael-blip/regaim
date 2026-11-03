@@ -56,10 +56,10 @@ class FamilyChatActivity : AppCompatActivity() {
             setPadding(ui.dp(20), ui.dp(28), ui.dp(20), ui.dp(16))
         }
         root.addView(ui.action(L.t("חזרה", "Back")) { finish() })
-        root.addView(ui.text(if (postId == null) Circle.name(this).ifBlank { L.t("שיחה במשפחה", "Family chat") } else L.t("שיחה על הזיכרון", "Chat about this memory"), 24f, bold = true))
+        root.addView(ui.text(if (postId == null) Circle.name(this).ifBlank { L.t("שיחה במשפחה", "Family chat") } else L.t("שיחה על הזיכרון", "Chat about this memory"), 24f, bold = true).apply { A11y.heading(this) })
         intent.getStringExtra("title")?.takeIf { it.isNotBlank() }?.let { root.addView(ui.hint(it, top = 4)) }
         root.addView(ui.hint(L.t("רק לחברים המאושרים במעגל · הודעות מהמשפחה", "Only approved circle members · family messages"), top = 5))
-        status = ui.hint(L.t("רגע, פותחים את השיחה...", "Opening the chat…"), top = 10)
+        status = ui.hint(L.t("רגע, פותחים את השיחה...", "Opening the chat…"), top = 10).apply { A11y.live(this) }
         root.addView(status)
         root.addView(ui.action(L.t("רעננו שיחה", "Refresh chat")) { load() })
         thread = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -104,7 +104,7 @@ class FamilyChatActivity : AppCompatActivity() {
                     draw(messages)
                 }.onFailure {
                     status.text = if (it is java.io.IOException) L.t("אין חיבור כרגע. הודעות שכתבתם יישלחו לבד כשהחיבור יחזור.", "No connection right now. Messages you write will send by themselves when it's back.")
-                        else it.message ?: L.t("אין חיבור לשיחה כרגע.", "Can't reach the chat right now.")
+                        else L.t("אין חיבור לשיחה כרגע. נסו שוב בעוד רגע.", "Can't reach the chat right now. Try again in a moment.")
                     draw(shown)
                 }
             }
@@ -119,6 +119,11 @@ class FamilyChatActivity : AppCompatActivity() {
         val waiting = FamilyOutbox.waiting(this, postId)
         val ids = messages.map { it.id } + waiting.map { it.clientId + ":" + it.state }
         if (!force && ids == lastIds && thread.childCount > 0) return
+        // New messages from someone else since the last time: read out (not on the first drawing).
+        val before = lastIds.toSet()
+        val fresh = if (before.isEmpty()) emptyList() else messages.filter { it.id !in before && it.authorId != Account.id(this) }
+        // Stay where the reader is: go down to the newest only if they were already at the bottom.
+        val atBottom = scroll.getChildAt(0)?.let { scroll.scrollY + scroll.height >= it.height - ui.dp(48) } ?: true
         lastIds = ids
         thread.removeAllViews()
         if (messages.isEmpty() && waiting.isEmpty()) thread.addView(ui.text(L.t("עוד לא התחילה שיחה ❤️\nזה המקום לשאול, להיזכר ולדבר יחד.", "No messages yet ❤️\nThis is the place to ask, reminisce and talk together."), 17f, R.color.ink_soft, top = 30))
@@ -127,23 +132,32 @@ class FamilyChatActivity : AppCompatActivity() {
             bubble.gravity = if (message.authorId == Account.id(this)) Gravity.START else Gravity.END
             bubble.addView(ui.hint("${message.author} · ${Fmt.dayTime(message.createdAt)}", top = 0))
             bubble.addView(ui.text(message.body, 16f, top = 4))
+            // One stop for a screen reader: who, when and what.
+            bubble.contentDescription = "${message.author}, ${Fmt.dayTime(message.createdAt)}: ${message.body}"
+            androidx.core.view.ViewCompat.setScreenReaderFocusable(bubble, true)
             thread.addView(bubble)
         }
         for (item in waiting) {
             val bubble = ui.card(top = 10)
             bubble.gravity = Gravity.START
-            bubble.alpha = if (item.state == FamilyOutbox.FAILED) 1f else 0.6f
+            // (No fading: the words say it's waiting, and faded text was too faint to read.)
             val label = if (item.state == FamilyOutbox.FAILED) L.t("⚠️ לא נשלחה", "⚠️ Not sent") else L.t("⏳ ממתינה לשליחה", "⏳ Waiting to send")
             bubble.addView(ui.hint("${item.author} · $label", top = 0))
             bubble.addView(ui.text(item.body, 16f, top = 4))
             if (item.state == FamilyOutbox.FAILED) {
                 if (item.error.isNotBlank()) bubble.addView(ui.hint(item.error, top = 4))
-                bubble.addView(ui.action(L.t("לנסות שוב", "Try again")) { FamilyOutbox.retry(this, item.clientId); draw(shown, force = true); flushThenLoad() })
-                bubble.addView(ui.action(L.t("למחוק את ההודעה", "Delete the message")) { FamilyOutbox.discard(this, item.clientId); draw(shown, force = true) })
+                bubble.addView(ui.action(L.t("לנסות שוב", "Try again")) { FamilyOutbox.retry(this, item.clientId); draw(shown, force = true); flushThenLoad() }.apply {
+                    contentDescription = L.t("לנסות שוב לשלוח: ", "Try sending again: ") + item.body.take(40)
+                    setTag(R.id.tagA11yKey, "retry:${item.clientId}")
+                })
+                bubble.addView(ui.action(L.t("למחוק את ההודעה", "Delete the message")) { FamilyOutbox.discard(this, item.clientId); draw(shown, force = true) }.apply {
+                    contentDescription = L.t("למחוק את ההודעה: ", "Delete the message: ") + item.body.take(40)
+                })
             }
             thread.addView(bubble)
         }
-        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        if (force || atBottom) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        fresh.lastOrNull()?.let { m -> thread.announceForAccessibility(L.t("הודעה מ${m.author}: ${m.body}", "Message from ${m.author}: ${m.body}")) }
     }
 
     /** Sends what's waiting (if there is a connection), then shows the thread as the server has it. */
@@ -166,8 +180,9 @@ class FamilyChatActivity : AppCompatActivity() {
     /** The message goes into the outbox at once (shown as pending) and is sent from there; nothing is lost offline. */
     private fun sendMessage() {
         val body = input.text.toString().trim()
-        if (body.isBlank() || worker.isShutdown) return
-        if (body.length > 4000) { Toast.makeText(this, L.t("אפשר לשלוח עד 4,000 תווים", "Messages can be up to 4,000 characters"), Toast.LENGTH_LONG).show(); return }
+        if (worker.isShutdown) return
+        if (body.isBlank()) { ErrorLine.field(input, L.t("כתבו הודעה קודם", "Write a message first")); return }
+        if (body.length > 4000) { ErrorLine.field(input, L.t("אפשר לשלוח עד 4,000 תווים", "Messages can be up to 4,000 characters")); return }
         FamilyOutbox.add(this, body, postId)
         input.setText("")
         draw(shown, force = true)

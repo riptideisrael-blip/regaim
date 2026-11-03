@@ -134,7 +134,18 @@ class BookActivity : AppCompatActivity() {
             BookMaker.State.DONE -> done(s)
             BookMaker.State.FAILED -> failed(s)
         }
+        // The step's title is a heading, and a new step is said to a screen reader (the screen was redrawn).
+        val title = (0 until content.childCount).map { content.getChildAt(it) }
+            .firstOrNull { it is TextView && it !is android.widget.Button && !it.isClickable && !it.text.isNullOrBlank() && it.textSize >= 17 * resources.displayMetrics.scaledDensity } as? TextView
+        title?.let { A11y.heading(it) }
+        if (s.state != lastAnnounced) {
+            lastAnnounced = s.state
+            title?.let { content.announceForAccessibility(it.text) }
+        }
     }
+
+    /** The step last said to a screen reader (said once per step, not on every progress update). */
+    private var lastAnnounced: BookMaker.State? = null
 
     private fun setup() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -231,7 +242,9 @@ class BookActivity : AppCompatActivity() {
             card.addView(ui.hint(L.t("ממשיכים מהשלב שבו הוא נעצר. בתוך שלוש שעות מההתחלה זה לא עולה קרדיט נוסף.", "It continues from where it stopped. Within three hours of the start it costs no extra credit."), top = 4))
             card.addView(ui.button(L.t("המשיכו", "Continue"), primary = true, top = 10) { BookMaker.resume(this, u).listener = { render() }; render() })
             card.addView(ui.action(L.t("ביטול הספר", "Cancel the book")) {
-                Thread { BookMaker.abandon(applicationContext, u); runOnUiThread { if (!isFinishing) render() } }.start()
+                A11y.confirm(this, L.t("לבטל את הספר שלא הסתיים? מה שכבר צויר יימחק.", "Cancel the unfinished book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) {
+                    Thread { BookMaker.abandon(applicationContext, u); runOnUiThread { if (!isFinishing) render() } }.start()
+                }
             }.apply { setPadding(0, ui.dp(12), 0, 0) })
             content.addView(card)
         }
@@ -345,7 +358,7 @@ class BookActivity : AppCompatActivity() {
         })
         if (s.waiting) content.addView(ui.text(L.t("אין חיבור לאינטרנט כרגע. ממשיכים לבד כשהחיבור יחזור.", "No internet connection right now. We'll carry on by ourselves when it's back."), 15f, R.color.accent, top = 12))
         content.addView(ui.hint(L.t("זה לוקח דקה-שתיים. אפשר לצאת מהאפליקציה: הספר ממשיך ברקע ונשלח התראה.", "This takes a minute or two. You can leave the app: the book carries on and we'll notify you."), top = 10))
-        content.addView(ui.action(L.t("ביטול", "Cancel")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(18), 0, 0) })
+        content.addView(ui.action(L.t("ביטול", "Cancel")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(18), 0, 0) })
     }
 
     /** Face recognition can mix up siblings: the parent removes any photo that isn't this child. Nothing is sent yet. */
@@ -377,7 +390,11 @@ class BookActivity : AppCompatActivity() {
                         setTextColor(android.graphics.Color.WHITE)
                         setBackgroundColor(0x88000000.toInt())
                         setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(4))
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                     }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP or android.view.Gravity.END))
+                    // Says what it is and what a tap does (it used to be read only as "✕").
+                    contentDescription = L.t("תמונה ${r * 3 + k + 1} של $name. לחצו אם זה לא $name", "Photo ${r * 3 + k + 1} of $name. Tap if it isn't $name")
+                    A11y.button(this)
                     setOnClickListener { s.removeCandidate(c); render() }
                 })
             }
@@ -391,7 +408,7 @@ class BookActivity : AppCompatActivity() {
             showMoments = !showMoments; render()
         }.apply { setPadding(0, ui.dp(16), 0, 0) })
         if (showMoments || list.isEmpty()) momentsGrid(s)
-        content.addView(ui.action(L.t("ביטול", "Cancel")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("ביטול", "Cancel")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     private fun needPhoto(s: BookMaker.Session) {
@@ -402,7 +419,7 @@ class BookActivity : AppCompatActivity() {
             "We couldn't choose clear enough photos by ourselves. Pick from ${s.childName}'s moments one where the face is seen up close (you can pick several).",
         ), top = 6))
         momentsGrid(s)
-        content.addView(ui.action(L.t("ביטול", "Cancel")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("ביטול", "Cancel")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     /** The child's moments (kept, not waiting in the queue) to build the story on: tap to choose, up to 5. */
@@ -441,6 +458,9 @@ class BookActivity : AppCompatActivity() {
                     setBackgroundColor(0xDD1A6FCC.toInt())
                     setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(3))
                 }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP or android.view.Gravity.END))
+                // Said as a tickable moment with its title and date (the ✓ is only drawn).
+                cell.contentDescription = m.displayTitle + ", " + Fmt.day(m.time)
+                A11y.check(cell) { m.id in momentSel }
                 cell.setOnClickListener {
                     if (m.id in momentSel) momentSel.remove(m.id)
                     else if (momentSel.size < 5) momentSel.add(m.id)
@@ -483,6 +503,7 @@ class BookActivity : AppCompatActivity() {
                     setBackgroundResource(R.drawable.rounded_media)
                     clipToOutline = true
                     layoutParams = LinearLayout.LayoutParams(0, ui.dp(104), 1f).apply { if (k > 0) marginStart = ui.dp(8) }
+                    contentDescription = m.displayTitle + ", " + Fmt.day(m.time)
                     setOnClickListener { onPick(m.id); render() }
                 }
                 row.addView(img)
@@ -571,7 +592,7 @@ class BookActivity : AppCompatActivity() {
                 .show()
         })
         if (s.triesLeft > 0) content.addView(ui.button(L.t("לצייר את ${s.childName} מחדש (נותרו ${s.triesLeft})", "Draw ${s.childName} again (${s.triesLeft} left)"), top = 8) { s.redrawCharacter() })
-        content.addView(ui.action(L.t("לא דומה, בטלו את הספר (הקרדיט יוחזר אם צוירו עד 5 ציורים)", "Doesn't look right, cancel the book (credit returned if up to 5 drawings were made)")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("לא דומה, בטלו את הספר (הקרדיט יוחזר אם צוירו עד 5 ציורים)", "Doesn't look right, cancel the book (credit returned if up to 5 drawings were made)")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     /**
@@ -604,7 +625,13 @@ class BookActivity : AppCompatActivity() {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                     setBackgroundResource(R.drawable.rounded_media)
                     clipToOutline = true
-                    alpha = if (ch.picked == k && !ch.useSaved) 1f else 0.4f
+                    alpha = if (ch.picked == k && !ch.useSaved) 1f else 0.6f
+                    // The chosen photo is said, and framed (not only shown by fading the others).
+                    contentDescription = L.t("תמונה ${k + 1} של ${ch.cast.name}", "Photo ${k + 1} of ${ch.cast.name}")
+                    A11y.choice(this, k, ch.options.size) { ch.picked == k && !ch.useSaved }
+                    if (ch.picked == k && !ch.useSaved) foreground = android.graphics.drawable.GradientDrawable().apply {
+                        cornerRadius = ui.dp(12).toFloat(); setStroke(ui.dp(3), DS.primary(this@BookActivity))
+                    }
                     layoutParams = LinearLayout.LayoutParams(ui.dp(84), ui.dp(84)).apply { if (k > 0) marginStart = ui.dp(8) }
                     setOnClickListener { s.pickCast(ch.cast.id, k); render() }
                 })
@@ -620,7 +647,7 @@ class BookActivity : AppCompatActivity() {
         }
         content.addView(ui.button(L.t("המשיכו לציור הדמויות", "Continue to drawing the characters"), primary = true, top = 20) { s.confirmCast(); render() })
         content.addView(ui.hint(L.t("כאן יורד קרדיט אחד לספר. אם לא תאשרו את הדמויות, הוא יוחזר.", "One credit is used for the book here. If you don't approve the characters, it's returned."), top = 6))
-        content.addView(ui.action(L.t("ביטול", "Cancel")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("ביטול", "Cancel")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     /** One person's saved characters: tap a version to make it the one the next book uses; delete one or all. */
@@ -632,12 +659,18 @@ class BookActivity : AppCompatActivity() {
             box.addView(ui.hint(L.t("הגרסה המסומנת היא זו שהספר הבא ישתמש בה. לחיצה על גרסה אחרת מחליפה.", "The marked version is the one the next book uses. Tap another to switch."), top = 0))
             val scroll = android.widget.HorizontalScrollView(this)
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (v in versions) row.addView(ImageView(this).apply {
+            for ((k, v) in versions.withIndex()) row.addView(ImageView(this).apply {
                 setImageBitmap(BitmapFactory.decodeFile(CharacterStore.file(this@BookActivity, v).absolutePath, BitmapFactory.Options().apply { inSampleSize = 4 }))
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 setBackgroundResource(R.drawable.rounded_media)
                 clipToOutline = true
-                alpha = if (v.id == main.id) 1f else 0.45f
+                alpha = if (v.id == main.id) 1f else 0.6f
+                // "The marked version": framed and said as selected, not only by fading the others.
+                contentDescription = L.t("גרסה ${k + 1} של $name", "Version ${k + 1} of $name")
+                A11y.choice(this, k, versions.size) { v.id == main.id }
+                if (v.id == main.id) foreground = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = ui.dp(12).toFloat(); setStroke(ui.dp(3), DS.primary(this@BookActivity))
+                }
                 setOnClickListener { if (!CharacterStore.makeMain(this@BookActivity, v.id)) charFail(); dialog?.dismiss(); render() }
             }, LinearLayout.LayoutParams(ui.dp(84), ui.dp(112)).apply { marginEnd = ui.dp(8) })
             scroll.addView(row)
@@ -676,7 +709,10 @@ class BookActivity : AppCompatActivity() {
             if (chosen?.id == v.id) cell.addView(TextView(this).apply {
                 text = "✓"; textSize = 14f; setTextColor(android.graphics.Color.WHITE)
                 setBackgroundColor(0xDD1A6FCC.toInt()); setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(3))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP or android.view.Gravity.END))
+            cell.contentDescription = L.t("דמות שמורה ${k + 1}", "Saved character ${k + 1}")
+            A11y.choice(cell, k, versions.take(4).size) { chosen?.id == v.id }
             cell.setOnClickListener { onPick(v) }
             row.addView(cell)
         }
@@ -719,7 +755,9 @@ class BookActivity : AppCompatActivity() {
                 val shown = guess.coerceIn(doneNow.toFloat(), minOf(doneNow + 1.8f, total.toFloat()))
                 bar.progress = (1000 * shown / total).toInt()
                 count.text = L.t("צוירו $doneNow מתוך $total ציורים (כריכה ו-${total - 1} עמודים)", "$doneNow of $total pictures drawn (cover and ${total - 1} pages)")
-                fun_.text = lines[((sec / 4).toInt()) % lines.size]
+                // The playful line changes every few seconds, unless stillness was asked for (then it stays).
+                if (!A11y.stillMotion() && !A11y.screenReader(this@BookActivity) || fun_.text.isNullOrEmpty()) fun_.text = lines[((sec / 4).toInt()) % lines.size]
+                bar.contentDescription = count.text
                 if (book.images.size != doneNow) book.images = drawnPictures(s.bookId, false)
                 bar.postDelayed(this, 1000)
             }
@@ -768,7 +806,7 @@ class BookActivity : AppCompatActivity() {
         content.addView(ui.text(L.t("הספר נשמר", "The book is saved"), 18f, bold = true, top = 22))
         content.addView(ui.hint(s.message, top = 6))
         content.addView(ui.button(L.t("המשיכו את הספר", "Continue the book"), primary = true, top = 16) { s.retry(); render() })
-        content.addView(ui.action(L.t("ביטול הספר", "Cancel the book")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("ביטול הספר", "Cancel the book")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     /** The credit's window is over: continuing needs the parent's OK for one more credit. */
@@ -777,7 +815,7 @@ class BookActivity : AppCompatActivity() {
         content.addView(ui.text(L.t("להמשיך את הספר?", "Continue the book?"), 18f, bold = true, top = 22))
         content.addView(ui.hint(s.message, top = 6))
         content.addView(ui.button(L.t("כן, להמשיך (קרדיט אחד)", "Yes, continue (one credit)"), primary = true, top = 16) { Billing.ensureCredits(this, 1, Billing.DIGITAL) { s.continueWithNewCredit(); render() } })
-        content.addView(ui.action(L.t("לא, לבטל את הספר", "No, cancel the book")) { s.cancel(); render() }.apply { setPadding(0, ui.dp(16), 0, 0) })
+        content.addView(ui.action(L.t("לא, לבטל את הספר", "No, cancel the book")) { A11y.confirm(this@BookActivity, L.t("לבטל את הספר? מה שכבר צויר יימחק.", "Cancel the book? What was already drawn is deleted."), L.t("לבטל את הספר", "Cancel the book")) { s.cancel(); render() } }.apply { setPadding(0, ui.dp(16), 0, 0) })
     }
 
     private fun failed(s: BookMaker.Session) {

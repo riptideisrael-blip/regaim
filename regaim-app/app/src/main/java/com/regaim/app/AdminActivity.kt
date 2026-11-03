@@ -62,7 +62,7 @@ class AdminActivity : AppCompatActivity() {
      */
     private fun grantCard() {
         val card = ui.card(top = 10)
-        card.addView(ui.text(L.t("להוסיף קרדיטים לחבר", "Add credits to a friend"), 17f, bold = true))
+        card.addView(ui.text(L.t("להוסיף קרדיטים לחבר", "Add credits to a friend"), 17f, bold = true).apply { A11y.heading(this) })
         card.addView(ui.hint(L.t("החבר צריך להתחבר לאפליקציה פעם אחת עם האימייל שלו. קרדיט אחד = סרט אחד (כל הסצנות + בערך 4 שינויים, למשך שבוע).",
             "The friend signs in to the app once with their email first. One credit = one film (all scenes + about 4 changes, for a week)."), top = 4))
         val email = ui.field(L.t("האימייל של החבר", "Friend's email"), "")
@@ -100,7 +100,7 @@ class AdminActivity : AppCompatActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 val card = ui.card(top = 6)
-                card.addView(ui.text(L.t("💾 מקום בשרת", "💾 Server storage"), 17f, bold = true))
+                card.addView(ui.text(L.t("💾 מקום בשרת", "💾 Server storage"), 17f, bold = true).apply { A11y.heading(this) })
                 res.onSuccess { o ->
                     val total = o.optLong("total")
                     val pct = StorageMeter.percent(total, StorageMeter.FREE_PLAN)
@@ -128,7 +128,7 @@ class AdminActivity : AppCompatActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 val card = ui.card(top = 6)
-                card.addView(ui.text(L.t("שירותים בתשלום", "Paid services"), 17f, bold = true))
+                card.addView(ui.text(L.t("שירותים בתשלום", "Paid services"), 17f, bold = true).apply { A11y.heading(this) })
                 val code = res?.optInt("_code", 200) ?: 0
                 val alerts = res?.optJSONArray("alerts")
                 when {
@@ -157,7 +157,7 @@ class AdminActivity : AppCompatActivity() {
      */
     private fun compareCard() {
         val card = ui.card(top = 10)
-        card.addView(ui.text(L.t("השוואת תיאורים (חיסכון בעלויות)", "Compare descriptions (saving costs)"), 17f, bold = true))
+        card.addView(ui.text(L.t("השוואת תיאורים (חיסכון בעלויות)", "Compare descriptions (saving costs)"), 17f, bold = true).apply { A11y.heading(this) })
         card.addView(ui.hint(L.t(
             "10 הרגעים האחרונים מתוארים שוב במודל הזול (Haiku), ליד התיאור השמור. שום דבר לא נשמר. משתמש ב-10 קריאות מהמכסה החודשית.",
             "The 10 latest moments are described again by the cheaper model (Haiku), next to the saved description. Nothing is saved. Uses 10 calls of the monthly allowance."), top = 4))
@@ -215,7 +215,7 @@ class AdminActivity : AppCompatActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 val card = ui.card(top = 10)
-                card.addView(ui.text(L.t("עלויות fal (הערכה)", "fal costs (estimate)"), 17f, bold = true))
+                card.addView(ui.text(L.t("עלויות fal (הערכה)", "fal costs (estimate)"), 17f, bold = true).apply { A11y.heading(this) })
                 val code = res?.optInt("_code", 200) ?: 0
                 fun usd(v: Double) = "$" + String.format(java.util.Locale.US, "%.2f", v)
                 when {
@@ -271,7 +271,7 @@ class AdminActivity : AppCompatActivity() {
 
     private fun fail(e: Throwable) {
         val m = e.message.orEmpty()
-        content.addView(ui.text(L.t("לא הצלחנו להביא את המספרים", "Couldn't load stats"), 17f, bold = true, top = 8))
+        content.addView(ui.text(L.t("לא הצלחנו להביא את המספרים", "Couldn't load stats"), 17f, bold = true, top = 8).apply { A11y.heading(this) })
         content.addView(ui.hint(
             when {
                 "not allowed" in m || "42501" in m -> L.t("החשבון הזה אינו מנהל. התחברו עם חשבון הבעלים.", "This account isn't an admin. Sign in with the owner account.")
@@ -294,7 +294,7 @@ class AdminActivity : AppCompatActivity() {
         content.addView(ui.hint(L.t("מתוך השרת, מתעדכן בכל כניסה למסך", "From the server, refreshed each time you open this screen"), top = 0))
 
         val users = ui.card(top = 10)
-        users.addView(ui.text(L.t("משתמשים", "Users"), 17f, bold = true))
+        users.addView(ui.text(L.t("משתמשים", "Users"), 17f, bold = true).apply { A11y.heading(this) })
         stat(users, L.t("נרשמו בסך הכל", "Total sign-ups"), n(s, "users"))
         stat(users, L.t("נרשמו ב-7 הימים האחרונים", "Signed up in the last 7 days"), n(s, "users_7d"))
         stat(users, L.t("נרשמו ב-30 הימים האחרונים", "Signed up in the last 30 days"), n(s, "users_30d"))
@@ -304,7 +304,7 @@ class AdminActivity : AppCompatActivity() {
         content.addView(users)
 
         val fam = ui.card(top = 10)
-        fam.addView(ui.text(L.t("משפחות ותוכן", "Families and content"), 17f, bold = true))
+        fam.addView(ui.text(L.t("משפחות ותוכן", "Families and content"), 17f, bold = true).apply { A11y.heading(this) })
         stat(fam, L.t("מעגלי משפחה", "Family circles"), n(s, "circles"))
         stat(fam, L.t("חברים במעגלים", "Circle members"), n(s, "members"))
         stat(fam, L.t("רגעים ששותפו", "Moments shared"), n(s, "posts"))
@@ -320,7 +320,7 @@ class AdminActivity : AppCompatActivity() {
         val signups = s.optJSONArray("signups")
         if (signups != null && signups.length() > 0) {
             val card = ui.card(top = 10)
-            card.addView(ui.text(L.t("הרשמות ב-14 הימים האחרונים", "Sign-ups in the last 14 days"), 17f, bold = true))
+            card.addView(ui.text(L.t("הרשמות ב-14 הימים האחרונים", "Sign-ups in the last 14 days"), 17f, bold = true).apply { A11y.heading(this) })
             for (i in 0 until signups.length()) {
                 val o = signups.getJSONObject(i)
                 stat(card, o.optString("day"), o.optLong("n").toString())
@@ -331,7 +331,7 @@ class AdminActivity : AppCompatActivity() {
         val recent = s.optJSONArray("recent")
         if (recent != null && recent.length() > 0) {
             val card = ui.card(top = 10)
-            card.addView(ui.text(L.t("נרשמו לאחרונה", "Recent sign-ups"), 17f, bold = true))
+            card.addView(ui.text(L.t("נרשמו לאחרונה", "Recent sign-ups"), 17f, bold = true).apply { A11y.heading(this) })
             for (i in 0 until recent.length()) {
                 val o = recent.getJSONObject(i)
                 val who = o.optString("name").ifEmpty { o.optString("email") }

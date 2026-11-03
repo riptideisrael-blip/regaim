@@ -26,6 +26,19 @@ class SaveTileService : TileService() {
     override fun onClick() {
         if (Status.running) {
             startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_SAVE_NOW))
+            // Something to see (and hear, with a screen reader): "Saved ✓" on the tile for two seconds.
+            qsTile?.apply {
+                if (Build.VERSION.SDK_INT >= 29) subtitle = L.t("נשמר ✓", "Saved ✓")
+                contentDescription = L.t("שמירת רגע. נשמר", "Save a moment. Saved")
+                updateTile()
+            }
+            android.os.Handler(mainLooper).postDelayed({
+                qsTile?.apply {
+                    if (Build.VERSION.SDK_INT >= 29) subtitle = if (Status.running) L.t("מקליט", "Recording") else L.t("כבוי", "Off")
+                    contentDescription = null
+                    try { updateTile() } catch (_: Exception) { }
+                }
+            }, 2000)
         } else {
             val open = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (Build.VERSION.SDK_INT >= 34) {

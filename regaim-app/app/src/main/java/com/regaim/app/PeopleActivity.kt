@@ -99,13 +99,21 @@ class PeopleActivity : AppCompatActivity() {
         unknown.removeAllViews()
         val groups = PeopleStore.unknownGroups(this)
         findViewById<View>(R.id.unknownEmpty).visibility = if (groups.isEmpty()) View.VISIBLE else View.GONE
-        for (row in groups.take(24).chunked(4)) {
+        val shown = groups.take(24)
+        for (row in shown.chunked(4)) {
             val line = rowLayout()
             for (g in row) {
                 // "Maybe Uri?": a suggestion when most of these faces look like someone already named.
                 val maybe = PeopleStore.guess(people, g)
                 val title = if (maybe != null) L.t("אולי ${maybe.name}?", "Maybe ${maybe.name}?") else L.t("מי זה?", "Who's this?")
-                line.addView(faceCell(g.first().path, title, if (g.size > 1) L.t("${g.size} פעמים", "${g.size} times") else "") { nameGroup(g, maybe) })
+                line.addView(faceCell(g.first().path, title, if (g.size > 1) L.t("${g.size} פעמים", "${g.size} times") else "") { nameGroup(g, maybe) }.apply {
+                    // Each one told apart: which face of how many, how often it appeared.
+                    val k = shown.indexOf(g) + 1
+                    contentDescription = L.t("פנים לא מזוהות $k מתוך ${shown.size}", "Unrecognized face $k of ${shown.size}") +
+                        (if (g.size > 1) L.t(", הופיעו ${g.size} פעמים", ", seen ${g.size} times") else "") +
+                        (if (maybe != null) L.t(". אולי ${maybe.name}", ". Maybe ${maybe.name}") else "")
+                    A11y.button(this)
+                })
             }
             unknown.addView(line)
         }
@@ -116,6 +124,7 @@ class PeopleActivity : AppCompatActivity() {
             textSize = 15f
             setTextColor(DS.primary(this@PeopleActivity))
             setPadding(0, (14 * d).toInt(), 0, (8 * d).toInt())
+            minHeight = (48 * d).toInt()
             setOnClickListener { NameMomentsActivity.open(this@PeopleActivity) }
         })
         known.setPadding(0, (4 * d).toInt(), 0, 0)
@@ -217,14 +226,16 @@ class PeopleActivity : AppCompatActivity() {
                         .putExtra(MemoriesActivity.EXTRA_PERSON, p.name)
                         .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                     1 -> {
-                        val field = EditText(this).apply { setText(p.name) }
+                        val field = EditText(this).apply { setText(p.name); hint = L.t("שם", "Name"); contentDescription = null }
                         AlertDialog.Builder(this).setTitle(L.t("שם חדש", "New name")).setView(field)
                             .setPositiveButton(L.t("שמור", "Save")) { _, _ ->
                                 worker.execute { PeopleStore.rename(applicationContext, p.id, field.text.toString()); runOnUiThread { render() } }
                             }
                             .setNegativeButton(L.t("ביטול", "Cancel"), null).show()
                     }
-                    2 -> worker.execute { PeopleStore.forget(applicationContext, p.id); runOnUiThread { render() } }
+                    2 -> A11y.confirm(this, L.t("לשכוח את ${p.name}? הפנים שנלמדו יימחקו מהטלפון.", "Forget ${p.name}? The learned faces are deleted from the phone."), L.t("לשכוח", "Forget")) {
+                        worker.execute { PeopleStore.forget(applicationContext, p.id); runOnUiThread { render() } }
+                    }
                     3 -> {
                         // Join two entries of one person: the faces of this one move to the chosen one (its name stays).
                         val others = PeopleStore.people(this).filter { it.id != p.id }

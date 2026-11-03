@@ -137,7 +137,7 @@ class MemoriesActivity : AppCompatActivity() {
             addView(TextView(this@MemoriesActivity).apply {
                 text = L.t("בחירה", "Select")
                 textSize = 14f
-                setTextColor(ui.color(R.color.accent_dark))
+                setTextColor(ui.color(R.color.ds_button_pressed))
                 typeface = DS.emphasis
                 background = DS.rounded(DS.buttonSecondary(this@MemoriesActivity), ui.dp(24).toFloat())
                 gravity = android.view.Gravity.CENTER; minHeight = ui.dp(48)
@@ -163,6 +163,7 @@ class MemoriesActivity : AppCompatActivity() {
             setOnClickListener { stopSelecting() }
         })
         selectCount = ui.text("", 22f, bold = true).apply {
+            A11y.live(this)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = ui.dp(4) }
         }
         selectTop.addView(selectCount)
@@ -192,7 +193,7 @@ class MemoriesActivity : AppCompatActivity() {
                     layoutParams = LinearLayout.LayoutParams(ui.dp(24), ui.dp(24))
                 })
                 addView(TextView(this@MemoriesActivity).apply {
-                    text = label; textSize = 12f; setTextColor(ui.color(color))
+                    text = label; textSize = 13f; setTextColor(ui.color(color))
                     setPadding(0, ui.dp(3), 0, 0)
                 })
                 setOnClickListener { if (selected.isEmpty()) hintPick() else f() }
@@ -416,11 +417,15 @@ class MemoriesActivity : AppCompatActivity() {
         }
         box.addView(TextView(this).apply {
             text = L.t("→ חזרה לכל הרגעים", "← Back to all moments")
+            contentDescription = L.t("חזרה לכל הרגעים", "Back to all moments")
             textSize = 15f
             typeface = DS.emphasis
-            setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.accent_dark))
+            setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.ds_button_pressed))
             background = ContextCompat.getDrawable(this@MemoriesActivity, R.drawable.chat_chip_bg)
             setPadding(mv.dp(16), mv.dp(9), mv.dp(16), mv.dp(9))
+            minHeight = mv.dp(48); gravity = android.view.Gravity.CENTER_VERTICAL
+            A11y.button(this)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setOnClickListener { closeAlbum() }
         })
         if (filter.startsWith("👤")) {
@@ -432,6 +437,8 @@ class MemoriesActivity : AppCompatActivity() {
                 typeface = DS.emphasis
                 setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.accent))
                 setPadding(mv.dp(2), mv.dp(6), mv.dp(2), mv.dp(2))
+                minHeight = mv.dp(48); gravity = android.view.Gravity.CENTER_VERTICAL
+                A11y.button(this)
                 setOnClickListener { TimelineActivity.open(this@MemoriesActivity, who) }
             })
         } else {
@@ -500,6 +507,12 @@ class MemoriesActivity : AppCompatActivity() {
                 else -> (Fmt.CATEGORY_EMOJI[o]?.let { "$it " } ?: "") + L.category(o)
             }
             val selected = o == filter
+            val idx = options.indexOf(o)
+            A11y.choice(chip, idx, options.size) { o == filter }
+            when {
+                o == PEOPLE_PICKER -> chip.contentDescription = L.t("לפי אדם, לחצו לבחירה", "By person, tap to choose")
+                o.startsWith("👤") -> chip.contentDescription = o.removePrefix("👤") + L.t(". לחצו להסרת הסינון", ". Tap to remove the filter")
+            }
             val bg = GradientDrawable().apply {
                 cornerRadius = 40f * resources.displayMetrics.density
                 setColor(ContextCompat.getColor(this@MemoriesActivity, if (selected) R.color.ds_primary else R.color.fill))
@@ -560,7 +573,7 @@ class MemoriesActivity : AppCompatActivity() {
         })
         box.addView(TextView(this).apply {
             text = sub
-            textSize = 12f
+            textSize = 13f
             setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.ink_soft))
             setPadding(mv.dp(2), 0, mv.dp(2), 0)
         })
@@ -648,7 +661,7 @@ class MemoriesActivity : AppCompatActivity() {
         box.addView(mv.grid(albums, 12))
         if (albums.isNotEmpty()) box.addView(TextView(this).apply {
             text = L.t("לחיצה ארוכה על אלבום: בחירת תמונה ראשית", "Long-press an album to choose its cover")
-            textSize = 12f
+            textSize = 13f
             setTextColor(ContextCompat.getColor(this@MemoriesActivity, R.color.ink_soft))
             setPadding(mv.dp(2), mv.dp(8), mv.dp(2), 0)
         })
@@ -661,6 +674,8 @@ class MemoriesActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setOnClickListener { onClick() }
             setOnLongClickListener { chooseCover(key, title, ms); true }
+            A11y.longPress(this, L.t("בחירת תמונה ראשית", "Choose the cover"))
+            A11y.button(this)
         }
         val top = AlbumCovers.ordered(this, key, ms)
         val small = top.drop(1).take(3)
@@ -693,6 +708,8 @@ class MemoriesActivity : AppCompatActivity() {
             }
             rowItems.forEachIndexed { i, m ->
                 r.addView(cover(m, mv.dp(104), weight = 1f).apply {
+                    contentDescription = Fmt.title(m) + ", " + Fmt.day(m.time) + L.t(". לחצו לבחירה כתמונה ראשית", ". Tap to make it the cover")
+                    A11y.button(this)
                     if (i > 0) (layoutParams as LinearLayout.LayoutParams).marginStart = mv.dp(6)
                     setOnClickListener {
                         AlbumCovers.set(this@MemoriesActivity, key, m.id)
@@ -805,13 +822,20 @@ class MemoriesActivity : AppCompatActivity() {
                     h.story.visibility = if (r.story.isEmpty()) View.GONE else View.VISIBLE
                     // The day's story as a two-line caption; tap to read it all.
                     h.story.maxLines = 2
-                    h.story.setOnClickListener { h.story.maxLines = if (h.story.maxLines == 2) 50 else 2 }
+                    A11y.button(h.story)
+                    A11y.expanded(h.story, false)
+                    h.story.setOnClickListener {
+                        h.story.maxLines = if (h.story.maxLines == 2) 50 else 2
+                        A11y.expanded(h.story, h.story.maxLines != 2)
+                    }
                     h.comic.setOnClickListener { ComicActivity.forDay(this@MemoriesActivity, r.day) }
                     h.comic.visibility = if (selecting) View.GONE else View.VISIBLE
                     h.check.visibility = if (selecting) View.VISIBLE else View.GONE
                     if (selecting) {
                         val dayIds = shownIdsByDay[r.day].orEmpty()
                         h.check.setImageResource(if (dayIds.isNotEmpty() && dayIds.all { it in selected }) R.drawable.check_on else R.drawable.check_off_dark)
+                        // The whole day ticked or not, said in words.
+                        A11y.check(h.check) { dayIds.isNotEmpty() && dayIds.all { it in selected } }
                     }
                     h.check.setOnClickListener { toggleDay(r.day) }
                     h.title.setOnClickListener { if (selecting) toggleDay(r.day) }
@@ -849,7 +873,8 @@ class MemoriesActivity : AppCompatActivity() {
                     frame.addView(tagView)
                     h.image.contentDescription = listOf(p.title.ifBlank { L.t("רגע", "A moment") }, L.t("מ${p.author}", "from ${p.author}")).joinToString(", ")
                     h.itemView.setOnClickListener { if (!selecting) CircleActivity.open(this@MemoriesActivity, p.id) }
-                    h.itemView.setOnLongClickListener { true }
+                    h.itemView.setOnLongClickListener(null)
+                    h.itemView.isLongClickable = false
                 }
                 is Row.Bubble -> {
                     h as BubbleVH
@@ -882,6 +907,15 @@ class MemoriesActivity : AppCompatActivity() {
                     h.itemView.setOnLongClickListener {
                         if (selecting) toggle(m.id) else startSelecting(m.id)
                         true
+                    }
+                    // In selection: said as ticked / not ticked (the round check alone isn't read).
+                    if (selecting) {
+                        A11y.check(h.itemView) { m.id in selected }
+                        h.itemView.contentDescription = Fmt.title(m) + ", " + Fmt.day(m.time)
+                    } else {
+                        A11y.button(h.itemView)
+                        h.itemView.contentDescription = null
+                        A11y.longPress(h.itemView, L.t("בחירה", "Select"))
                     }
                 }
             }

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -49,6 +50,7 @@ class PitzkiActivity : AppCompatActivity() {
     private var destroyed = false
 
     private var children: List<PitzkiStore.Child> = emptyList()
+    private var pauseBtn: TextView? = null
     private var chosen: PitzkiStore.Child? = null
     private val kid: PitzkiKid get() = chosen?.kid ?: PitzkiKid("", false)
 
@@ -182,7 +184,7 @@ class PitzkiActivity : AppCompatActivity() {
             contentDescription = L.t("סגירה", "Close")
             setOnClickListener { finish() }
         })
-        setupTitle = ui.text("", 18f).apply { typeface = DS.emphasis }
+        setupTitle = ui.text("", 18f).apply { typeface = DS.emphasis; A11y.heading(this) }
         top.addView(setupTitle)
         return top
     }
@@ -205,7 +207,9 @@ class PitzkiActivity : AppCompatActivity() {
         val loop = PitzkiStore.sharedClip(this, PitzkiStore.CHAT_LISTEN).takeIf { it.exists() && it.length() > 0 }
             ?: PitzkiStore.sharedClip(this, PitzkiStore.CHAT).takeIf { it.exists() && it.length() > 0 }
             ?: PitzkiStore.talkTest(this).takeIf { it.exists() && it.length() > 0 }
-        if (loop != null) {
+        hero.contentDescription = L.t("פיצקי", "Pitzki")
+        // The moving loop only when the phone doesn't ask for stillness (otherwise his picture stays).
+        if (loop != null && !A11y.stillMotion()) {
             // A TextureView (not a VideoView): it scrolls and keeps the card's round corners; a VideoView left a black
             // block at the top of the screen while scrolling.
             val video = FillVideoView(this).apply { alpha = 0f; muted = true }
@@ -214,6 +218,14 @@ class PitzkiActivity : AppCompatActivity() {
             video.onFailed = { video.visibility = View.GONE }
             video.play(loop.absolutePath)
             heroVideo = video
+            // A tap stops the movement (and starts it again).
+            var stopped = false
+            hero.contentDescription = L.t("פיצקי זז. לחצו לעצירה", "Pitzki moving. Tap to stop")
+            hero.setOnClickListener {
+                stopped = !stopped
+                try { if (stopped) video.pause() else video.start() } catch (_: Exception) { }
+                hero.contentDescription = if (stopped) L.t("פיצקי. לחצו להפעלה", "Pitzki. Tap to play") else L.t("פיצקי זז. לחצו לעצירה", "Pitzki moving. Tap to stop")
+            }
         }
         return hero
     }
@@ -387,8 +399,17 @@ class PitzkiActivity : AppCompatActivity() {
         box.addView(ui.hint(L.t("לפי התשובה הראשונה לכל שאלה בטיולים: ✓ יודע · 🌱 עוד לומד · · עוד לא נשאל", "By the first answer to each question in the walks: ✓ knows · 🌱 still learning · · not asked yet")))
         for (sec in PitzkiKnows.sections(m)) {
             val asked = sec.items.count { it.state != PitzkiKnows.State.NOT_YET }
-            box.addView(ui.text(sec.title + if (asked > 0) "  ${sec.known}/${sec.items.size}" else "", 16f, top = 12).apply { typeface = DS.emphasis })
-            box.addView(ui.text(sec.items.joinToString("   ") { it.label + " " + when (it.state) { PitzkiKnows.State.KNOWN -> "✓"; PitzkiKnows.State.LEARNING -> "🌱"; else -> "·" } }, 15f, top = 4))
+            box.addView(ui.text(sec.title + if (asked > 0) "  ${sec.known}/${sec.items.size}" else "", 16f, top = 12).apply {
+                typeface = DS.emphasis; A11y.heading(this)
+                if (asked > 0) contentDescription = sec.title + L.t(", ${sec.known} מתוך ${sec.items.size}", ", ${sec.known} of ${sec.items.size}")
+            })
+            box.addView(ui.text(sec.items.joinToString("   ") { it.label + " " + when (it.state) { PitzkiKnows.State.KNOWN -> "✓"; PitzkiKnows.State.LEARNING -> "🌱"; else -> "·" } }, 15f, top = 4).apply {
+                // Said in words (the marks alone aren't read, or are read as symbol names).
+                contentDescription = sec.items.joinToString(", ") { it.label + ": " + when (it.state) {
+                    PitzkiKnows.State.KNOWN -> L.t(if (c.kid.girl) "יודעת" else "יודע", "knows")
+                    PitzkiKnows.State.LEARNING -> L.t(if (c.kid.girl) "עוד לומדת" else "עוד לומד", "still learning")
+                    else -> L.t("עוד לא נשאל", "not asked yet") } }
+            })
         }
         // The levels of the worlds that have them.
         val levels = listOf(FarmWorld.ID to L.t("החווה", "The farm"), PlayWorld.ID to L.t("משחקים", "Games"))
@@ -673,7 +694,7 @@ class PitzkiActivity : AppCompatActivity() {
             setOnClickListener {
                 showMedia(f, null, L.t("${c.kid.name} ופיצקי", "${c.kid.name} and Pitzki"),
                     L.t("לשתף", "Share") to { shareImage(f) },
-                    L.t("למחוק", "Delete") to { f.delete(); renderSetup() })
+                    L.t("למחוק", "Delete") to { A11y.confirm(this@PitzkiActivity, L.t("למחוק את התמונה?", "Delete this picture?"), L.t("למחוק", "Delete")) { f.delete(); renderSetup() } })
             }
         }
         val img = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
@@ -794,7 +815,11 @@ class PitzkiActivity : AppCompatActivity() {
         val redraw = faces.isNotEmpty() && PitzkiStore.partial(this, c) > 0
         val hand = PitzkiStore.handFile(this, c.memberId).exists()
         if (!redraw && !hand) return
-        card.addView(ui.action((if (advancedOpen) "▾ " else "▸ ") + L.t("אפשרויות מתקדמות", "More options"), R.color.ink_soft) { advancedOpen = !advancedOpen; renderSetup() }.apply { textSize = 13f })
+        card.addView(ui.action((if (advancedOpen) "▾ " else "▸ ") + L.t("אפשרויות מתקדמות", "More options"), R.color.ink_soft) { advancedOpen = !advancedOpen; renderSetup() }.apply {
+            textSize = 13f
+            contentDescription = L.t("אפשרויות מתקדמות", "More options")
+            A11y.expanded(this, advancedOpen)
+        })
         if (!advancedOpen) return
         // Scenes drawn before these photos: drawn again from them (the parent approves the first one before the rest).
         if (redraw) card.addView(ui.action(L.t("לצייר את הסרט מחדש מהתמונות", "Draw the film again from the photos")) {
@@ -827,7 +852,7 @@ class PitzkiActivity : AppCompatActivity() {
     /** A step's title in the child's card: "1 · Photos of Noam ✓". */
     private fun stepTitle(card: LinearLayout, n: String, title: String, done: Boolean, top: Int = 16) {
         if (top >= 16) card.addView(ui.divider())
-        card.addView(ui.text("$n · $title" + if (done) "  ✓" else "", 17f, top = if (top >= 16) 6 else top).apply { typeface = DS.heading })
+        card.addView(ui.text("$n · $title" + if (done) "  ✓" else "", 17f, top = if (top >= 16) 6 else top).apply { typeface = DS.heading; A11y.heading(this) })
     }
 
     /**
@@ -852,6 +877,8 @@ class PitzkiActivity : AppCompatActivity() {
             adjustViewBounds = true
             maxHeight = ui.dp(h)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(6) }
+            // The drawn character (otherwise hidden from a screen reader as decoration).
+            contentDescription = L.t("הדמות של $name בסרט", "$name's character in the film")
             val img = this
             bg.execute {
                 val b = try { BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 }) } catch (_: Throwable) { null }
@@ -879,7 +906,9 @@ class PitzkiActivity : AppCompatActivity() {
                         .show()
                 })
                 row.addView(ui.action(L.t("לצייר שוב", "Draw again")) { confirmHero(c) })
-                row.addView(ui.action(L.t("ביטול", "Cancel"), R.color.ink_soft) { cand.delete(); renderSetup() })
+                row.addView(ui.action(L.t("ביטול", "Cancel"), R.color.ink_soft) {
+                    A11y.confirm(this, L.t("לוותר על הדמות שצוירה? היא תימחק.", "Drop the drawn character? It will be deleted."), L.t("לוותר", "Drop it")) { cand.delete(); renderSetup() }
+                })
                 card.addView(row)
             }
             hero.exists() -> {
@@ -921,13 +950,14 @@ class PitzkiActivity : AppCompatActivity() {
         val dlg = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         val root = FrameLayout(this).apply { setBackgroundColor(android.graphics.Color.parseColor("#F6EFE6")) }
         val img = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(views[0]) }
-        root.addView(img, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { topMargin = ui.dp(70); bottomMargin = ui.dp(110) })
+        root.addView(img, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { topMargin = ui.dp(70); bottomMargin = ui.dp(190) })
         root.addView(TextView(this).apply {
             text = L.t("$name מכל הצדדים · גררו באצבע או לחצו על \"סיבוב\"", "$name from every side · drag, or tap \"Turn\""); textSize = 16f; gravity = Gravity.CENTER
             setTextColor(DS.ink(this@PitzkiActivity)); setPadding(ui.dp(16), ui.dp(24), ui.dp(16), 0)
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
-        val dots = TextView(this).apply { textSize = 22f; gravity = Gravity.CENTER; setTextColor(DS.ink(this@PitzkiActivity)) }
-        root.addView(dots, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = ui.dp(70) })
+        // The dots only show which side (the picture's description says it in words).
+        val dots = TextView(this).apply { textSize = 22f; gravity = Gravity.CENTER; setTextColor(DS.ink(this@PitzkiActivity)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+        root.addView(dots, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = ui.dp(150) })
         var at = 0
         fun show(i: Int) { at = Math.floorMod(i, 4); img.setImageBitmap(views[at]); dots.text = (0 until 4).joinToString("  ") { if (it == at) "●" else "○" } }
         show(0)
@@ -944,12 +974,15 @@ class PitzkiActivity : AppCompatActivity() {
         val sides = listOf(L.t("מלפנים", "front"), L.t("מהצד", "side"), L.t("מאחור", "back"), L.t("מהצד השני", "other side"))
         img.contentDescription = "$name, ${sides[0]}"
         fun turn(by: Int) { show(at + by); img.contentDescription = "$name, ${sides[at]}"; img.announceForAccessibility(sides[at]) }
-        val turns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        turns.addView(ui.button("‹ " + L.t("סיבוב", "Turn"), primary = false, top = 0) { turn(-1) }.apply { contentDescription = L.t("סיבוב לצד אחד", "Turn one way") })
-        turns.addView(View(this), LinearLayout.LayoutParams(ui.dp(140), 1))
-        turns.addView(ui.button(L.t("סיבוב", "Turn") + " ›", primary = false, top = 0) { turn(1) }.apply { contentDescription = L.t("סיבוב לצד השני", "Turn the other way") })
-        root.addView(turns, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = ui.dp(16) })
-        root.addView(ui.button(L.t("סגירה", "Close"), primary = false, top = 0) { dlg.dismiss() }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = ui.dp(16) })
+        // Two turn buttons side by side (each half the width), and Close under them (never on top of them).
+        val turns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(ui.dp(16), 0, ui.dp(16), 0) }
+        fun half() = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = ui.dp(6); marginEnd = ui.dp(6) }
+        turns.addView(ui.button("‹ " + L.t("סיבוב", "Turn"), primary = false, top = 0) { turn(-1) }.apply { contentDescription = L.t("סיבוב לצד אחד", "Turn one way"); layoutParams = half() })
+        turns.addView(ui.button(L.t("סיבוב", "Turn") + " ›", primary = false, top = 0) { turn(1) }.apply { contentDescription = L.t("סיבוב לצד השני", "Turn the other way"); layoutParams = half() })
+        root.addView(turns, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = ui.dp(84) })
+        root.addView(ui.button(L.t("סגירה", "Close"), primary = false, top = 0) { dlg.dismiss() }.apply {
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = ui.dp(16) }
+        })
         dlg.setContentView(root)
         dlg.show()
     }
@@ -970,16 +1003,17 @@ class PitzkiActivity : AppCompatActivity() {
         val photos = PitzkiStore.photos(this, c.memberId)
         if (photos.isNotEmpty()) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, ui.dp(6), 0, 0) }
-            for (f in photos.take(12)) {
+            for ((i, f) in photos.take(12).withIndex()) {
                 val img = ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                     background = DS.rounded(DS.buttonSecondary(this@PitzkiActivity), DS.radiusChip(this@PitzkiActivity))
                     clipToOutline = true
                     layoutParams = LinearLayout.LayoutParams(ui.dp(120), ui.dp(68)).apply { marginEnd = ui.dp(6) }
+                    contentDescription = L.t("תמונה ${i + 1} של ${c.kid.name} ופיצקי", "Photo ${i + 1} of ${c.kid.name} and Pitzki")
                     setOnClickListener {
                         showMedia(f, null, L.t("${c.kid.name} ופיצקי", "${c.kid.name} and Pitzki"),
                             L.t("לשתף", "Share") to { shareImage(f) },
-                            L.t("למחוק", "Delete") to { f.delete(); renderSetup() })
+                            L.t("למחוק", "Delete") to { A11y.confirm(this@PitzkiActivity, L.t("למחוק את התמונה?", "Delete this picture?"), L.t("למחוק", "Delete")) { f.delete(); renderSetup() } })
                     }
                 }
                 row.addView(img)
@@ -1160,6 +1194,13 @@ class PitzkiActivity : AppCompatActivity() {
         box.addView(ui.hint(L.t("הילד עונה בקול, ופיצקי אומר \"נכון מאוד!\" או את התשובה הנכונה. אפשר לכבות בכל רגע, גם מתוך הטיול. הזיהוי נעשה בשירות הדיבור של הטלפון (לפעמים של Google), ולא נשמר אצלנו.",
             "The child answers out loud, and Pitzki says \"Right!\" or the right answer. You can turn it off any time, even during the walk. Recognition uses the phone's speech service (sometimes Google's) and nothing is kept by us."), top = 2))
 
+        // More time for the child's answer (and before things move on by themselves): for a child who needs longer.
+        box.addView(ui.text(L.t("זמן לתשובה", "Time to answer"), 15f, bold = true, top = 18).apply { A11y.heading(this) })
+        val times = listOf(L.t("רגיל", "Normal"), L.t("כפול", "Double"), L.t("משולש", "Triple"))
+        val nowX = Settings.prefs(this).getInt("answer_time_x", 1).coerceIn(1, 3)
+        box.addView(ui.chips(times, nowX - 1, top = 4) { i -> Settings.prefs(this).edit().putInt("answer_time_x", i + 1).apply() })
+        box.addView(ui.hint(L.t("כמה זמן פיצקי מחכה לתשובה של הילד, לפני שהוא עוזר או ממשיך.", "How long Pitzki waits for the child's answer before helping or going on."), top = 2))
+
         // The admin's tools (shared scenes, costs, voice, microphone codes): hidden unless asked for.
         if (Account.isAdmin(this)) box.addView(ui.action(if (adminTools()) L.t("🔧 להסתיר את כלי המנהל", "🔧 Hide admin tools") else L.t("🔧 כלי מנהל", "🔧 Admin tools"), R.color.ink_soft) {
             Settings.prefs(this).edit().putBoolean("pitzki_admin_tools", !adminTools()).apply()
@@ -1232,7 +1273,9 @@ class PitzkiActivity : AppCompatActivity() {
                 })
                 val row = ui.horizontal(top = 4)
                 row.addView(ui.action(L.t("לצייר שוב", "Draw again")) { if (PitzkiStore.makeCharacter(this, c)) { renderSetup(); watchDrawing() } })
-                row.addView(ui.action(L.t("ביטול", "Cancel"), R.color.ink_soft) { candidate.delete(); renderSetup() })
+                row.addView(ui.action(L.t("ביטול", "Cancel"), R.color.ink_soft) {
+                    A11y.confirm(this, L.t("לוותר על מה שצויר? זה יימחק.", "Drop what was drawn? It will be deleted."), L.t("לוותר", "Drop it")) { candidate.delete(); renderSetup() }
+                })
                 card.addView(row)
             }
             d != null && !d.finished && d.phase != "character" -> waiting(card, c, d)
@@ -1333,7 +1376,10 @@ class PitzkiActivity : AppCompatActivity() {
                         .show()
                 })
                 row.addView(ui.action(L.t("למחוק", "Delete"), R.color.ds_error) {
-                    PitzkiStore.deleteScenes(this, c.memberId); renderSetup()
+                    // Paid-for scenes: asked first, they can't be brought back.
+                    A11y.confirm(this, L.t("למחוק את כל הסצנות של $name? אי אפשר לשחזר אותן.", "Delete all of $name's scenes? They can't be brought back."), L.t("למחוק", "Delete")) {
+                        PitzkiStore.deleteScenes(this, c.memberId); renderSetup()
+                    }
                 })
                 card.addView(row)
             }
@@ -1466,6 +1512,12 @@ class PitzkiActivity : AppCompatActivity() {
                 background = DS.rounded(DS.buttonSecondary(this@PitzkiActivity), DS.radiusChip(this@PitzkiActivity))
                 clipToOutline = true
                 layoutParams = LinearLayout.LayoutParams(0, ui.dp(56), 1f).apply { marginEnd = ui.dp(6) }
+                // Each scene said by its name and state (not "button" / "▶").
+                contentDescription = sceneName(k) + when {
+                    moving -> L.t(", מונפשת", ", animated")
+                    f.exists() -> L.t(", מצוירת", ", drawn")
+                    else -> L.t(", עוד בהכנה", ", still being made")
+                }
             }
             if (f.exists()) {
                 val img = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; layoutParams = FrameLayout.LayoutParams(match, match) }
@@ -1477,12 +1529,14 @@ class PitzkiActivity : AppCompatActivity() {
                 }
                 if (moving) cell.addView(TextView(this).apply {
                     text = "▶"; textSize = 14f; setTextColor(DS.onPhoto(this@PitzkiActivity))
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                     setShadowLayer(6f, 0f, 1f, DS.scrim(this@PitzkiActivity))
                     layoutParams = FrameLayout.LayoutParams(wrap, wrap, Gravity.CENTER)
                 })
             } else cell.addView(TextView(this).apply {
                 text = "✨"; textSize = 18f; gravity = Gravity.CENTER
                 layoutParams = FrameLayout.LayoutParams(match, match)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 alpha = 0.6f
             })
             row.addView(cell)
@@ -1505,7 +1559,8 @@ class PitzkiActivity : AppCompatActivity() {
         )
         val caption = ui.text(lines[((System.currentTimeMillis() / 4000) % lines.size).toInt()], 15f, R.color.ds_primary, top = 10).apply { typeface = DS.emphasis }
         card.addView(caption)
-        main.postDelayed(object : Runnable {
+        // The words change by themselves only when nothing asks for stillness (no screen reader, animations on).
+        if (!A11y.stillMotion() && !A11y.screenReader(this)) main.postDelayed(object : Runnable {
             override fun run() {
                 if (destroyed || !caption.isAttachedToWindow) return
                 caption.animate().alpha(0f).setDuration(250).withEndAction {
@@ -1530,11 +1585,13 @@ class PitzkiActivity : AppCompatActivity() {
         card.addView(ui.hint(L.t("🎨 להתאמן על הצבעים: לוחצים, ופיצקי אומר את הצבע בעברית ובאנגלית", "🎨 Practice the colors: tap, and Pitzki says the color in Hebrew and English"), top = 4))
         val colors = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, ui.dp(6), 0, 0) }
         for (col in PitzkiScript.ORDER) colors.addView(TextView(this).apply {
-            text = col.emoji; textSize = 26f; gravity = Gravity.CENTER
+            text = col.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER
             background = DS.pressable(this@PitzkiActivity, DS.rounded(DS.bg(this@PitzkiActivity), ui.dp(16).toFloat()))
             setPadding(ui.dp(8), ui.dp(6), ui.dp(8), ui.dp(6))
+            minWidth = ui.dp(48); minHeight = ui.dp(48)
             layoutParams = LinearLayout.LayoutParams(wrap, wrap).apply { marginEnd = ui.dp(6) }
-            contentDescription = "${col.he}, ${col.en}"
+            contentDescription = android.text.SpannableStringBuilder("${col.he}, ").append(A11y.english(col.en))
+            A11y.button(this)
             emojiColor(this, col)
             setOnClickListener {
                 pulse(this)
@@ -1575,8 +1632,12 @@ class PitzkiActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(ui.dp(6), ui.dp(10), ui.dp(6), ui.dp(10))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { marginStart = ui.dp(4); marginEnd = ui.dp(4) }
-            addView(TextView(this@PitzkiActivity).apply { text = emoji; textSize = 26f; gravity = Gravity.CENTER })
-            addView(ui.text(title, 14f, if (on) R.color.ds_primary else R.color.ink, bold = true).apply { gravity = Gravity.CENTER })
+            addView(TextView(this@PitzkiActivity).apply { text = emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+            // The chosen world: a ✓ and darker blue (not by color alone), and said as selected.
+            addView(ui.text((if (on) "✓ " else "") + title, 14f, if (on) R.color.ds_button_pressed else R.color.ink, bold = true).apply { gravity = Gravity.CENTER })
+            isSelected = on
+            androidx.core.view.ViewCompat.setStateDescription(this, if (on) L.t("נבחר", "Selected") else L.t("לא נבחר", "Not selected"))
+            A11y.button(this)
             addView(ui.hint(sub, top = 2).apply { gravity = Gravity.CENTER; textSize = 12f })
             setOnClickListener {
                 if (PitzkiScript.worldId == id) return@setOnClickListener
@@ -1621,7 +1682,8 @@ class PitzkiActivity : AppCompatActivity() {
     /** The parent writes the name the way it's said (with niqqud), hears it, and saves it. */
     private fun nameDialog(c: PitzkiStore.Child) {
         val name = c.kid.name
-        val field = ui.field(name, PitzkiStore.sayName(this, c.memberId).ifBlank { name }, top = 6)
+        // Labelled by what it's for (the field used to be named only by the child's name).
+        val field = ui.field(L.t("השם של $name, כמו שאומרים אותו", "$name's name, the way it's said"), PitzkiStore.sayName(this, c.memberId).ifBlank { name }, top = 6)
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(ui.dp(20), ui.dp(8), ui.dp(20), 0)
@@ -2195,7 +2257,8 @@ class PitzkiActivity : AppCompatActivity() {
             valueFrom = 0f; valueTo = durMs.toFloat()
             values = listOf((durMs * 0.3f), (durMs * 0.5f))
             setMinSeparationValue(200f)
-            setLabelFormatter { v -> String.format(java.util.Locale.US, "%.1f", v / 1000f) }
+            setLabelFormatter { v -> String.format(java.util.Locale.US, "%.1f", v / 1000f) + L.t(" שניות", " s") }
+            contentDescription = L.t("החלק שיוסר", "The part to take out")
         }
         frames.addView(slider, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL))
         root.addView(frames)
@@ -2253,7 +2316,9 @@ class PitzkiActivity : AppCompatActivity() {
             show()
             android.widget.Toast.makeText(this, L.t("נגזר ✓ אפשר ללחוץ \"בלי החלק\" לראות", "Cut ✓ Tap \"Without it\" to see"), android.widget.Toast.LENGTH_SHORT).show()
         })
-        buttons2.addView(small(L.t("לבטל גזירות", "Undo cuts"), false) { PitzkiStore.clearCuts(this, clip); show() })
+        buttons2.addView(small(L.t("לבטל גזירות", "Undo cuts"), false) {
+            A11y.confirm(this, L.t("לבטל את כל הגזירות בסצנה הזו?", "Undo all the cuts in this scene?"), L.t("לבטל גזירות", "Undo cuts")) { PitzkiStore.clearCuts(this, clip); show() }
+        })
         buttons2.addView(small(L.t("סיום", "Done"), false) { dlg.dismiss() })
         root.addView(buttons2)
         root.setOnApplyWindowInsetsListener { _, ins ->
@@ -2275,12 +2340,17 @@ class PitzkiActivity : AppCompatActivity() {
             v.setVideoPath(clip.absolutePath)
             v.setOnPreparedListener { mp -> mp.isLooping = true; try { mp.setVolume(0f, 0f) } catch (_: Exception) {}; v.start() }
             v.setOnErrorListener { _, _, _ -> true }
+            // Pause / play / seek with the system's controls (a silent loop otherwise couldn't be stopped).
+            A11y.videoControls(v, root, title)
+            if (A11y.stillMotion()) v.setOnPreparedListener { mp -> mp.isLooping = true; try { mp.setVolume(0f, 0f) } catch (_: Exception) {}; v.seekTo(1) }
             // The second it's at (to tell which part to cut), and the parts already cut are skipped here too.
             val clock = TextView(this).apply {
                 textSize = 20f; typeface = DS.emphasis; setTextColor(DS.onPhoto(this@PitzkiActivity))
                 setShadowLayer(8f, 0f, 1f, DS.scrim(this@PitzkiActivity))
                 setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(16))
                 layoutParams = FrameLayout.LayoutParams(wrap, wrap, Gravity.TOP or Gravity.START)
+                // Changes ten times a second: not read out (the controls say the time).
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
             root.addView(clock)
             val cuts = PitzkiStore.cuts(this, clip)
@@ -2466,6 +2536,9 @@ class PitzkiActivity : AppCompatActivity() {
                 if (destroyed || inLesson) { if (watching === d) watching = null; return }
                 val now = "${d.done}/${d.animated}/${d.note}"
                 if (now != last || d.finished) { last = now; renderSetup() } else tickEtas()
+                // Said out loud to a screen reader once it's done (the screen only changes).
+                if (d.finished) window.decorView.announceForAccessibility(
+                    if (d.failed.isNotEmpty()) d.failed else L.t("מוכן!", "Ready!"))
                 if (!d.finished) main.postDelayed(this, 700) else if (watching === d) watching = null
             }
         }, 700)
@@ -2521,6 +2594,16 @@ class PitzkiActivity : AppCompatActivity() {
      * Some phones draw the beetle emoji green: for "black" the picture is shown black (and nothing else is changed),
      * so the child taps a black beetle when Pitzki asks for the black one.
      */
+    /** "● Red": the color as a dot, the word in the text color (a light color word can't be read on the light card). */
+    private fun colorWord(c: PColor): CharSequence {
+        val t = android.text.SpannableStringBuilder("● ")
+        t.setSpan(android.text.style.ForegroundColorSpan(colorOf(c)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val at = t.length
+        t.append(c.en)
+        t.setSpan(android.text.style.LocaleSpan(java.util.Locale.ENGLISH), at, t.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        return t
+    }
+
     private fun emojiColor(v: TextView, c: PColor?) {
         if (c == PColor.BLACK) {
             val m = android.graphics.ColorMatrix().apply { setSaturation(0f) }
@@ -2645,7 +2728,7 @@ class PitzkiActivity : AppCompatActivity() {
         })
 
         objectView = TextView(this).apply {
-            textSize = 70f
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 70f) // a picture (emoji), in its fixed circle
             gravity = Gravity.CENTER
             background = DS.oval(DS.alpha(DS.bg(this@PitzkiActivity), 0.9f))
             elevation = ui.dp(6).toFloat()
@@ -2682,7 +2765,8 @@ class PitzkiActivity : AppCompatActivity() {
         }
         stage.addView(countBubble)
         burst = TextView(this).apply {
-            text = "⭐"; textSize = 110f; gravity = Gravity.CENTER; visibility = View.GONE
+            text = "⭐"; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 110f); gravity = Gravity.CENTER; visibility = View.GONE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             layoutParams = lp(wrap, wrap, Gravity.CENTER)
         }
         stage.addView(burst)
@@ -2693,17 +2777,22 @@ class PitzkiActivity : AppCompatActivity() {
             override fun setText(text: CharSequence?, type: BufferType?) {
                 val t = if (text != null && PitzkiScript.isFarm) FarmNiqqud.show(text.toString(), kid.girl) else text
                 super.setText(t, type)
+                // The dark box only while there's something to read.
+                visibility = if (t.isNullOrBlank()) View.INVISIBLE else View.VISIBLE
             }
         }.apply {
             textSize = 21f // (a little smaller: the picture first, but big enough to start reading)
             typeface = DS.emphasis
             gravity = Gravity.CENTER
             setTextColor(DS.onPhoto(this@PitzkiActivity))
-            setShadowLayer(10f, 0f, 2f, DS.scrim(this@PitzkiActivity))
+            // A solid dark box behind the words: readable over any picture (a shadow alone isn't enough on a light scene).
+            background = DS.rounded(android.graphics.Color.argb(200, 0, 0, 0), ui.dp(14).toFloat())
+            setPadding(ui.dp(14), ui.dp(6), ui.dp(14), ui.dp(8))
             textDirection = View.TEXT_DIRECTION_RTL
             // Room for a whole sentence even with a large font on the phone (the subtitles are how a child without
-            // sound, or a parent who doesn't hear well, follows Pitzki).
-            maxLines = 4
+            // sound, or a parent who doesn't hear well, follows Pitzki): no line limit.
+            // Read out by itself only without a screen reader's own reading (it would talk over Pitzki's voice).
+            if (!A11y.screenReader(this@PitzkiActivity)) A11y.live(this)
             layoutParams = lp(match, wrap, Gravity.BOTTOM).apply { leftMargin = ui.dp(90); rightMargin = ui.dp(90); bottomMargin = ui.dp(18) }
         }
         stage.addView(subtitle)
@@ -2711,7 +2800,7 @@ class PitzkiActivity : AppCompatActivity() {
         // Like a book or stories: two small arrows at the bottom corners, and a swipe, move to the next / previous
         // scene. Hebrew goes right to left: the next scene is on the left.
         fun arrow(label: String, side: Int, desc: String, go: () -> Unit) = TextView(this).apply {
-            text = label; textSize = 26f; gravity = Gravity.CENTER
+            text = label; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); gravity = Gravity.CENTER
             setTextColor(DS.onPhoto(this@PitzkiActivity))
             background = DS.oval(ui.color(R.color.ds_photo_control_bg))
             contentDescription = desc
@@ -2752,16 +2841,18 @@ class PitzkiActivity : AppCompatActivity() {
                 background = DS.pressable(this@PitzkiActivity, DS.rounded(DS.alpha(DS.bg(this@PitzkiActivity), 0.95f), ui.dp(22).toFloat()))
                 elevation = ui.dp(6).toFloat()
                 setPadding(ui.dp(4), ui.dp(6), ui.dp(4), ui.dp(6))
-                layoutParams = LinearLayout.LayoutParams(ui.dp(68), wrap).apply { marginStart = ui.dp(3); marginEnd = ui.dp(3) }
-                contentDescription = "${c.he}, ${c.en}"
+                // At least 68dp wide, wider when the word needs it (a large font on the phone).
+                minimumWidth = ui.dp(68)
+                layoutParams = LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = ui.dp(3); marginEnd = ui.dp(3) }
+                contentDescription = android.text.SpannableStringBuilder("${c.he}, ").append(A11y.english(c.en))
+                A11y.button(this)
                 setOnClickListener { tap(c) }
             }
-            item.addView(TextView(this).apply { text = c.emoji; textSize = 30f; gravity = Gravity.CENTER; emojiColor(this, c) })
+            item.addView(TextView(this).apply { text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 30f); gravity = Gravity.CENTER; emojiColor(this, c) })
             item.addView(TextView(this).apply {
-                text = c.en; textSize = 13f; gravity = Gravity.CENTER; typeface = DS.heading; maxLines = 1
-                setTextColor(colorOf(c))
-                // Light colors (white, yellow, pink) get a dark edge so the word can be read on the cream card.
-                setShadowLayer(4f, 0f, 0f, android.graphics.Color.argb(230, 48, 37, 30))
+                // The word in dark ink (readable on the light card), its color shown as a dot beside it.
+                text = colorWord(c); textSize = 13f; gravity = Gravity.CENTER; typeface = DS.heading
+                setTextColor(DS.ink(this@PitzkiActivity))
             })
             items[c] = item
             strip.addView(item)
@@ -2813,6 +2904,17 @@ class PitzkiActivity : AppCompatActivity() {
                 try { songPlayer?.setVolume(if (voice.muted) 0f else 1f, if (voice.muted) 0f else 1f) } catch (_: Exception) {}
             }
         })
+        // Pause at any time (also during a game or the child's turn), not only by tapping the picture.
+        pauseBtn = TextView(this).apply {
+            text = "⏸"; textSize = 18f
+            setTextColor(DS.onPhoto(this@PitzkiActivity))
+            setShadowLayer(8f, 0f, 1f, DS.scrim(this@PitzkiActivity))
+            gravity = Gravity.CENTER; minWidth = ui.dp(48); minHeight = ui.dp(48)
+            contentDescription = L.t("השהיה", "Pause")
+            A11y.button(this)
+            setOnClickListener { if (paused) resume() else pause() }
+        }
+        left.addView(pauseBtn)
         left.addView(starsLabel)
         micBtn = TextView(this).apply {
             textSize = 15f
@@ -2874,6 +2976,7 @@ class PitzkiActivity : AppCompatActivity() {
             visibility = View.GONE
             layoutParams = lp(match, match, Gravity.CENTER)
             setOnClickListener { resume() }
+            contentDescription = L.t("המשך", "Continue")
         }
         fun round(label: String, sizeDp: Int, primary: Boolean, desc: String, go: () -> Unit) = TextView(this).apply {
             text = label; textSize = if (primary) 30f else 22f; gravity = Gravity.CENTER
@@ -2893,6 +2996,8 @@ class PitzkiActivity : AppCompatActivity() {
     private fun showProgress() {
         for (i in 0 until progress.childCount) progress.getChildAt(i).background =
             DS.rounded(if (i <= sceneIdx) DS.onPhoto(this) else DS.onPhoto(this, 0.35f), ui.dp(2).toFloat())
+        // Where we are, in words (the dots are only drawn).
+        progress.contentDescription = L.t("סצנה ${sceneIdx + 1} מתוך ${progress.childCount}", "Scene ${sceneIdx + 1} of ${progress.childCount}")
     }
 
     private fun showScene() {
@@ -3280,7 +3385,8 @@ class PitzkiActivity : AppCompatActivity() {
     private fun showMic() {
         if (!::micBtn.isInitialized) return
         micBtn.text = if (PitzkiStore.listenOn(this)) L.t("🎤 מיקרופון פועל", "🎤 Mic on") else L.t("🎤 מיקרופון כבוי", "🎤 Mic off")
-        micBtn.alpha = if (PitzkiStore.listenOn(this)) 1f else 0.6f
+        // Off is said in the words ("כבוי"), not by fading the button (faded text was too pale over a light scene).
+        micBtn.alpha = 1f
         // Read with its real state (it used to always say "listening", even when off).
         micBtn.contentDescription = Wording.state(L.t("המיקרופון של פיצקי", "Pitzki's microphone"), PitzkiStore.listenOn(this))
     }
@@ -3302,7 +3408,9 @@ class PitzkiActivity : AppCompatActivity() {
         stage.addView(tip)
         tip.alpha = 0f
         tip.animate().alpha(1f).setStartDelay(1200).setDuration(400).start()
-        main.postDelayed({ tip.animate().alpha(0f).setDuration(500).withEndAction { tip.visibility = View.GONE }.start() }, 10_000)
+        tip.contentDescription = L.t("פיצקי מקשיב לתשובות של הילד ועונה לו. לא מתאים? כפתור המיקרופון מכבה. לחצו לסגירה", "Pitzki listens to the child's answers and replies. Not right for your child? The microphone button turns it off. Tap to close")
+        // Stays until it's tapped when a screen reader is on (or more time was asked for); otherwise it fades away.
+        if (!A11y.screenReader(this)) main.postDelayed({ tip.animate().alpha(0f).setDuration(500).withEndAction { tip.visibility = View.GONE }.start() }, A11y.timeout(this, 10_000))
     }
 
     /** A slow, gentle push-in: the forest feels alive, never jumpy (ages 3–5). */
@@ -3353,6 +3461,7 @@ class PitzkiActivity : AppCompatActivity() {
         token++
         main.removeCallbacksAndMessages(null)
         voice.stop()
+        showPaused(true)
         if (::pausedLayer.isInitialized) pausedLayer.visibility = View.VISIBLE
         try { songPlayer?.takeIf { it.isPlaying }?.pause() } catch (_: Exception) {}
         ears.stop()
@@ -3362,8 +3471,17 @@ class PitzkiActivity : AppCompatActivity() {
         try { ambientPlayer?.takeIf { it.isPlaying }?.pause() } catch (_: Exception) {}
     }
 
+    /** The pause button says what it does now: pause, or go on. */
+    private fun showPaused(on: Boolean) {
+        val b = pauseBtn ?: return
+        b.text = if (on) "▶" else "⏸"
+        b.contentDescription = if (on) L.t("המשך", "Continue") else L.t("השהיה", "Pause")
+        b.announceForAccessibility(if (on) L.t("מושהה", "Paused") else L.t("ממשיכים", "Going on"))
+    }
+
     private fun resume() {
         paused = false
+        showPaused(false)
         pausedLayer.visibility = View.GONE
         kenBurns()
         if (!clipEnded) try { clipPlayer?.start() } catch (_: Exception) {}
@@ -3461,7 +3579,7 @@ class PitzkiActivity : AppCompatActivity() {
                 listening.visibility = View.VISIBLE
                 pulse(listening)
                 // 8 seconds to answer (at least a few, even when the phone's recognizer gives up early: it listens again).
-                ears.listen(8000) { heard, said ->
+                ears.listen(A11y.timeout(this@PitzkiActivity, 8000)) { heard, said ->
                     if (my != token || paused || destroyed) { listening.visibility = View.GONE; return@listen }
                     // What the phone heard, for a moment (so a parent sees that it really listens).
                     val first = heard.firstOrNull { it.isNotBlank() }
@@ -3508,7 +3626,7 @@ class PitzkiActivity : AppCompatActivity() {
                 val seq = ++askSeq
                 items[b.color]?.let { pulse(it) }
                 // No answer for a while: Pitzki shows it, kindly.
-                main.postDelayed({ if (my == token && asking == b.color && askSeq == seq) help(b.color) }, 12_000)
+                main.postDelayed({ if (my == token && asking == b.color && askSeq == seq) help(b.color) }, A11y.timeout(this@PitzkiActivity, 12_000))
             }
             is Beat.Song -> sing(b, my) { then() }
             is Beat.Celebrate -> {
@@ -3551,7 +3669,7 @@ class PitzkiActivity : AppCompatActivity() {
             if (misses >= 2) { help(wanted); return }
             val seq = ++askSeq
             sayAll(PitzkiScript.tryAgainParts(kid, c, wanted), my) {}
-            main.postDelayed({ if (my == token && asking == wanted && askSeq == seq) help(wanted) }, 12_000)
+            main.postDelayed({ if (my == token && asking == wanted && askSeq == seq) help(wanted) }, A11y.timeout(this@PitzkiActivity, 12_000))
         }
     }
 
@@ -3627,7 +3745,7 @@ class PitzkiActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(wrap, wrap).apply { marginStart = ui.dp(10); marginEnd = ui.dp(10) }
                 contentDescription = ch.label
             }
-            cell.addView(TextView(this).apply { text = ch.emoji; textSize = 40f * ch.scale; gravity = Gravity.CENTER })
+            cell.addView(TextView(this).apply { text = ch.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 40f * ch.scale); gravity = Gravity.CENTER })
             cell.addView(TextView(this).apply { text = if (PitzkiScript.isFarm) FarmNiqqud.show(ch.label) else ch.label; textSize = 16f; typeface = DS.heading; gravity = Gravity.CENTER; setTextColor(DS.ink(this@PitzkiActivity)) })
             cell.setOnClickListener { chooseIn(b, i, cell, cells, my, { misses++; misses }, done) }
             cells.add(cell)
@@ -3638,7 +3756,7 @@ class PitzkiActivity : AppCompatActivity() {
         row.alpha = 0f; row.translationY = ui.dp(60).toFloat()
         row.animate().alpha(1f).translationY(0f).setDuration(350).start()
         // No answer for a while: Pitzki shows it.
-        main.postDelayed({ if (my == token && game === row) { pulse(cells[b.right]); say(PitzkiScript.HERE_IT_IS) {} } }, 12_000)
+        main.postDelayed({ if (my == token && game === row) { pulse(cells[b.right]); say(PitzkiScript.HERE_IT_IS) {} } }, A11y.timeout(this@PitzkiActivity, 12_000))
         // The child can also say it ("פרה!"): Pitzki listens while the pictures are up (twice, a few seconds each).
         if (b.choices.size > 1 && canListen()) main.postDelayed({ listenForChoice(b, row, cells, my, 2, { misses++; misses }, done) }, 400)
     }
@@ -3686,7 +3804,7 @@ class PitzkiActivity : AppCompatActivity() {
         listeningAt(top = true)
         listening.text = L.t("🎤 אפשר גם להגיד…", "🎤 You can also say it…")
         listening.visibility = View.VISIBLE
-        ears.listen(6000, b.choices.flatMap { c -> c.label.filter { it !in '\u0591'..'\u05C7' }.replace("־", " ").split(" ") } + b.choices.map { it.emoji }) { heard, _ ->
+        ears.listen(A11y.timeout(this@PitzkiActivity, 6000), b.choices.flatMap { c -> c.label.filter { it !in '\u0591'..'\u05C7' }.replace("־", " ").split(" ") } + b.choices.map { it.emoji }) { heard, _ ->
             if (my != token || paused || destroyed || game !== row) return@listen
             heard.firstOrNull { it.isNotBlank() }?.let { listening.text = L.t("👂 שמעתי: ", "👂 I heard: ") + it.take(30) }
             main.postDelayed({ if (my == token && game !== row) listening.visibility = View.GONE }, 1500)
@@ -3732,7 +3850,7 @@ class PitzkiActivity : AppCompatActivity() {
                 x = w * 0.8f - size / 2f; y = yAt(order.indexOf(i))
             }
             home.addView(TextView(this).apply {
-                text = c.emoji; textSize = big * c.scale; gravity = Gravity.CENTER
+                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, big * c.scale); gravity = Gravity.CENTER
                 setLayerType(View.LAYER_TYPE_HARDWARE, silhouette)
                 layoutParams = FrameLayout.LayoutParams(size, size)
             })
@@ -3757,6 +3875,7 @@ class PitzkiActivity : AppCompatActivity() {
             val v = pieces[i]; val home = homes[i]; val c = b.items[i]
             val wanted = b.only < 0 || b.only == i
             lift(v, false)
+            androidx.core.view.ViewCompat.setStateDescription(v, null)
             if (near == i && wanted) {
                 done_[i] = true
                 v.animate().x(home.x).y(home.y).setDuration(180).start()
@@ -3797,7 +3916,7 @@ class PitzkiActivity : AppCompatActivity() {
             val startX = w * 0.5f - size / 2f; val startY = yAt(i)
             starts.add(startX to startY)
             val piece = TextView(this).apply {
-                text = c.emoji; textSize = big * c.scale; gravity = Gravity.CENTER
+                text = c.emoji; setTextSize(TypedValue.COMPLEX_UNIT_DIP, big * c.scale); gravity = Gravity.CENTER
                 background = DS.rounded(android.graphics.Color.argb(235, 255, 252, 245), ui.dp(26).toFloat())
                 elevation = ui.dp(6).toFloat()
                 layoutParams = FrameLayout.LayoutParams(size, size)
@@ -3867,7 +3986,7 @@ class PitzkiActivity : AppCompatActivity() {
         listening.text = L.t("🎤 פיצקי מקשיב…", "🎤 Pitzki is listening…")
         listening.visibility = View.VISIBLE
         pulse(listening)
-        ears.listen(8000, b.answers.flatMap { it.first }) { heard, _ ->
+        ears.listen(A11y.timeout(this@PitzkiActivity, 8000), b.answers.flatMap { it.first }) { heard, _ ->
             if (my != token || paused || destroyed) { listening.visibility = View.GONE; return@listen }
             heard.firstOrNull { it.isNotBlank() }?.let { listening.text = L.t("👂 שמעתי: ", "👂 I heard: ") + it.take(30) }
             main.postDelayed({ if (my == token) listening.visibility = View.GONE }, 1500)
@@ -3886,7 +4005,7 @@ class PitzkiActivity : AppCompatActivity() {
         listening.visibility = View.VISIBLE
         pulse(listening)
         // "Ready?" (the same answer whatever is said): a short wait, not 8 seconds of silence.
-        ears.listen(if (b.ok == b.hint) 3500 else 8000, b.words) { heard, said ->
+        ears.listen(A11y.timeout(this@PitzkiActivity, if (b.ok == b.hint) 3500L else 8000L), b.words) { heard, said ->
             if (my != token || paused || destroyed) { listening.visibility = View.GONE; return@listen }
             heard.firstOrNull { it.isNotBlank() }?.let { listening.text = L.t("👂 שמעתי: ", "👂 I heard: ") + it.take(30) }
             main.postDelayed({ if (my == token) listening.visibility = View.GONE }, 1500)
@@ -3966,7 +4085,7 @@ class PitzkiActivity : AppCompatActivity() {
             x = w * 0.08f; y = h * 0.6f - basketSize / 2f
         }
         val inBasket = TextView(this).apply {
-            text = ""; textSize = 26f; typeface = DS.heading; gravity = Gravity.CENTER
+            text = ""; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 26f); typeface = DS.heading; gravity = Gravity.CENTER
             setTextColor(android.graphics.Color.WHITE)
             background = DS.rounded(android.graphics.Color.rgb(46, 125, 50), ui.dp(18).toFloat())
             layoutParams = FrameLayout.LayoutParams(ui.dp(40), ui.dp(40))
@@ -4122,7 +4241,7 @@ class PitzkiActivity : AppCompatActivity() {
                 // Its number, small, on it.
                 val lpw = piece.layoutParams.width
                 layer.addView(TextView(this).apply {
-                    text = now.toString(); textSize = 15f; typeface = DS.heading; gravity = Gravity.CENTER
+                    text = now.toString(); setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f); typeface = DS.heading; gravity = Gravity.CENTER
                     setTextColor(android.graphics.Color.WHITE)
                     background = DS.rounded(android.graphics.Color.rgb(46, 125, 50), ui.dp(13).toFloat())
                     elevation = ui.dp(8).toFloat()
@@ -4278,7 +4397,7 @@ class PitzkiActivity : AppCompatActivity() {
     private fun breatheGame(times: Int, my: Int, done: () -> Unit) {
         clearGame()
         val ball = TextView(this).apply {
-            text = "🫧"; textSize = 60f; gravity = Gravity.CENTER
+            text = "🫧"; setTextSize(TypedValue.COMPLEX_UNIT_DIP, 60f); gravity = Gravity.CENTER
             background = DS.oval(DS.alpha(DS.bg(this@PitzkiActivity), 0.7f))
             layoutParams = lp(ui.dp(170), ui.dp(170), Gravity.CENTER)
             scaleX = 0.6f; scaleY = 0.6f
@@ -4303,8 +4422,20 @@ class PitzkiActivity : AppCompatActivity() {
     /** Red… (wait) …green: tap! Tapping on red: "not yet". Patience, and tapping exactly at the right moment. */
     private fun lightGame(my: Int, done: () -> Unit) {
         clearGame()
+        // Not by color alone: a hand and a word with each light (red: "wait", green: "now").
+        fun face(green: Boolean): CharSequence {
+            val word = if (green) L.t("👆 עכשיו!", "👆 Now!") else L.t("✋ רגע…", "✋ Wait…")
+            val t = android.text.SpannableStringBuilder(if (green) "🟢" else "🔴").append("\n")
+            val at = t.length
+            t.append(word)
+            t.setSpan(android.text.style.RelativeSizeSpan(0.32f), at, t.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            return t
+        }
         val light = TextView(this).apply {
-            text = "🔴"; textSize = 96f; gravity = Gravity.CENTER
+            text = face(false); setTextSize(TypedValue.COMPLEX_UNIT_DIP, 96f); gravity = Gravity.CENTER
+            setTextColor(android.graphics.Color.WHITE)
+            contentDescription = L.t("רמזור אדום. מחכים", "Red light. Wait")
+            A11y.button(this)
             background = DS.rounded(DS.alpha(DS.ink(this@PitzkiActivity), 0.75f), ui.dp(36).toFloat())
             setPadding(ui.dp(24), ui.dp(10), ui.dp(24), ui.dp(10))
             layoutParams = lp(wrap, wrap, Gravity.CENTER)
@@ -4317,11 +4448,14 @@ class PitzkiActivity : AppCompatActivity() {
         main.postDelayed({
             if (my != token || lightView !== light) return@postDelayed
             lightOn = 2
-            light.text = "🟢"
+            light.text = face(true)
+            light.contentDescription = L.t("רמזור ירוק. לוחצים עכשיו", "Green light. Tap now")
+            light.announceForAccessibility(L.t("ירוק! עכשיו!", "Green! Now!"))
+            subtitle.text = L.t("עכשיו!", "Now!")
             bounce(light)
-            // Not tapped: Pitzki says "now!", then goes on anyway.
-            main.postDelayed({ if (my == token && lightOn == 2 && lightView === light) say(PitzkiScript.LIGHT_NOW) {} }, 6000)
-            main.postDelayed({ if (my == token && lightOn == 2 && lightView === light) { val d = lightDone; clearGame(); d?.invoke() } }, 14_000)
+            // Not tapped: Pitzki says "now!", then goes on anyway (later when more time was asked for).
+            main.postDelayed({ if (my == token && lightOn == 2 && lightView === light) say(PitzkiScript.LIGHT_NOW) {} }, A11y.timeout(this@PitzkiActivity, 6000))
+            main.postDelayed({ if (my == token && lightOn == 2 && lightView === light) { val d = lightDone; clearGame(); d?.invoke() } }, A11y.timeout(this@PitzkiActivity, 14_000))
         }, waitMs)
     }
 
@@ -4339,8 +4473,10 @@ class PitzkiActivity : AppCompatActivity() {
     }
 
     private fun showWord(c: PColor) {
-        wordBubble.text = c.en
-        wordBubble.setTextColor(colorOf(c))
+        // The word in dark ink with its color as a dot (yellow / white / pink words weren't readable on the light bubble).
+        wordBubble.text = colorWord(c)
+        wordBubble.setTextColor(DS.ink(this))
+        wordBubble.contentDescription = A11y.english(c.en)
         wordBubble.visibility = View.VISIBLE
         wordBubble.scaleX = 0.5f; wordBubble.scaleY = 0.5f
         wordBubble.animate().scaleX(1f).scaleY(1f).setDuration(350).setInterpolator(android.view.animation.OvershootInterpolator()).start()

@@ -50,8 +50,8 @@ class SharedMemoryViews(private val activity: AppCompatActivity) {
         frame.setOnClickListener {
             // Pitzki's film is many scenes: it plays in Pitzki's screen (downloaded there for the other parent).
             if (post.pitzki) { PitzkiActivity.open(activity); return@setOnClickListener }
-            try { activity.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(post.video), if (post.kind == "photo") "image/*" else "video/*")) }
-            catch (_: Exception) { Toast.makeText(activity, L.t("לא נמצא נגן מתאים. אפשר לנסות שוב מהמעגל המשפחתי.", "No compatible player found. Try again from the family circle."), Toast.LENGTH_LONG).show() }
+            // Opens right here (no list of other apps to choose from).
+            MediaViewerActivity.open(activity, post.video, photo = post.kind == "photo", title = post.title)
         }
         card.addView(frame)
         card.addView(ui.text(post.title.ifBlank { L.t("זיכרון מהמשפחה", "Family memory") }, 19f, bold = true, top = 12))

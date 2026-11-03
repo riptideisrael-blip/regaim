@@ -153,10 +153,10 @@ class StoryViewerActivity : AppCompatActivity() {
             A11y.button(this)
         }
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        controls.addView(ctrl("‹", L.t("הרגע הקודם", "Previous moment")) { previous() })
+        controls.addView(ctrl(if (L.isEn) "‹" else "›", L.t("הרגע הקודם", "Previous moment")) { previous() })
         pauseBtn = ctrl("⏸", L.t("השהיה", "Pause")) { if (paused) { userPaused = false; resume() } else { userPaused = true; pause() } }
         controls.addView(pauseBtn)
-        controls.addView(ctrl("›", L.t("הרגע הבא", "Next moment")) { next() })
+        controls.addView(ctrl(if (L.isEn) "›" else "‹", L.t("הרגע הבא", "Next moment")) { next() })
         root.addView(controls, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply { bottomMargin = dp(12) })
         setContentView(root)
 
@@ -179,7 +179,9 @@ class StoryViewerActivity : AppCompatActivity() {
         title.text = cur.title
         userPaused = false; heldPause = false; pauseState()
         // Said for screen readers: which moment this is.
-        window.decorView.announceForAccessibility(meta.text.toString() + ". " + cur.title)
+        val who = cur.post?.let { p -> p.author.trim().substringBefore(' ') + ", " }.orEmpty()
+        meta.contentDescription = who + Fmt.day(cur.time) + L.t(", ${at + 1} מתוך ${list.size}", ", ${at + 1} of ${list.size}")
+        window.decorView.announceForAccessibility(meta.contentDescription.toString() + ". " + cur.title)
         cur.post?.let { p -> PartnerStories.markSeen(this, p.id) }
         val m = cur.memory
         val p = cur.post
