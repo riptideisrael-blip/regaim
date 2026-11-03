@@ -175,6 +175,7 @@ class TimelineActivity : AppCompatActivity() {
         val titleRow = ui.horizontal(top = 0)
         titleRow.addView(ui.text(Fmt.month(first), 17f, bold = true).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            A11y.heading(this)
         })
         // WRAP_CONTENT: a full-width count would squeeze the month name to nothing (one letter per line).
         titleRow.addView(ui.hint(if (items.size == 1) L.t("רגע אחד", "1 moment") else L.t("${items.size} רגעים", "${items.size} moments"), top = 0).apply {
@@ -223,6 +224,10 @@ class TimelineActivity : AppCompatActivity() {
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(side, side).apply { if (gapStart) marginStart = ui.dp(4) }
             setOnClickListener { MomentActivity.open(this@TimelineActivity, m.id) }
+            // Said as the moment (the video and heart marks are only pictures).
+            contentDescription = listOf(Fmt.title(m), Fmt.day(m.time), if (m.isVideo) L.t("סרטון", "Video") else "",
+                if (m.favorite) L.t("מועדף", "Favorite") else "").filter { it.isNotEmpty() }.joinToString(", ")
+            A11y.button(this)
         }
         val img = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP

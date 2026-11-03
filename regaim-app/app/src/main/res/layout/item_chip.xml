@@ -8,5 +8,7 @@
     android:paddingTop="12dp"
     android:paddingEnd="18dp"
     android:paddingBottom="12dp"
+    android:minHeight="48dp"
+    android:gravity="center"
     android:textColor="@color/ink"
     android:textSize="15sp" />

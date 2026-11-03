@@ -69,6 +69,10 @@ object Nav {
         val name = Profile.parentName(a).ifBlank { L.t("אני", "Me") }
         val v: View = mv.avatar(name, 40)
         v.contentDescription = L.t("פרופיל והגדרות", "Profile and settings")
+        A11y.button(v)
+        val pad = mv.dp(4)
+        v.setPadding(pad, pad, pad, pad)
+        v.layoutParams = (v.layoutParams ?: ViewGroup.MarginLayoutParams(mv.dp(48), mv.dp(48))).apply { width = mv.dp(48); height = mv.dp(48) }
         v.setOnClickListener { a.startActivity(Intent(a, ProfileActivity::class.java)) }
         (v.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = mv.dp(8)
         row.addView(v)

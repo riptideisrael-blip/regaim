@@ -92,13 +92,14 @@ class PeriodVideoActivity : AppCompatActivity() {
         ), top = 14))
         val periods = PeriodVideo.Period.values().toList()
         content.addView(ui.chips(periods.map { it.title }, periods.indexOf(period), top = 12) { i ->
-            if (building || preparing) return@chips
+            if (building || preparing) { render(); return@chips }
             period = periods[i]; seed = 0; decide()
         })
 
         if (preparing) {
-            content.addView(ui.text(L.t("בוחרים את הרגעים...", "Choosing the moments…"), 16f, bold = true, top = 22))
+            content.addView(ui.text(L.t("בוחרים את הרגעים...", "Choosing the moments…"), 16f, bold = true, top = 22).apply { A11y.live(this) })
             content.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                contentDescription = L.t("בוחרים את הרגעים", "Choosing the moments")
                 isIndeterminate = true
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(8)).apply { topMargin = ui.dp(10) }
             })
@@ -116,9 +117,11 @@ class PeriodVideoActivity : AppCompatActivity() {
         val card = ui.card(top = 16)
         card.addView(ui.text(L.t("❤️ נבחרו ${plan.shots.size} רגעים", "❤️ ${plan.shots.size} moments chosen") +
             L.t(" מתוך ${p.considered}", " of ${p.considered}"), 17f, bold = true))
-        card.addView(ui.text("🎵 " + PeriodVideo.musicName(plan) + "   ⏱ " + L.t("${plan.totalMs / 1000} שניות", "${plan.totalMs / 1000} sec"), 15f, top = 6))
+        card.addView(ui.text("🎵 " + PeriodVideo.musicName(plan) + "   ⏱ " + L.t("${plan.totalMs / 1000} שניות", "${plan.totalMs / 1000} sec"), 15f, top = 6).apply {
+            contentDescription = L.t("מוזיקה: ", "Music: ") + PeriodVideo.musicName(plan) + L.t(". אורך: ${plan.totalMs / 1000} שניות", ". Length: ${plan.totalMs / 1000} sec")
+        })
         val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        for (s in plan.shots) p.byId[s.id]?.let { m -> strip.addView(mv.mini(m) { }) }
+        for (s in plan.shots) p.byId[s.id]?.let { m -> strip.addView(mv.mini(m) { }.apply { isClickable = false }) }
         card.addView(ui.scrollRow(strip, top = 10))
         val left = plan.rejected.values.groupingBy { it }.eachCount()
         val why = listOfNotNull(
@@ -135,7 +138,7 @@ class PeriodVideoActivity : AppCompatActivity() {
         val auto = style == null
         content.addView(ui.text(L.t("סגנון", "Style"), 15f, bold = true, top = 16))
         content.addView(ui.chips(styles.map { PeriodVideo.styleName(it) + if (auto && it == plan.style) L.t(" (מומלץ)", " (suggested)") else "" }, styles.indexOf(plan.style), top = 6) { i ->
-            if (building || preparing) return@chips
+            if (building || preparing) { render(); return@chips }
             style = styles[i]
             Settings.prefs(this).edit().putString(STYLE_KEY, styles[i].key).apply()
             decide()
@@ -144,8 +147,9 @@ class PeriodVideoActivity : AppCompatActivity() {
         val done = result
         if (done != null && done.exists()) { showResult(done); return }
         if (building) {
-            content.addView(ui.text(L.t("עורכים את הסרטון... כדקה, אפשר להישאר כאן.", "Editing your film… about a minute. Stay on this screen."), 15f, top = 14))
+            content.addView(ui.text(L.t("עורכים את הסרטון... כדקה, אפשר להישאר כאן.", "Editing your film… about a minute. Stay on this screen."), 15f, top = 14).apply { A11y.live(this) })
             progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                contentDescription = L.t("מכינים את הסרטון", "Making the video")
                 max = 100; isIndeterminate = true
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(8)).apply { topMargin = ui.dp(10) }
             }
@@ -181,10 +185,13 @@ class PeriodVideoActivity : AppCompatActivity() {
         val video = VideoView(this).apply {
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, android.view.Gravity.CENTER)
             setVideoPath(file.absolutePath)
-            setOnPreparedListener { it.isLooping = true; start() }
+            setOnPreparedListener { it.isLooping = false; seekTo(1) }
         }
         box.addView(video)
         content.addView(box)
+        A11y.videoControls(video, box, L.t("הסרטון שנוצר. לחצו לניגון", "Your video. Tap to play"))
+        video.setOnClickListener { if (video.isPlaying) video.pause() else video.start() }
+        content.announceForAccessibility(L.t("הסרטון מוכן", "The video is ready"))
         content.addView(ui.button(L.t("שתף", "Share"), primary = true, top = 14) { share(file) })
         content.addView(ui.button(L.t("שמור בגלריה", "Save to gallery"), top = 6) { save(file) })
         content.addView(ui.action(L.t("גרסה אחרת ›", "Create another version ›")) { seed++; decide() }.apply { setPadding(0, ui.dp(14), 0, 0) })

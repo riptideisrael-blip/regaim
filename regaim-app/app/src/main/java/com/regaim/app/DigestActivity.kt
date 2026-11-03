@@ -183,9 +183,10 @@ class DigestActivity : AppCompatActivity() {
             content.addView(field)
 
             if (busy) {
-                progressText = ui.text(L.t("מכינים את הסרטון... כדקה. אפשר להישאר כאן.", "Making the video… about a minute. Stay on this screen."), 15f, top = 16)
+                progressText = ui.text(L.t("מכינים את הסרטון... כדקה. אפשר להישאר כאן.", "Making the video… about a minute. Stay on this screen."), 15f, top = 16).apply { A11y.live(this) }
                 content.addView(progressText)
                 progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    contentDescription = L.t("מכינים את הסרטון", "Making the video")
                     max = 100; isIndeterminate = true
                     layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(8)).apply { topMargin = ui.dp(10) }
                 }

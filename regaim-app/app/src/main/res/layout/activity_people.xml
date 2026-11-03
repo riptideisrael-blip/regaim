@@ -25,7 +25,8 @@
                 android:text="@string/people"
                 android:textColor="@color/ink"
                 android:textSize="24sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
             <TextView
                 android:id="@+id/btnClose"
@@ -33,6 +34,9 @@
                 android:layout_height="wrap_content"
                 android:background="?attr/selectableItemBackground"
                 android:padding="10dp"
+                android:minHeight="48dp"
+                android:minWidth="48dp"
+                android:gravity="center"
                 android:text="@string/close"
                 android:textColor="@color/accent"
                 android:textSize="16sp" />
@@ -52,7 +56,8 @@
             android:layout_marginTop="12dp"
             android:background="@drawable/chat_chip_bg"
             android:padding="12dp"
-            android:textColor="@color/accent_dark"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="@color/ds_button_pressed"
             android:textSize="14sp"
             android:visibility="gone" />
 
@@ -63,7 +68,8 @@
             android:text="@string/your_people"
             android:textColor="@color/ink"
             android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/knownEmpty"
@@ -90,7 +96,8 @@
             android:text="@string/who_is_this"
             android:textColor="@color/ink"
             android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
         <TextView
             android:id="@+id/unknownEmpty"

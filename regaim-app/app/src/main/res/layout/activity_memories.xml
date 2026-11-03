@@ -37,7 +37,8 @@
                 android:text="@string/nav_archive"
                 android:textColor="@color/ink"
                 android:textSize="22sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+            android:accessibilityHeading="true" />
 
             <TextView
                 android:id="@+id/archiveCount"
