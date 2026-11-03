@@ -462,7 +462,13 @@ class WelcomeActivity : AppCompatActivity() {
             .show()
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val e = field.text.toString().trim()
-            if (!e.contains("@")) { field.error = L.t("כתובת האימייל לא תקינה", "That email address doesn't look right"); return@setOnClickListener }
+            if (!e.contains("@")) {
+                val why = L.t("כתובת האימייל לא תקינה", "That email address doesn't look right")
+                field.error = why; field.requestFocus()
+                field.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
+                field.announceForAccessibility(why)
+                return@setOnClickListener
+            }
             dialog.dismiss()
             worker.execute {
                 val err = try { Account.recover(applicationContext, e); null } catch (x: Exception) { x.message }

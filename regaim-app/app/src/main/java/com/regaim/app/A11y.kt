@@ -196,6 +196,8 @@ object A11y {
             if (v.isAttachedToWindow) return@addOnGlobalLayoutListener
             last = null; place = null
             val all = points(content)
+            // The screen already moved the screen reader on purpose (to a new step's title): leave it there.
+            if (all.any { focused(it) }) return@addOnGlobalLayoutListener
             val same = if (p.key.isEmpty()) emptyList() else all.filter { keyOf(it) == p.key }
             val again = when {
                 same.size == 1 && p.sameKey == 1 -> same[0]
@@ -203,7 +205,7 @@ object A11y {
                 all.size == p.total && p.index in all.indices -> all[p.index]
                 else -> null
             } ?: return@addOnGlobalLayoutListener
-            again.post { again.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }
+            again.post { if (points(content).none { focused(it) }) again.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }
         }
     }
 

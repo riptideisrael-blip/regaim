@@ -309,6 +309,8 @@
   }
 
   let lastSig = "";
+  // Media links expire after 15 minutes: the feed is drawn again with new links before that, even with no news.
+  let drawnAt = 0;
   async function load(force) {
     if (!URL_BASE || !KEY || !code) {
       $("feed").innerHTML = "";
@@ -345,8 +347,9 @@
     const next = { posts, reactions, comments };
     const sig = JSON.stringify([posts.map((p) => [p.id, p.title, p.caption, p.story, p.videoPath, p.coverPath]), reactions, comments]);
     data = next;
-    if (sig === lastSig && !force) return;
+    if (sig === lastSig && !force && Date.now() - drawnAt < 12 * 60 * 1000) return;
     lastSig = sig;
+    drawnAt = Date.now();
     render();
   }
 
@@ -576,7 +579,8 @@
       const forKey = conversationPost || "family";
       if (loadConversation.forKey !== forKey) { loadConversation.forKey = forKey; loadConversation.seen = new Set(); box.replaceChildren(); }
       const seen = loadConversation.seen;
-      if (!rows.length && !seen.size) { box.replaceChildren(); box.appendChild(el("p","note","עוד לא התחילה שיחה ❤️")); }
+      // The "no messages yet" line is added once (in a log, adding it again would be read out every 30 seconds).
+      if (!rows.length && !seen.size && !box.querySelector("p.note")) { box.replaceChildren(); box.appendChild(el("p","note","עוד לא התחילה שיחה ❤️")); }
       const fresh = rows.reverse().filter((m) => !seen.has(m.id || (m.author + m.created_at + m.body)));
       if (fresh.length && !seen.size) box.replaceChildren();
       fresh.forEach(message => {
@@ -605,7 +609,7 @@
     const a = document.activeElement;
     if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return true;
     if ([...document.querySelectorAll("video")].some((v) => !v.paused && !v.ended)) return true;
-    if (["nameSheet", "uploadSheet"].some((id) => $(id).classList.contains("open"))) return true;
+    if (["nameSheet", "uploadSheet", "chatSheet"].some((id) => $(id).classList.contains("open"))) return true;
     return Object.values(drafts).some((d) => d && d.trim());
   }
   setInterval(() => {

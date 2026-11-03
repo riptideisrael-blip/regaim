@@ -50,6 +50,7 @@ class PitzkiActivity : AppCompatActivity() {
     private var destroyed = false
 
     private var children: List<PitzkiStore.Child> = emptyList()
+    private var pauseBtn: TextView? = null
     private var chosen: PitzkiStore.Child? = null
     private val kid: PitzkiKid get() = chosen?.kid ?: PitzkiKid("", false)
 
@@ -2790,7 +2791,8 @@ class PitzkiActivity : AppCompatActivity() {
             textDirection = View.TEXT_DIRECTION_RTL
             // Room for a whole sentence even with a large font on the phone (the subtitles are how a child without
             // sound, or a parent who doesn't hear well, follows Pitzki): no line limit.
-            A11y.live(this)
+            // Read out by itself only without a screen reader's own reading (it would talk over Pitzki's voice).
+            if (!A11y.screenReader(this@PitzkiActivity)) A11y.live(this)
             layoutParams = lp(match, wrap, Gravity.BOTTOM).apply { leftMargin = ui.dp(90); rightMargin = ui.dp(90); bottomMargin = ui.dp(18) }
         }
         stage.addView(subtitle)
@@ -2903,7 +2905,7 @@ class PitzkiActivity : AppCompatActivity() {
             }
         })
         // Pause at any time (also during a game or the child's turn), not only by tapping the picture.
-        left.addView(TextView(this).apply {
+        pauseBtn = TextView(this).apply {
             text = "⏸"; textSize = 18f
             setTextColor(DS.onPhoto(this@PitzkiActivity))
             setShadowLayer(8f, 0f, 1f, DS.scrim(this@PitzkiActivity))
@@ -2911,7 +2913,8 @@ class PitzkiActivity : AppCompatActivity() {
             contentDescription = L.t("השהיה", "Pause")
             A11y.button(this)
             setOnClickListener { if (paused) resume() else pause() }
-        })
+        }
+        left.addView(pauseBtn)
         left.addView(starsLabel)
         micBtn = TextView(this).apply {
             textSize = 15f
@@ -2973,6 +2976,7 @@ class PitzkiActivity : AppCompatActivity() {
             visibility = View.GONE
             layoutParams = lp(match, match, Gravity.CENTER)
             setOnClickListener { resume() }
+            contentDescription = L.t("המשך", "Continue")
         }
         fun round(label: String, sizeDp: Int, primary: Boolean, desc: String, go: () -> Unit) = TextView(this).apply {
             text = label; textSize = if (primary) 30f else 22f; gravity = Gravity.CENTER
@@ -3457,6 +3461,7 @@ class PitzkiActivity : AppCompatActivity() {
         token++
         main.removeCallbacksAndMessages(null)
         voice.stop()
+        showPaused(true)
         if (::pausedLayer.isInitialized) pausedLayer.visibility = View.VISIBLE
         try { songPlayer?.takeIf { it.isPlaying }?.pause() } catch (_: Exception) {}
         ears.stop()
@@ -3466,8 +3471,17 @@ class PitzkiActivity : AppCompatActivity() {
         try { ambientPlayer?.takeIf { it.isPlaying }?.pause() } catch (_: Exception) {}
     }
 
+    /** The pause button says what it does now: pause, or go on. */
+    private fun showPaused(on: Boolean) {
+        val b = pauseBtn ?: return
+        b.text = if (on) "▶" else "⏸"
+        b.contentDescription = if (on) L.t("המשך", "Continue") else L.t("השהיה", "Pause")
+        b.announceForAccessibility(if (on) L.t("מושהה", "Paused") else L.t("ממשיכים", "Going on"))
+    }
+
     private fun resume() {
         paused = false
+        showPaused(false)
         pausedLayer.visibility = View.GONE
         kenBurns()
         if (!clipEnded) try { clipPlayer?.start() } catch (_: Exception) {}
@@ -3861,6 +3875,7 @@ class PitzkiActivity : AppCompatActivity() {
             val v = pieces[i]; val home = homes[i]; val c = b.items[i]
             val wanted = b.only < 0 || b.only == i
             lift(v, false)
+            androidx.core.view.ViewCompat.setStateDescription(v, null)
             if (near == i && wanted) {
                 done_[i] = true
                 v.animate().x(home.x).y(home.y).setDuration(180).start()

@@ -101,12 +101,22 @@ class MediaViewerActivity : AppCompatActivity() {
 
     /** Couldn't load it (no connection, or the link expired): said in words, with a way back. */
     private fun failed(root: FrameLayout) {
-        root.addView(TextView(this).apply {
-            text = L.t("לא הצלחנו לפתוח את זה. בדקו את החיבור ונסו שוב.", "Couldn't open it. Check the connection and try again.")
+        val why = L.t("לא הצלחנו לפתוח את זה. בדקו את החיבור ונסו שוב.", "Couldn't open it. Check the connection and try again.")
+        val box = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        box.addView(TextView(this).apply {
+            text = why
             textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            setPadding(dp(24), 0, dp(24), 0)
-            A11y.live(this, urgent = true)
-        }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            setPadding(dp(24), 0, dp(24), dp(12))
+        })
+        box.addView(TextView(this).apply {
+            text = L.t("לנסות שוב", "Try again"); textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            minHeight = dp(48); setPadding(dp(24), 0, dp(24), 0)
+            background = DS.rounded(0x66FFFFFF, dp(24).toFloat())
+            A11y.button(this)
+            setOnClickListener { recreate() }
+        })
+        root.addView(box, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        root.announceForAccessibility(why)
     }
 
     override fun onPause() {
