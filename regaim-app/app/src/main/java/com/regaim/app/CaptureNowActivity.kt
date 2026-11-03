@@ -167,7 +167,12 @@ class CaptureNowActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setPadding(dp(14), dp(6), dp(14), dp(6))
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0x99E5484D.toInt()) }
+            // White on a dark pill (above 7:1 on any picture); the red dot says "recording" apart from the color.
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0xB3000000.toInt()) }
+            setCompoundDrawablesRelativeWithIntrinsicBounds(android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(0xFFE5484D.toInt()); setSize(dp(10), dp(10))
+            }, null, null, null)
+            compoundDrawablePadding = dp(8)
             visibility = View.GONE
         }
         top.addView(timerText, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
@@ -235,6 +240,8 @@ class CaptureNowActivity : AppCompatActivity() {
         gravity = Gravity.CENTER
         setPadding(dp(18), dp(8), dp(18), dp(8))
         minHeight = dp(48)
+        // One of two (photo / story), said with "selected".
+        A11y.choice(this, if (label == L.t("תמונה", "Photo")) 0 else 1, 2) { isSelected }
         setOnClickListener { onClick() }
     }
 
@@ -546,9 +553,9 @@ class CaptureNowActivity : AppCompatActivity() {
         recording = true
         recordStart = SystemClock.elapsedRealtime()
         timerText.visibility = View.VISIBLE
-        flipBtn.alpha = 0.3f
-        photoTab.alpha = 0.3f
-        videoTab.alpha = 0.3f
+        flipBtn.alpha = 0.3f; flipBtn.isEnabled = false
+        photoTab.alpha = 0.3f; photoTab.isEnabled = false
+        videoTab.alpha = 0.3f; videoTab.isEnabled = false
         shutter.recording = true
         hintText.text = L.t("מקליטים... לחצו כדי לעצור", "Recording... tap to stop")
         main.post(ticker)
@@ -573,7 +580,7 @@ class CaptureNowActivity : AppCompatActivity() {
         if (!ok || file == null || !file.exists() || file.length() < 2_000) {
             file?.delete()
             Toast.makeText(this, L.t("הסרטון היה קצר מדי. נסו שוב", "That video was too short. Try again"), Toast.LENGTH_SHORT).show()
-            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f
+            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f; flipBtn.isEnabled = true; photoTab.isEnabled = true; videoTab.isEnabled = true
             refreshMode()
             cam.post { startSession() }
             return
@@ -591,7 +598,7 @@ class CaptureNowActivity : AppCompatActivity() {
         if (memory == null) {
             saving = false
             busy.visibility = View.GONE
-            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f
+            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f; flipBtn.isEnabled = true; photoTab.isEnabled = true; videoTab.isEnabled = true
             Toast.makeText(this, L.t("לא הצלחנו לשמור את הרגע. נסו שוב", "Couldn't save the moment. Try again"), Toast.LENGTH_LONG).show()
             refreshMode()
             cam.post { startSession() }
@@ -622,7 +629,7 @@ class CaptureNowActivity : AppCompatActivity() {
             shutter.recording = false
             shutter.progress = 0f
             timerText.visibility = View.GONE
-            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f
+            flipBtn.alpha = 1f; photoTab.alpha = 1f; videoTab.alpha = 1f; flipBtn.isEnabled = true; photoTab.isEnabled = true; videoTab.isEnabled = true
             refreshMode()
         }
         if (!saving) {

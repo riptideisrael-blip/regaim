@@ -254,6 +254,10 @@ class CameraImportActivity : AppCompatActivity() {
     private var saving = false
     private var status: TextView? = null
     private var bar: ProgressBar? = null
+    /** The review's heading and save button, updated in place when a moment is ticked or set aside. */
+    private var reviewHeading: TextView? = null
+    private var saveBtn: TextView? = null
+    private var lastAnnounced = -1
     private var found: List<CameraImport.Found>? = null
     private var items: MutableList<Item> = ArrayList()
     private var saved: List<Memory>? = null
@@ -282,7 +286,7 @@ class CameraImportActivity : AppCompatActivity() {
 
     private fun render() {
         content.removeAllViews()
-        status = null; bar = null
+        status = null; bar = null; reviewHeading = null; saveBtn = null; lastAnnounced = -1
         when {
             running || saving -> working()
             saved != null -> done(saved!!)
@@ -331,9 +335,11 @@ class CameraImportActivity : AppCompatActivity() {
     private fun working() {
         status = ui.text(if (saving) L.t("שומרים את הרגעים...", "Saving the moments…") else L.t("מקשיבים ומסתכלים...", "Listening and looking…"), 16f, bold = true, top = 24)
         content.addView(status)
+        status?.let { A11y.live(it) }
         bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             isIndeterminate = saving
+            contentDescription = if (saving) L.t("שומרים", "Saving") else L.t("התקדמות הבדיקה", "Scan progress")
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ui.dp(8)).apply { topMargin = ui.dp(12) }
         }
         content.addView(bar)
@@ -355,9 +361,15 @@ class CameraImportActivity : AppCompatActivity() {
                 if (cancelled.get()) return@forEachIndexed
                 list.add(CameraImport.scan(applicationContext, uri, cancelled) { p ->
                     runOnUiThread {
-                        status?.text = if (uris.size == 1) L.t("מקשיבים ומסתכלים... $p%", "Listening and looking… $p%")
-                        else L.t("סרטון ${i + 1} מתוך ${uris.size} · $p%", "Video ${i + 1} of ${uris.size} · $p%")
-                        bar?.progress = (i * 100 + p) / uris.size
+                        val total = (i * 100 + p) / uris.size
+                        bar?.progress = total
+                        // The live line changes in quarters (otherwise it would talk over itself all the time).
+                        val step = total / 25
+                        if (step != lastAnnounced) {
+                            lastAnnounced = step
+                            status?.text = if (uris.size == 1) L.t("מקשיבים ומסתכלים... $p%", "Listening and looking… $p%")
+                            else L.t("סרטון ${i + 1} מתוך ${uris.size} · $p%", "Video ${i + 1} of ${uris.size} · $p%")
+                        }
                     }
                 })
             }
@@ -374,15 +386,28 @@ class CameraImportActivity : AppCompatActivity() {
         }
     }
 
+    private fun foundText() = when (items.size) {
+        0 -> L.t("לא מצאנו רגעים", "No moments found")
+        1 -> L.t("מצאנו רגע אפשרי אחד", "We found 1 possible moment")
+        else -> L.t("מצאנו ${items.size} רגעים אפשריים", "We found ${items.size} possible moments")
+    }
+
+    private fun saveText(n: Int) = if (n == 1) L.t("שמרו רגע אחד", "Save 1 moment") else L.t("שמרו $n רגעים", "Save $n moments")
+
+    /** After a tick or a ✕: the count and the save button change; nothing else is built again. */
+    private fun updateReview() {
+        reviewHeading?.text = foundText()
+        val n = items.count { it.selected }
+        saveBtn?.text = saveText(n)
+        saveBtn?.isEnabled = n > 0
+    }
+
     private fun review(list: List<CameraImport.Found>) {
         val many = list.size > 1
-        content.addView(ui.heading(
-            when (items.size) {
-                0 -> L.t("לא מצאנו רגעים", "No moments found")
-                1 -> L.t("מצאנו רגע אפשרי אחד", "We found 1 possible moment")
-                else -> L.t("מצאנו ${items.size} רגעים אפשריים", "We found ${items.size} possible moments")
-            }, 24f, top = 20,
-        ))
+        val h = ui.heading(foundText(), 24f, top = 20)
+        reviewHeading = h
+        content.addView(h)
+        h.post { h.announceForAccessibility(foundText()) }
         if (items.isNotEmpty()) {
             content.addView(ui.hint(L.t(
                 "החזקים כבר מסומנים. הקישו על תמונה כדי לצפות, סמנו מה לשמור, ו־✕ על מה שאינו רגע (כך Moments לומד מה חשוב לכם).",
@@ -390,7 +415,9 @@ class CameraImportActivity : AppCompatActivity() {
             ), top = 4))
             for (it in items.toList()) content.addView(itemRow(it, many))
             val n = items.count { it.selected }
-            content.addView(ui.button(if (n == 1) L.t("שמרו רגע אחד", "Save 1 moment") else L.t("שמרו $n רגעים", "Save $n moments"), primary = true, top = 18) { saveChosen() }.apply { isEnabled = n > 0 })
+            val b = ui.button(saveText(n), primary = true, top = 18) { saveChosen() }.apply { isEnabled = n > 0 }
+            saveBtn = b
+            content.addView(b)
         }
         val empty = list.filter { f -> items.none { it.f === f } }
         if (empty.isNotEmpty()) {
@@ -424,7 +451,7 @@ class CameraImportActivity : AppCompatActivity() {
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(ui.dp(84), ui.dp(108))
             item.f.scan?.thumbs?.get(c.peakMs)?.let { p -> thumbCache.getOrPut(p) { android.graphics.BitmapFactory.decodeFile(p) }?.let { setImageBitmap(it) } }
-            contentDescription = L.t("צפייה ברגע", "Watch this moment")
+            contentDescription = L.t("צפייה ברגע: ", "Watch this moment: ") + MomentWords.headline(c) + ", " + time(c.startMs)
             setOnClickListener { preview(item) }
         }
         row.addView(thumb)
@@ -440,7 +467,7 @@ class CameraImportActivity : AppCompatActivity() {
         }
         col.addView(TextView(this).apply {
             text = MomentWords.tier(c.tier)
-            textSize = 11f
+            textSize = 13f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             setTextColor(fg)
             setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(2))
@@ -455,13 +482,15 @@ class CameraImportActivity : AppCompatActivity() {
 
         val actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
         val check = TextView(this).apply {
+            tag = "keep"
             textSize = 16f
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
         }
         fun paint() {
             check.text = if (item.selected) "✓" else ""
-            check.contentDescription = Wording.state(L.t("לשמור את הרגע", "Keep this moment"), item.selected, L.t("מסומן", "checked"), L.t("לא מסומן", "not checked"))
+            // The moment's own words, so each row's box is told apart (and found again by the screen reader).
+            check.contentDescription = L.t("לשמור את הרגע ", "Keep the moment ") + MomentWords.headline(c) + ", " + time(c.startMs)
             check.setTextColor(Color.WHITE)
             check.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -469,20 +498,29 @@ class CameraImportActivity : AppCompatActivity() {
             }
         }
         paint()
-        check.setOnClickListener { item.selected = !item.selected; render() }
+        A11y.check(check) { item.selected }
+        check.setOnClickListener { item.selected = !item.selected; paint(); updateReview() }
         actions.addView(check)
         actions.addView(TextView(this).apply {
             text = "✕"
             textSize = 15f
             gravity = Gravity.CENTER
             setTextColor(ui.color(R.color.ink_soft))
-            layoutParams = LinearLayout.LayoutParams(ui.dp(36), ui.dp(36)).apply { topMargin = ui.dp(8) }
-            contentDescription = L.t("זה לא רגע", "Not a moment")
+            layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)).apply { topMargin = ui.dp(4) }
+            contentDescription = L.t("זה לא רגע: ", "Not a moment: ") + MomentWords.headline(c) + ", " + time(c.startMs)
+            A11y.button(this)
             setOnClickListener {
                 Detections.feedback(applicationContext, c, -1)
                 items.remove(item)
-                android.widget.Toast.makeText(this@CameraImportActivity, L.t("תודה, נלמד מזה", "Thanks, we'll learn from this"), android.widget.Toast.LENGTH_SHORT).show()
-                render()
+                if (items.isEmpty()) { render(); return@setOnClickListener }
+                // Only this row goes; the screen reader moves on to the next moment's box, not to the top.
+                val parent = row.parent as? ViewGroup
+                val index = parent?.indexOfChild(row) ?: -1
+                parent?.removeView(row)
+                updateReview()
+                val next: View? = parent?.getChildAt(index)?.findViewWithTag<View>("keep") ?: reviewHeading
+                next?.post { next.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }
+                next?.announceForAccessibility(L.t("תודה, נלמד מזה", "Thanks, we'll learn from this"))
             }
         })
         row.addView(actions)
