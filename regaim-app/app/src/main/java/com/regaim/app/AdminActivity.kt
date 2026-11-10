@@ -139,7 +139,9 @@ class AdminActivity : AppCompatActivity() {
                         val open = (0 until alerts.length()).map { alerts.getJSONObject(it) }.filter { it.isNull("ok_at") || it.optString("ok_at").isEmpty() }
                         if (open.isEmpty()) card.addView(ui.text(L.t("✓ כל השירותים עובדים", "✓ All services are working"), 15f, R.color.ds_success, top = 4))
                         for (o in open) {
-                            card.addView(ui.text("🔴 " + serviceName(o.optString("service")) + " · " + L.t("נגמרה היתרה / חסום", "out of credit / blocked"), 15f, R.color.ds_error, bold = true, top = 8))
+                            val what = if (o.optString("service") == "fal-delete") L.t("fal מסרבת למחוק (למפתח אין הרשאת מחיקה)", "fal refuses to delete (the key has no delete permission)")
+                                else L.t("נגמרה היתרה / חסום", "out of credit / blocked")
+                            card.addView(ui.text("🔴 " + serviceName(o.optString("service")) + " · " + what, 15f, R.color.ds_error, bold = true, top = 8))
                             card.addView(ui.hint(o.optString("at").take(16).replace('T', ' ') + " · (${o.optInt("status")}) " + o.optString("message").take(160), top = 2))
                         }
                         val fixed = (0 until alerts.length()).map { alerts.getJSONObject(it) }.filter { !(it.isNull("ok_at") || it.optString("ok_at").isEmpty()) }
@@ -147,6 +149,41 @@ class AdminActivity : AppCompatActivity() {
                     }
                 }
                 content.addView(card, 0)
+                falCard(card)
+            }
+        }
+    }
+
+    /**
+     * What the drawing service (fal) still keeps of our requests (the photos sent for drawing), counted on the server,
+     * with a button that finds old requests and deletes what is waiting.
+     */
+    private fun falCard(card: LinearLayout, clean: Boolean = false) {
+        val line = ui.hint(L.t("בודקים מה נשמר ב-fal…", "Checking what fal keeps…"), top = 10).apply { A11y.live(this) }
+        card.addView(line)
+        worker.execute {
+            val res = try {
+                val token = Account.token(applicationContext)
+                if (token == null) null else CartoonFilm.callEdge(Circle.url(applicationContext) + "/functions/v1/cartoon-film", token,
+                    mapOf("action" to "fal_requests", "clean" to clean))
+            } catch (_: Exception) { null }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                val code = res?.optInt("_code", 200) ?: 0
+                if (res == null || code !in 200..299 || !res.has("waiting")) {
+                    line.text = if (code == 404) L.t("מחיקה ב-fal: עוד לא הורץ server/fal-delete.sql ב-Supabase.", "Deleting at fal: server/fal-delete.sql hasn't been run in Supabase yet.")
+                        else L.t("מחיקה ב-fal: השרת לא ענה (צריך את הגרסה החדשה של cartoon-film).", "Deleting at fal: the server didn't answer (it needs the new cartoon-film version).")
+                    return@runOnUiThread
+                }
+                val waiting = res.optInt("waiting"); val deleted = res.optInt("deleted"); val never = res.optInt("never_kept")
+                line.text = (if (waiting == 0) "🧹 ✓ " else "🧹 ") + L.t(
+                    "בקשות ב-fal: $never לא נשמרו שם בכלל, $deleted נמחקו, $waiting מחכות למחיקה",
+                    "Requests at fal: $never never kept there, $deleted deleted, $waiting waiting to be deleted") +
+                    (if (res.optBoolean("refused")) L.t(". fal סירבה למחוק: צריך מפתח עם הרשאת מחיקה.", ". fal refused to delete: the key needs delete permission.") else "") +
+                    (if (clean) L.t(" (נמצאו ${res.optInt("found")} ישנות, נמחקו עכשיו ${res.optInt("deleted_now")})", " (found ${res.optInt("found")} old ones, deleted ${res.optInt("deleted_now")} now)") else "")
+                if (!clean) card.addView(ui.action(L.t("לחפש בקשות ישנות ב-fal ולמחוק", "Find old requests at fal and delete")) {
+                    falCard(card, clean = true)
+                })
             }
         }
     }
@@ -263,6 +300,7 @@ class AdminActivity : AppCompatActivity() {
 
     private fun serviceName(s: String) = when (s) {
         "fal" -> L.t("fal (ציורים והנפשה: סרטים, ספרים, פיצקי)", "fal (drawings and animation: films, books, Pitzki)")
+        "fal-delete" -> L.t("מחיקת בקשות ב-fal", "Deleting requests at fal")
         "elevenlabs" -> L.t("ElevenLabs (הקול של פיצקי)", "ElevenLabs (Pitzki's voice)")
         "anthropic" -> L.t("Claude (הבנת רגעים וסיפורים)", "Claude (understanding moments, stories)")
         "gemini" -> L.t("Gemini (ציורי קומיקס וסצנות)", "Gemini (comic and scene drawings)")

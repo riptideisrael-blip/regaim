@@ -22,6 +22,12 @@ const DEFAULTS: Record<string, string> = {
   // Set to "off" in film_settings to skip it.
   polish_model: "fal-ai/flux-pro/kontext",
   anim_cfg: "0.6",
+  // What fal keeps of a request after it's done (its "request history": the photos we sent and the result).
+  // "pitzki" (default): nothing is kept, except Pitzki's scenes, which stay until the phone collected them (a film
+  // stopped in the middle is collected hours later without paying again) and are then deleted by us.
+  // "none": nothing is kept at all (Pitzki's scenes must then be collected within an hour). "all": fal's own default
+  // (90 days), only for finding a problem.
+  fal_store: "pitzki",
   // Payments through Google Play: "on" to sell books (needs the GOOGLE_PLAY_SERVICE_ACCOUNT secret). Off = credits only.
   payments: "off",
   // Printed books (Lulu): the product. Hardcover (casewrap), US Letter 8.5x11 in, full color premium, gloss.
@@ -460,6 +466,12 @@ async function deleteAccount(admin: any, uid: string): Promise<{ ok: boolean; er
     await removeFiles(admin, "print", await listFiles(admin, "print", uid));
     await admin.from("ai_usage").delete().eq("budget_key", `user:${uid}`);
     // Technical records tied to the account: crash reports and the cost log go too.
+    // What the drawing service (fal) still keeps of this account's requests is deleted there too.
+    try {
+      const { data: jobs } = await admin.from("fal_jobs").select("request_id").eq("user_id", uid).eq("stored", true).is("deleted_at", null).limit(200);
+      const ids: string[] = (jobs ?? []).map((x: any) => String(x.request_id));
+      for (let i = 0; i < ids.length; i += 6) await Promise.all(ids.slice(i, i + 6).map((id) => falDelete(admin, id)));
+    } catch (_) { /* older table, or fal not reachable: the sweep deletes what is left (the rows stay, without the account) */ }
     await admin.from("crash_reports").delete().eq("user_id", uid);
     await admin.from("ai_costs").delete().eq("user_id", uid);
     // The account itself; the rest (memberships, community rows, credits, purchases, receipts, votes) goes with it.
@@ -609,6 +621,113 @@ async function pollOne(admin: any, su: string, ru: string): Promise<Record<strin
   return { status: "PENDING" };
 }
 
+// ---------- deleting at fal what fal keeps ----------
+// fal keeps a request's record (what we sent, with the photos, and the result) for 90 days unless told otherwise.
+// We turn that off for most requests (X-Fal-Store-IO: 0); those that are kept (Pitzki's scenes, until the phone
+// collected them) are deleted here: when the phone says it saved the result ("forget"), when the account is deleted,
+// and by a sweep for the ones no phone came back for. Needs a fal key that may delete (the "FULL" preset, or the
+// models:requests:write and assets:write permissions); when fal refuses, the admin screen says so.
+
+/** Deletes one request's inputs, outputs and output files at fal, and writes it down. */
+async function falDelete(admin: any, id: string): Promise<{ ok: boolean; status: number; detail: string }> {
+  let status = 0, detail = "", ok = false;
+  try {
+    const r = await fetch(`https://api.fal.ai/v1/models/requests/${id}/payloads`, {
+      method: "DELETE", headers: { Authorization: "Key " + FAL_KEY, "Idempotency-Key": id },
+    });
+    const j = await r.json().catch(() => ({}));
+    const failed = (j.cdn_delete_results ?? []).filter((x: { exception: unknown }) => x.exception).length;
+    status = r.status;
+    // 404: fal no longer has it (already deleted, or past its 90 days).
+    ok = (r.ok && failed === 0) || r.status === 404;
+    if (!ok) detail = JSON.stringify(j).slice(0, 200);
+  } catch (e) { detail = String(e).slice(0, 200); }
+  try {
+    if (ok) {
+      await admin.from("fal_jobs").update({ deleted_at: new Date().toISOString() }).eq("request_id", id.toLowerCase());
+      await serviceOk(admin, "fal-delete");
+    } else if (status === 401 || status === 403) {
+      console.log(JSON.stringify({ ev: "fal_delete_refused", status, detail }));
+      await serviceAlert(admin, "fal-delete", status, detail);
+    }
+  } catch (_) { /* older table */ }
+  return { ok, status, detail };
+}
+
+/**
+ * Deletes at fal up to [limit] kept requests older than [hours] (Pitzki's scenes may be collected for 16 hours).
+ * Stops when fal refuses (no permission): trying the rest would only fail the same way.
+ */
+async function falSweep(admin: any, limit: number, hours = 17): Promise<{ tried: number; deleted: number; refused: boolean }> {
+  const out = { tried: 0, deleted: 0, refused: false };
+  try {
+    const before = new Date(Date.now() - hours * 3_600_000).toISOString();
+    const { data, error } = await admin.from("fal_jobs").select("request_id,tries").eq("stored", true).is("deleted_at", null)
+      .lt("created_at", before).lt("tries", 12).order("created_at", { ascending: true }).limit(limit);
+    if (error) return out; // before server/fal-delete.sql
+    const rows: any[] = data ?? [];
+    for (let i = 0; i < rows.length && !out.refused; i += 6) {
+      await Promise.all(rows.slice(i, i + 6).map(async (row) => {
+        const done = await falDelete(admin, String(row.request_id));
+        out.tried++;
+        if (done.ok) out.deleted++;
+        else if (done.status === 401 || done.status === 403) out.refused = true;
+        // (400: fal says it is still running; it is tried again next time without counting.)
+        else if (done.status !== 400) await admin.from("fal_jobs").update({ tries: Number(row.tries ?? 0) + 1 }).eq("request_id", row.request_id);
+      }));
+    }
+    // Housekeeping: rows of requests long gone say nothing any more.
+    const old = new Date(Date.now() - 100 * 86_400_000).toISOString();
+    await admin.from("fal_jobs").delete().lt("created_at", old);
+  } catch (_) { /* next time */ }
+  return out;
+}
+
+let falSweptAt = 0;
+/** The sweep, at most every 3 hours per server instance, in the background. */
+function sweepFalJobs(admin: any) {
+  if (Date.now() - falSweptAt < 3 * 3_600_000) return;
+  falSweptAt = Date.now();
+  const work = falSweep(admin, 40);
+  try { (globalThis as any).EdgeRuntime?.waitUntil?.(work); } catch (_) { /* runs anyway */ }
+}
+
+/**
+ * Requests from before we kept track (or kept by fal's default): fal's own list of our requests, 90 days back, is
+ * read and every request we have no row for is written as waiting, so the sweep deletes it. Returns how many were new.
+ */
+async function falFindOld(admin: any, s: Record<string, string>): Promise<number> {
+  let added = 0;
+  try {
+    const models = [...new Set(Object.entries({ ...DEFAULTS, ...s }).filter(([k]) => k.endsWith("_model")).map(([, v]) => v)
+      .filter((v) => v && v !== "off" && v.includes("/")))].slice(0, 50);
+    const start = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const end = new Date(Date.now() - 17 * 3_600_000).toISOString();
+    let cursor = "";
+    for (let page = 0; page < 12; page++) {
+      const q = new URLSearchParams({ endpoint_id: models.join(","), start, end, limit: "100" });
+      if (cursor) q.set("cursor", cursor);
+      const r = await fetch("https://api.fal.ai/v1/models/requests/by-endpoint?" + q.toString(), { headers: { Authorization: "Key " + FAL_KEY } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { console.log(JSON.stringify({ ev: "fal_list_failed", status: r.status, body: JSON.stringify(j).slice(0, 200) })); break; }
+      const ids: string[] = (j.items ?? []).map((x: any) => String(x.request_id ?? "").toLowerCase()).filter((x: string) => /^[0-9a-f-]{36}$/.test(x));
+      if (ids.length) {
+        const { data: have } = await admin.from("fal_jobs").select("request_id").in("request_id", ids);
+        const known = new Set((have ?? []).map((x: any) => String(x.request_id)));
+        const fresh = (j.items ?? []).filter((x: any) => !known.has(String(x.request_id ?? "").toLowerCase()))
+          .map((x: any) => ({ request_id: String(x.request_id).toLowerCase(), user_id: null, kind: "old", stored: true, created_at: x.sent_at ?? x.started_at ?? start }));
+        if (fresh.length) {
+          const ins = await admin.from("fal_jobs").upsert(fresh, { onConflict: "request_id", ignoreDuplicates: true });
+          if (!ins.error) added += fresh.length;
+        }
+      }
+      cursor = String(j.next_cursor ?? "");
+      if (!cursor) break;
+    }
+  } catch (_) { /* what was found is kept */ }
+  return added;
+}
+
 // ---------- what a request costs (an estimate, for the pilot) ----------
 // Checked prices: Kling 2.5 turbo pro $0.35 for 5 s, then $0.07 per second; Kling AI Avatar v2 standard ~$0.0562 per second.
 // The images are rough estimates. Any of them can be set in film_settings as "price:<model>" (images: per picture;
@@ -649,6 +768,8 @@ Deno.serve(async (req) => {
     const action = String(body.action ?? "");
     // Every account's print files past 45 days, at most twice a day per server instance (in the background).
     sweepPrintFiles(admin);
+    // Requests fal still keeps and nobody collected or deleted (a phone that never came back): deleted by us.
+    sweepFalJobs(admin);
 
     if (action === "credits") {
       const { data } = await admin.rpc("film_balance", { p_user: uid });
@@ -1044,15 +1165,19 @@ Deno.serve(async (req) => {
           ...(Number.isFinite(cfg) ? { cfg_scale: cfg } : {}),
         };
       } else return json({ error: "בקשה לא מוכרת." }, 400);
+      // Kept at fal until we delete it (see fal_store above)?
+      const kept = s.fal_store === "all" || (s.fal_store !== "none" && kind.startsWith("pitzki_"));
       const r = await fetch("https://queue.fal.run/" + model, {
         method: "POST",
         headers: {
           Authorization: "Key " + FAL_KEY, "Content-Type": "application/json",
-          // Results are public links on fal's CDN until they expire: one hour (the app downloads them right away,
-          // and asks fal to delete the request with "forget"). Pitzki's scenes: 16 hours, so a film stopped in the
-          // middle (phone off, no network) is still collected hours later without paying again; once collected,
-          // the app asks fal to delete it.
+          // Result files are links on fal's CDN (whoever holds the link can open it) until they expire and fal
+          // deletes them: one hour (the app downloads them right away). Pitzki's scenes: 16 hours, so a film
+          // stopped in the middle (phone off, no network) is still collected hours later without paying again.
           "X-Fal-Object-Lifecycle-Preference": JSON.stringify({ expiration_duration_seconds: kind.startsWith("pitzki_") ? 16 * 3600 : 3600 }),
+          // fal's request history (the photos we sent and the result, 90 days by default) is turned off: without it
+          // fal's queue still holds the result for an hour, which is all a request collected right away needs.
+          ...(kept ? {} : { "X-Fal-Store-IO": "0" }),
         },
         body: JSON.stringify(input),
       });
@@ -1072,7 +1197,11 @@ Deno.serve(async (req) => {
       } catch (_) { /* no table yet */ }
       const jobId = String(j.request_id ?? "") || reqIdOf(String(j.status_url ?? ""));
       if (jobId) {
-        try { await admin.from("fal_jobs").insert({ request_id: jobId.toLowerCase(), user_id: uid }); } catch (_) { /* no table yet */ }
+        try {
+          // (Before server/fal-delete.sql is run the table has no "kind" / "stored": the short row is written.)
+          const full = await admin.from("fal_jobs").insert({ request_id: jobId.toLowerCase(), user_id: uid, kind, stored: kept });
+          if (full.error) await admin.from("fal_jobs").insert({ request_id: jobId.toLowerCase(), user_id: uid });
+        } catch (_) { /* no table yet */ }
       }
       return json({ status_url: j.status_url, response_url: j.response_url, request_id: j.request_id ?? "", est_usd: est.usd });
     }
@@ -1082,12 +1211,34 @@ Deno.serve(async (req) => {
       const id = String(body.request_id ?? "");
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "מזהה לא תקין." }, 400);
       if (!(await mayUseId(admin, uid, id))) return json({ error: "אין הרשאה." }, 403);
-      const r = await fetch(`https://api.fal.ai/v1/models/requests/${id}/payloads`, {
-        method: "DELETE", headers: { Authorization: "Key " + FAL_KEY, "Idempotency-Key": id },
-      });
-      const j = await r.json().catch(() => ({}));
-      const failed = (j.cdn_delete_results ?? []).filter((x: { exception: unknown }) => x.exception).length;
-      return json({ ok: r.ok && failed === 0, status: r.status, detail: r.ok ? "" : JSON.stringify(j).slice(0, 200) });
+      // A request fal never kept (see fal_store): there is nothing to delete; its result files expire by themselves.
+      try {
+        const { data: row } = await admin.from("fal_jobs").select("stored,deleted_at").eq("request_id", id.toLowerCase()).maybeSingle();
+        if (row && (row.stored === false || row.deleted_at)) return json({ ok: true, status: 200, kept: false });
+      } catch (_) { /* older table: ask fal */ }
+      const done = await falDelete(admin, id);
+      return json({ ok: done.ok, status: done.status, detail: done.ok ? "" : done.detail });
+    }
+    // The admin screen: how many requests fal still keeps and how many we deleted; with "clean": also looks for
+    // requests from before we kept track (fal's own list, 90 days back) and deletes what is waiting, now.
+    if (action === "fal_requests") {
+      const email = String(u?.user?.email ?? "").toLowerCase();
+      if (!PRINT_ADMINS.includes(email)) return json({ error: "not allowed" }, 403);
+      let found = 0, cleaned = { tried: 0, deleted: 0, refused: false };
+      if (body.clean === true) {
+        found = await falFindOld(admin, await settings(admin));
+        // (Only what is past the 16 hours a Pitzki scene may still be collected in.)
+        cleaned = await falSweep(admin, 150);
+      }
+      const count = async (f: (q: any) => any) => {
+        const { count: n, error } = await f(admin.from("fal_jobs").select("request_id", { count: "exact", head: true }));
+        return error ? -1 : (n ?? 0);
+      };
+      const waiting = await count((q) => q.eq("stored", true).is("deleted_at", null));
+      if (waiting < 0) return json({ error: "no table" }, 404);
+      const deleted = await count((q) => q.not("deleted_at", "is", null));
+      const never = await count((q) => q.eq("stored", false));
+      return json({ waiting, deleted, never_kept: never, found, tried: cleaned.tried, deleted_now: cleaned.deleted, refused: cleaned.refused });
     }
 
     if (action === "poll") {
