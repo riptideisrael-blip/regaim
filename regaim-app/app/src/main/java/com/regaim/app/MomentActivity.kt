@@ -691,7 +691,7 @@ class MomentActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.ink))
         })
         card.addView(TextView(this).apply {
-            text = L.t("סרט אנימציה מצויר בתלת-ממד (בסגנון פיקסאר).", "A 3D animated film (Pixar style).")
+            text = L.t("סרט אנימציה מצויר בתלת-ממד.", "A 3D animated film.")
             textSize = 13f
             setTextColor(DS.inkSoft(this@MomentActivity))
             setPadding(0, mv.dp(4), 0, mv.dp(10))

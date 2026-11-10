@@ -11,7 +11,7 @@
   * { box-sizing: border-box; }
   body { margin: 0 auto; max-width: 760px; padding: 28px 16px 64px; background: var(--bg); color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; line-height: 1.7; }
-  .skip { position: absolute; inset-inline-start: -9999px; top: 8px; background: var(--card); padding: 8px 12px; border-radius: 8px; }
+  .skip { position: absolute; inset-inline-start: -9999px; top: 8px; background: var(--card); padding: 8px 12px; border-radius: 8px; min-height: 44px; display: inline-flex; align-items: center; }
   .skip:focus { inset-inline-start: 16px; }
   h1 { font-size: 27px; margin: 0 0 6px; line-height: 1.3; }
   h2 { font-size: 20px; margin: 30px 0 6px; line-height: 1.35; }
@@ -24,6 +24,7 @@
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
   [lang="en"] { direction: ltr; text-align: left; }
+  .foot a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
   .foot { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; gap: 16px; flex-wrap: wrap; font-size: 15px; }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
@@ -32,7 +33,7 @@
 <a class="skip" href="#main">דילוג לתוכן</a>
 <main id="main">
 <h1>הצהרת נגישות</h1>
-<p class="soft">האפליקציה Moments (com.regaim.app) והאתר שלה · עודכן לאחרונה: 3 בנובמבר 2026</p>
+<p class="soft">האפליקציה Moments (com.regaim.app) והאתר שלה · עודכן לאחרונה: 10 בנובמבר 2026</p>
 
 <p>אנחנו רוצים ש-Moments תהיה נוחה לכל המשפחה, כולל אנשים עם מוגבלות. אנחנו פועלים להנגיש את האתר ואת האפליקציה
 לפי תקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013, ולפי התקן הישראלי ת"י 5568
@@ -82,6 +83,7 @@
   <li>שגיאות בטפסים (כניסה, הרשמה, הזמנת ספר, תיק משפחתי, חיסכון) מופיעות על השדה עצמו, מוקראות, והפוקוס עובר אליהן. שגיאות כלליות נשארות על המסך ולא רק בהודעה שנעלמת.</li>
   <li>לפני מחיקה או ביטול של משהו שאי אפשר להחזיר (סצנות, תמונות, ספר, נתוני פנים) האפליקציה שואלת קודם.</li>
   <li>כשהטלפון מוגדר "הסרת אנימציות", תמונות חיות ומשפטים מתחלפים נשארים במקום.</li>
+  <li>דפי האתר נבדקו שוב ב-10 בנובמבר 2026 בבדיקה אוטומטית, ברוחב מחשב וברוחב טלפון (320 פיקסלים), כולל דף המשפחה עם תוכן ועם כל חלון פתוח: ניגודיות, שמות לשדות ולכפתורים, סדר כותרות, קישור דילוג בכל דף, גודל אזורי לחיצה (44 פיקסלים), מעבר במקלדת עם סימון פוקוס, ובלי גלילה לצדדים. בדף "בחירת סיסמה חדשה" נוספה אפשרות להציג את הסיסמה.</li>
 </ul>
 
 <h2>מה עוד לא נגיש (מגבלות ידועות)</h2>
@@ -105,9 +107,9 @@
 
 <section lang="en" aria-labelledby="en-title">
 <h2 id="en-title">Accessibility statement</h2>
-<p class="soft">Moments (com.regaim.app) and its website · Last updated November 3, 2026</p>
+<p class="soft">Moments (com.regaim.app) and its website · Last updated November 10, 2026</p>
 <p>We work to make the website and the app accessible under Israel's Equal Rights for Persons with Disabilities (Service Accessibility Adjustments) Regulations, 2013, and the Israeli standard SI 5568 (based on WCAG 2.0) at level AA. <strong>Conformance: partial.</strong></p>
-<p><strong>How we checked:</strong> between October 30 and November 3, 2026, a full code review of every app screen and web page against the standard (screen-reader labels, computed contrast, touch targets, headings, status messages, gestures, timing and motion), fixes for the findings, and automated tests of main screens on an emulator. The app hasn't yet been fully tested by hand with a screen reader, nor by a certified accessibility consultant.</p>
+<p><strong>How we checked:</strong> between October 30 and November 10, 2026, a full code review of every app screen and web page against the standard (screen-reader labels, computed contrast, touch targets, headings, status messages, gestures, timing and motion), fixes for the findings, and automated tests of main screens on an emulator. The app hasn't yet been fully tested by hand with a screen reader, nor by a certified accessibility consultant.</p>
 <p><strong>Done:</strong> keyboard use with visible focus and skip links on the long pages, labels and alt text, accessible dialogs, announced status messages, 4.5:1 contrast (including selected choices and rating stars), reduced motion, text that follows the phone's font size (except the symbols on Pitzki's game boards), 48dp touch targets (including each screen's Close button and the new screens' checkboxes), toggles and connection state said in words, story viewing with previous / pause / next buttons for everyone and no automatic moving on while a screen reader is on, consent explanations read together with their checkboxes and sharing options not ticked in advance, subtitles for Pitzki's voice; choice chips read as one choice of several, with the screen reader kept in place after a choice; field labels linked to their fields; the savings growth chart described in words; Pitzki's animal game playable by tapping instead of dragging, the character turned with buttons; no slashed gender wording; dialogs and sheets covered (Android 10+); an alternative to every long-press, drag and pull gesture; video and slideshow controls and music mute; extendable answer times and a pause button in Pitzki, non-color cues, English words read in English; form errors on the field and announced; confirmation before deleting; still images when animations are off.</p>
 <p><strong>Known limitations:</strong> when a screen is rebuilt and the item the screen reader was on is gone, focus may return to the top; on Android 8–9 dialogs get only part of the automatic adjustments; some success messages are brief toasts only; the meaning of the ring around people's pictures is explained on long-press (a named action for screen readers); Pitzki's games haven't yet been tested with children who use a screen reader; family-uploaded media is the family's own content; AI-made cartoon films have no audio description. If a limitation stops you, contact us and we'll help another way.</p>
 <p><strong>Accessibility coordinator:</strong> Yossef Revivo, <a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a>. Tell us the screen, what you tried and your device and assistive technology. We'll reply within 14 business days, and can provide information in another format.</p>
@@ -116,6 +118,7 @@
 
 <nav class="foot" aria-label="קישורים">
   <a href="index.html">מעגל המשפחה</a>
+  <a href="terms.html">תנאי שימוש</a>
   <a href="privacy.html">מדיניות פרטיות</a>
   <a href="accessibility.html" aria-current="page">הצהרת נגישות</a>
   <a href="delete-account.html">מחיקת חשבון</a>

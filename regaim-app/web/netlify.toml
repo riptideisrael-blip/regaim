@@ -1,2 +1,23 @@
 [build]
   publish = "."
+
+# Security headers for every page of the site.
+# - The pages may talk only to Moments' own server, and load pictures and video only from it (or from this site).
+# - No other site may show these pages inside a frame (clickjacking).
+# - The address of a page (an invite link carries a code) is never sent on to other sites.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://acqgmcmvxijyijhgivnt.supabase.co; media-src 'self' blob: https://acqgmcmvxijyijhgivnt.supabase.co; connect-src 'self' https://acqgmcmvxijyijhgivnt.supabase.co; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Cross-Origin-Opener-Policy = "same-origin"
+
+# The family page and the password page hold a session: never kept by shared caches.
+[[headers]]
+  for = "/reset-password.html"
+  [headers.values]
+    Cache-Control = "no-store"

@@ -65,13 +65,16 @@
   @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   /* Accessibility: a clear focus ring for keyboard users, a skip link, less motion when asked, hidden-but-read text. */
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
-  .skip { position: absolute; right: 8px; top: -60px; background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 10px; z-index: 100; text-decoration: none; }
+  .skip { position: absolute; right: 8px; top: -60px; background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 10px; z-index: 100; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
   .skip:focus { top: 8px; }
   .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   button.link { background: none; border: 0; color: var(--accent); font: inherit; padding: 10px 4px; min-height: 44px; display: inline-block; cursor: pointer; text-decoration: underline; }
   footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--soft); font-size: 14px; display: flex; gap: 14px; flex-wrap: wrap; }
   footer a { color: var(--accent); display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
   .react, button.primary, .fab { min-height: 44px; }
+  .react { min-width: 44px; }
+  input[type=file] { min-height: 44px; }
+  .note a { display: inline-block; padding: 12px 2px; min-height: 44px; min-width: 44px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
     padding: 6px 6px 6px 16px; border-radius: 14px; font-size: 14px; display: none; z-index: 9; max-width: calc(100% - 32px);
@@ -91,6 +94,7 @@
 <main id="feed" tabindex="-1"><div class="empty"><div class="big">❤️</div><h2>רגע, טוענים את הרגעים...</h2></div></main>
 
 <footer>
+  <a href="terms.html">תנאי שימוש</a>
   <a href="privacy.html">מדיניות פרטיות</a>
   <a href="accessibility.html">הצהרת נגישות</a>
   <a href="delete-account.html">מחיקת חשבון</a>
@@ -174,6 +178,13 @@
     URL_BASE = raw.slice(0, cut).replace(/\/$/, "");
     KEY = raw.slice(cut + 1);
   } catch (e) {}
+  // Only Moments' own server. A link that names another server would show someone else's content on this page and
+  // send them what you write and upload: such a link is ignored (and never remembered).
+  const SERVERS = ["https://acqgmcmvxijyijhgivnt.supabase.co"];
+  if (URL_BASE && !SERVERS.includes(URL_BASE)) {
+    URL_BASE = ""; KEY = ""; server = "";
+    if (params.get("s")) { code = ""; }
+  }
   if (code) store.set("m_code", code);
   if (server) store.set("m_server", server);
 

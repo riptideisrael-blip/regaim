@@ -150,8 +150,8 @@ class StudioActivity : AppCompatActivity() {
             setPadding(0, ui.dp(6), 0, 0)
         })
         hero.addView(TextView(this).apply {
-            text = L.t("בוחרים רגע, ואנחנו מציירים אותו מחדש כדמויות אנימציה בתלת-ממד, בסגנון סרטי פיקסאר, ומחברים לסרט קצר עם מוזיקה.",
-                "Pick a moment and we redraw it as 3D animated characters, Pixar-movie style, cut into a short film with music.")
+            text = L.t("בוחרים רגע, ואנחנו מציירים אותו מחדש כדמויות אנימציה בתלת-ממד, ומחברים לסרט קצר עם מוזיקה.",
+                "Pick a moment and we redraw it as 3D animated characters, cut into a short film with music.")
             textSize = 15f
             setLineSpacing(ui.dp(3).toFloat(), 1f)
             setTextColor(DS.inkSoft(context))

@@ -288,6 +288,7 @@ open class SettingsActivity : AppCompatActivity() {
         // The accessibility statement and the privacy policy (on the family's web page; required for a public app).
         card.addView(ui.row("♿ " + L.t("נגישות ופנייה לרכז הנגישות", "Accessibility and contact"), "") { openWeb("accessibility.html") })
         card.addView(ui.row("🔒 " + L.t("מדיניות פרטיות", "Privacy policy"), "") { openWeb("privacy.html") })
+        card.addView(ui.row("📄 " + L.t("תנאי שימוש", "Terms of use"), "") { openWeb("terms.html") })
         content.addView(card)
     }
 

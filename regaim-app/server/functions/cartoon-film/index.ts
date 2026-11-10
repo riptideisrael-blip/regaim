@@ -24,10 +24,12 @@ const DEFAULTS: Record<string, string> = {
   anim_cfg: "0.6",
   // What fal keeps of a request after it's done (its "request history": the photos we sent and the result).
   // "pitzki" (default): nothing is kept, except Pitzki's scenes, which stay until the phone collected them (a film
-  // stopped in the middle is collected hours later without paying again) and are then deleted by us.
-  // "none": nothing is kept at all (Pitzki's scenes must then be collected within an hour). "all": fal's own default
-  // (90 days), only for finding a problem.
+  // stopped in the middle is collected hours later without paying again) and are then deleted by us. They are kept
+  // only once deleting at fal is known to work (fal_delete_ok, written by the server itself): with a key that may
+  // not delete, nothing is kept and a scene must be collected within an hour.
+  // "none": nothing is kept at all. "all": fal's own default (90 days), only for finding a problem.
   fal_store: "pitzki",
+  fal_delete_ok: "",
   // Payments through Google Play: "on" to sell books (needs the GOOGLE_PLAY_SERVICE_ACCOUNT secret). Off = credits only.
   payments: "off",
   // Printed books (Lulu): the product. Hardcover (casewrap), US Letter 8.5x11 in, full color premium, gloss.
@@ -646,12 +648,27 @@ async function falDelete(admin: any, id: string): Promise<{ ok: boolean; status:
     if (ok) {
       await admin.from("fal_jobs").update({ deleted_at: new Date().toISOString() }).eq("request_id", id.toLowerCase());
       await serviceOk(admin, "fal-delete");
+      // A real deletion fal confirmed (not "already gone"): from now on Pitzki's scenes may be kept until collected.
+      if (status !== 404) await falDeleteWorks(admin, true);
     } else if (status === 401 || status === 403) {
       console.log(JSON.stringify({ ev: "fal_delete_refused", status, detail }));
       await serviceAlert(admin, "fal-delete", status, detail);
+      await falDeleteWorks(admin, false);
     }
   } catch (_) { /* older table */ }
   return { ok, status, detail };
+}
+
+let falDeleteKnown = "";
+/** Writes down whether deleting at fal works (film_settings "fal_delete_ok"), when it changed. */
+async function falDeleteWorks(admin: any, yes: boolean) {
+  const value = yes ? "yes" : "no";
+  if (falDeleteKnown === value) return;
+  falDeleteKnown = value;
+  try {
+    await admin.from("film_settings").upsert({ key: "fal_delete_ok", value });
+    settingsCache = null;
+  } catch (_) { /* no table: nothing is kept at fal, which is the safe side */ }
 }
 
 /**
@@ -972,6 +989,15 @@ Deno.serve(async (req) => {
         return json({ error: `שירות הקול לא זמין כרגע (${r.status}).`, detail: why }, 502);
       }
       await serviceOk(admin, "elevenlabs");
+      // The line (it may hold the child's first name) is not left in our ElevenLabs account's history: deleted
+      // there right away, in the background. If that fails it stays in the history until we clear it by hand.
+      const said = r.headers.get("history-item-id") ?? "";
+      if (/^[A-Za-z0-9]{8,64}$/.test(said)) {
+        const gone = fetch(`https://api.elevenlabs.io/v1/history/${said}`, { method: "DELETE", headers: { "xi-api-key": ELEVEN_KEY } })
+          .then((d) => { if (!d.ok) console.log(JSON.stringify({ ev: "tts_history_delete_failed", status: d.status })); })
+          .catch(() => {});
+        try { (globalThis as any).EdgeRuntime?.waitUntil?.(gone); } catch (_) { /* runs anyway */ }
+      }
       const bytes = new Uint8Array(await r.arrayBuffer());
       let bin = "";
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
@@ -1166,15 +1192,16 @@ Deno.serve(async (req) => {
         };
       } else return json({ error: "בקשה לא מוכרת." }, 400);
       // Kept at fal until we delete it (see fal_store above)?
-      const kept = s.fal_store === "all" || (s.fal_store !== "none" && kind.startsWith("pitzki_"));
+      const kept = s.fal_store === "all" || (s.fal_store !== "none" && s.fal_delete_ok === "yes" && kind.startsWith("pitzki_"));
       const r = await fetch("https://queue.fal.run/" + model, {
         method: "POST",
         headers: {
           Authorization: "Key " + FAL_KEY, "Content-Type": "application/json",
           // Result files are links on fal's CDN (whoever holds the link can open it) until they expire and fal
-          // deletes them: one hour (the app downloads them right away). Pitzki's scenes: 16 hours, so a film
-          // stopped in the middle (phone off, no network) is still collected hours later without paying again.
-          "X-Fal-Object-Lifecycle-Preference": JSON.stringify({ expiration_duration_seconds: kind.startsWith("pitzki_") ? 16 * 3600 : 3600 }),
+          // deletes them: one hour (the app downloads them right away). Pitzki's scenes, when their request is kept:
+          // 16 hours, so a film stopped in the middle (phone off, no network) is still collected hours later
+          // without paying again.
+          "X-Fal-Object-Lifecycle-Preference": JSON.stringify({ expiration_duration_seconds: kept && kind.startsWith("pitzki_") ? 16 * 3600 : 3600 }),
           // fal's request history (the photos we sent and the result, 90 days by default) is turned off: without it
           // fal's queue still holds the result for an hour, which is all a request collected right away needs.
           ...(kept ? {} : { "X-Fal-Store-IO": "0" }),

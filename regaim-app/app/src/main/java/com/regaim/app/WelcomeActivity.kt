@@ -340,7 +340,24 @@ class WelcomeActivity : AppCompatActivity() {
             startActivity(Intent(this, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             finish()
         })
+        // Continuing (with Google too, which opens an account) is agreeing to these; both open in the browser.
+        root.addView(ui.hint(L.t("בהמשך אתם מאשרים שגילכם 18 ומעלה, ואת תנאי השימוש ומדיניות הפרטיות:",
+            "By continuing you confirm you're 18 or older and accept the terms of use and the privacy policy:"), top = 12).apply { gravity = Gravity.CENTER })
+        root.addView(legalLinks())
         root.addView(ui.hint(L.t("הסרטונים נשמרים בטלפון שלכם. החשבון משמש לשיתוף עם המשפחה.", "Videos stay on your phone. Your account is only for sharing with family."), top = 10).apply { gravity = Gravity.CENTER })
+    }
+
+    /** "Terms of use" and "Privacy policy", each opening its page on Moments' site. */
+    private fun legalLinks() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        fun page(label: String, file: String) = link(label, R.color.accent, 0) {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Circle.web(this@WelcomeActivity).trimEnd('/') + "/" + file))) }
+            catch (_: Exception) { Toast.makeText(this@WelcomeActivity, L.t("לא נמצא דפדפן בטלפון", "No browser found on this phone"), Toast.LENGTH_LONG).show() }
+        }
+        addView(page(L.t("תנאי שימוש", "Terms of use"), "terms.html"))
+        addView(View(this@WelcomeActivity), LinearLayout.LayoutParams(ui.dp(16), 1))
+        addView(page(L.t("מדיניות פרטיות", "Privacy policy"), "privacy.html"))
     }
 
     private fun link(text: String, colorRes: Int, top: Int, onClick: () -> Unit) = TextView(this).apply {
@@ -420,6 +437,16 @@ class WelcomeActivity : AppCompatActivity() {
         if (!signUp && sentTo.isNotEmpty()) email.setText(sentTo)
         val password = labelled(if (signUp) L.t("סיסמה (לפחות 8 תווים)", "Password (at least 8 characters)") else L.t("סיסמה", "Password"), "",
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, if (signUp) "newPassword" else View.AUTOFILL_HINT_PASSWORD)
+        // A new account: the parent ticks that they are an adult and accept the terms and the privacy policy.
+        val agree = if (signUp) android.widget.CheckBox(this).apply {
+            text = L.t("גילי 18 ומעלה, ותנאי השימוש ומדיניות הפרטיות מקובלים עליי",
+                "I'm 18 or older, and I accept the terms of use and the privacy policy")
+            textSize = 15f
+            minHeight = ui.dp(48)
+            setTextColor(ContextCompat.getColor(this@WelcomeActivity, R.color.ink))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(10) }
+        } else null
+        agree?.let { root.addView(it); root.addView(legalLinks()) }
         root.addView(bigButton(if (signUp) L.t("יצירת חשבון", "Create account") else L.t("התחברות", "Sign in"), filled = true) {
             val e = email.text.toString().trim()
             val pw = password.text.toString()
@@ -430,6 +457,13 @@ class WelcomeActivity : AppCompatActivity() {
                 // New passwords: 8 at least (the server asks the same). Signing in still takes older, shorter ones.
                 signUp && pw.length < 8 -> wrong(password, L.t("הסיסמה צריכה להיות לפחות 8 תווים", "Password must be at least 8 characters"))
                 pw.length < 6 -> wrong(password, L.t("הסיסמה צריכה להיות לפחות 6 תווים", "Password must be at least 6 characters"))
+                agree != null && !agree.isChecked -> {
+                    val why = L.t("כדי ליצור חשבון צריך לסמן את האישור שמעל הכפתור", "To create an account, tick the confirmation above the button")
+                    Toast.makeText(this, why, Toast.LENGTH_LONG).show()
+                    agree.requestFocus()
+                    agree.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null)
+                    agree.announceForAccessibility(why)
+                }
                 signUp -> run(L.t("יוצרים את החשבון...", "Creating your account...")) {
                     // Not an error: the account is made and waits for the email link (its own screen, not a red toast).
                     if (!Account.signUp(applicationContext, n, e, pw)) { sentTo = e; mode = Mode.CHECK_MAIL }

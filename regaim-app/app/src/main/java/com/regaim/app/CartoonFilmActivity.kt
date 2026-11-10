@@ -124,8 +124,8 @@ class CartoonFilmActivity : AppCompatActivity() {
     }
 
     private fun intro() = L.t(
-        "אנחנו מציירים את הרגע מחדש כדמויות אנימציה בתלת-ממד, בסגנון סרטי פיקסאר: סרט של ${CartoonFilm.seconds(memory)} שניות, עם הקולות מהרגע עצמו. קודם תאשרו איך הדמויות נראות, ורק אז נכין את הסרט. אפשר להאריך אחר כך.",
-        "We redraw the moment as 3D animated characters, Pixar-movie style: a ${CartoonFilm.seconds(memory)}-second film, with the moment's own sound. First you approve how the characters look, then we make the film. You can make it longer afterwards.")
+        "אנחנו מציירים את הרגע מחדש כדמויות אנימציה בתלת-ממד: סרט של ${CartoonFilm.seconds(memory)} שניות, עם הקולות מהרגע עצמו. קודם תאשרו איך הדמויות נראות, ורק אז נכין את הסרט. אפשר להאריך אחר כך.",
+        "We redraw the moment as 3D animated characters: a ${CartoonFilm.seconds(memory)}-second film, with the moment's own sound. First you approve how the characters look, then we make the film. You can make it longer afterwards.")
 
     private fun renderStart() {
         content.addView(ui.hint(intro(), top = 6))
