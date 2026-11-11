@@ -114,7 +114,7 @@ class PitzkiChatActivity : AppCompatActivity() {
         } catch (_: Exception) { }
         say(m.first) {
             if (destroyed) return@say
-            ears.listen(6000, listOf(Beat.ANY)) { heard, said ->
+            ears.listen(A11y.timeout(this@PitzkiChatActivity, 6000), listOf(Beat.ANY)) { heard, said ->
                 if (destroyed) return@listen
                 say(if (said || heard.any { it.isNotBlank() }) PitzkiChat.momentReply(kid) else PitzkiChat.momentQuiet(kid)) { then() }
             }
@@ -177,12 +177,14 @@ class PitzkiChatActivity : AppCompatActivity() {
             typeface = DS.heading
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setShadowLayer(10f, 0f, 2f, Color.BLACK)
-            setPadding(dp(80), dp(10), dp(80), dp(18))
-            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,
-                intArrayOf(Color.argb(170, 0, 0, 0), Color.TRANSPARENT))
+            // A solid dark box behind the words (the fading shade left the top line on the bright picture).
+            setPadding(dp(16), dp(8), dp(16), dp(10))
+            background = DS.rounded(Color.argb(200, 0, 0, 0), dp(14).toFloat())
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
-        root.addView(subtitle, FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        root.addView(subtitle, FrameLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM).apply {
+            leftMargin = dp(64); rightMargin = dp(64); bottomMargin = dp(16)
+        })
         heardLine = TextView(this).apply {
             textSize = 16f
             setTextColor(Color.WHITE)
@@ -199,19 +201,26 @@ class PitzkiChatActivity : AppCompatActivity() {
             setPadding(dp(14), dp(6), dp(14), dp(6))
             background = DS.rounded(Color.argb(150, 0, 0, 0), dp(18).toFloat())
             text = L.t("💬 שיחה עם פיצקי", "💬 Talking with Pitzki")
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         root.addView(status, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(16) })
         // For the parent: end, and skip to the next question.
         val close = TextView(this).apply {
             text = "✕"; textSize = 26f; setTextColor(Color.WHITE); setPadding(dp(16), dp(8), dp(16), dp(8))
+            gravity = Gravity.CENTER; minWidth = dp(48); minHeight = dp(48)
             contentDescription = L.t("לסיים את השיחה", "End the talk")
+            A11y.button(this)
             setOnClickListener { finishTalk(silent = false) }
         }
         root.addView(close, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.RIGHT).apply { topMargin = dp(8); rightMargin = dp(8) })
         val skip = TextView(this).apply {
             text = L.t("שאלה אחרת ›", "Another question ›"); textSize = 15f; setTextColor(Color.WHITE)
             setPadding(dp(14), dp(6), dp(14), dp(6))
-            background = DS.rounded(Color.argb(120, 0, 0, 0), dp(18).toFloat())
+            gravity = Gravity.CENTER; minHeight = dp(48)
+            // Darker behind the white words (readable over a bright picture).
+            background = DS.rounded(Color.argb(190, 0, 0, 0), dp(18).toFloat())
+            contentDescription = L.t("שאלה אחרת", "Another question")
+            A11y.button(this)
             setOnClickListener { if (!ended) { token++; voice.stop(); ears.stop(); next() } }
         }
         root.addView(skip, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.LEFT).apply { topMargin = dp(16); leftMargin = dp(16) })
@@ -312,7 +321,8 @@ class PitzkiChatActivity : AppCompatActivity() {
         }
         status.animate().cancel()
         status.scaleX = 1f; status.scaleY = 1f
-        if (m == Mode.LISTENING) pulse(status)
+        // No pulse when the phone asks for no animations (the loop would just spin every frame).
+        if (m == Mode.LISTENING && !A11y.stillMotion()) pulse(status)
         talking(m == Mode.SPEAKING || m == Mode.HAPPY)
         if (m == Mode.HAPPY) burst()
     }
@@ -432,7 +442,7 @@ class PitzkiChatActivity : AppCompatActivity() {
             main.postDelayed({ if (my == token) heard(q, emptyList()) }, if (q.choices.isEmpty()) 4000 else 9000)
             return
         }
-        ears.listen(8000) { words, _ ->
+        ears.listen(A11y.timeout(this@PitzkiChatActivity, 8000)) { words, _ ->
             if (my != token || destroyed || ended) return@listen
             heard(q, words)
         }
@@ -506,7 +516,7 @@ class PitzkiChatActivity : AppCompatActivity() {
             val my = ++token
             mode(Mode.LISTENING)
             if (!canHear()) { main.postDelayed({ if (my == token) next() }, 3000); return@say }
-            ears.listen(6000) { words, _ ->
+            ears.listen(A11y.timeout(this@PitzkiChatActivity, 6000)) { words, _ ->
                 if (my != token || destroyed || ended) return@listen
                 val w = words.firstOrNull { it.isNotBlank() }.orEmpty()
                 if (w.isNotEmpty()) { said.add(true to w); say(PitzkiChat.WELL_DONE, happy = true) { next() } } else next()
@@ -564,7 +574,7 @@ class PitzkiChatActivity : AppCompatActivity() {
         val my = ++token
         mode(Mode.LISTENING)
         if (!canHear()) { goodbye(); return }
-        ears.listen(9000) { words, _ ->
+        ears.listen(A11y.timeout(this@PitzkiChatActivity, 9000)) { words, _ ->
             if (my != token || destroyed || ended) return@listen
             val first = words.firstOrNull { it.isNotBlank() }.orEmpty().trim()
             if (first.isEmpty()) {
@@ -615,6 +625,7 @@ class PitzkiChatActivity : AppCompatActivity() {
         }
         box.addView(TextView(this).apply {
             text = L.t("מה דיברנו", "What we talked about"); textSize = 20f; typeface = DS.heading; setTextColor(DS.ink(this@PitzkiChatActivity))
+            A11y.heading(this)
         })
         for ((child, line) in said) box.addView(TextView(this).apply {
             text = (if (child) "👦 " + kid.name.ifBlank { L.t("הילד", "Child") } + ": " else "🧝 " + L.t("פיצקי", "Pitzki") + ": ") + line
@@ -625,16 +636,18 @@ class PitzkiChatActivity : AppCompatActivity() {
         box.addView(TextView(this).apply {
             text = L.t("השיחה לא נשמרת. מה שהילד אמר עבר רק דרך זיהוי הדיבור של הטלפון; פיצקי עונה מתוך תשובות שנכתבו מראש, בלי AI.",
                 "The talk isn't saved. What the child said went only through the phone's speech recognition; Pitzki answers from replies written ahead, with no AI.")
-            textSize = 12f; setTextColor(DS.inkSoft(this@PitzkiChatActivity)); setPadding(0, dp(10), 0, 0)
+            textSize = 13f; setTextColor(DS.inkSoft(this@PitzkiChatActivity)); setPadding(0, dp(10), 0, 0)
         })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(12), 0, 0) }
         row.addView(TextView(this).apply {
             text = L.t("עוד שיחה", "Talk again"); textSize = 16f; typeface = DS.heading; setTextColor(Color.WHITE)
             setPadding(dp(20), dp(10), dp(20), dp(10)); background = DS.rounded(DS.button(this@PitzkiChatActivity), dp(22).toFloat())
+            gravity = Gravity.CENTER; minHeight = dp(48); A11y.button(this)
             setOnClickListener { recreate() }
         })
         row.addView(TextView(this).apply {
             text = L.t("סיום", "Done"); textSize = 16f; setTextColor(DS.ink(this@PitzkiChatActivity)); setPadding(dp(20), dp(10), dp(20), dp(10))
+            gravity = Gravity.CENTER; minHeight = dp(48); A11y.button(this)
             setOnClickListener { finish() }
         })
         box.addView(row)
@@ -643,6 +656,11 @@ class PitzkiChatActivity : AppCompatActivity() {
             setBackgroundColor(Color.argb(140, 0, 0, 0))
             addView(scroll, FrameLayout.LayoutParams(dp(520).coerceAtMost(resources.displayMetrics.widthPixels - dp(32)), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER).apply { topMargin = dp(16); bottomMargin = dp(16) })
         }
-        (window.decorView.findViewById<ViewGroup>(android.R.id.content)).addView(layer, FrameLayout.LayoutParams(-1, -1))
+        val content = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        // The summary is the screen now: what's behind it (✕, "another question") isn't reached by a screen reader.
+        for (i in 0 until content.childCount) content.getChildAt(i).importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        layer.isClickable = true // taps don't reach the screen behind
+        content.addView(layer, FrameLayout.LayoutParams(-1, -1))
+        layer.announceForAccessibility(L.t("השיחה הסתיימה. מה דיברנו", "The talk is over. What we talked about"))
     }
 }

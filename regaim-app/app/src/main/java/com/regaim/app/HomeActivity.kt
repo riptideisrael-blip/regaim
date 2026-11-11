@@ -81,6 +81,7 @@ class HomeActivity : AppCompatActivity() {
         fab.contentDescription = L.t("הוספת רגע: צילום, גלריה ועוד", "Add a moment: record, gallery and more")
         fab.setOnClickListener { newMemory() }
         fab.setOnLongClickListener { CaptureNowActivity.open(this, video = true); true }
+        A11y.longPress(fab, L.t("צילום סרטון מיד", "Record a video now"))
         fab.layoutParams = (fab.layoutParams as android.widget.FrameLayout.LayoutParams).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             marginStart = ui.dp(20); marginEnd = ui.dp(20); leftMargin = ui.dp(20); rightMargin = ui.dp(20)
@@ -161,7 +162,7 @@ class HomeActivity : AppCompatActivity() {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = ui.dp(3).toFloat(); setColor(DS.handle(this@HomeActivity)) }
             layoutParams = LinearLayout.LayoutParams(ui.dp(40), ui.dp(5)).apply { gravity = android.view.Gravity.CENTER_HORIZONTAL; bottomMargin = ui.dp(14) }
         })
-        root.addView(ui.text(L.t("נוסיף רגע לסיפור שלנו", "Add a moment to our story"), 19f, bold = true).apply { setPadding(ui.dp(8), 0, ui.dp(8), ui.dp(8)) })
+        root.addView(ui.text(L.t("נוסיף רגע לסיפור שלנו", "Add a moment to our story"), 19f, bold = true).apply { setPadding(ui.dp(8), 0, ui.dp(8), ui.dp(8)); A11y.heading(this) })
         fun item(icon: Int, tint: Int, title: String, sub: String, go: () -> Unit) {
             root.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -236,6 +237,8 @@ class HomeActivity : AppCompatActivity() {
         } else {
             L.t("תפסו רגע", "Capture")
         }
+        fab.contentDescription = if (Status.running) fab.text.toString() + L.t(". הוספת רגע: צילום, גלריה ועוד", ". Add a moment: record, gallery and more")
+            else L.t("הוספת רגע: צילום, גלריה ועוד", "Add a moment: record, gallery and more")
     }
 
     // ---------- page ----------
@@ -264,7 +267,7 @@ class HomeActivity : AppCompatActivity() {
         val memoryError = Status.error?.takeIf { MemoryStore.isIndexError(it) }
         if (memoryError != null) {
             val notice = ui.card(top = 18)
-            notice.addView(ui.text(L.t("לא הצלחנו לפתוח את הזיכרונות כרגע", "We couldn't open your memories right now"), 18f, bold = true))
+            notice.addView(ui.text(L.t("לא הצלחנו לפתוח את הזיכרונות כרגע", "We couldn't open your memories right now"), 18f, bold = true).apply { A11y.live(this, urgent = true) })
             notice.addView(ui.hint(MemoryStore.INDEX_ERROR, top = 8))
             notice.addView(ui.button(L.t("נסו שוב", "Try again"), top = 12) { render() })
             content.addView(notice)
@@ -421,12 +424,12 @@ class HomeActivity : AppCompatActivity() {
                 })
                 if (story) addView(TextView(this@HomeActivity).apply {
                     text = L.t("סטורי חדש", "New story")
-                    textSize = 11f
+                    textSize = 13f
                     gravity = Gravity.CENTER
                     setTextColor(DS.primary(this@HomeActivity)); typeface = DS.emphasis
                 }) else if (count(n) > 0) addView(TextView(this@HomeActivity).apply {
                     text = if (count(n) == 1) L.t("רגע אחד", "1 moment") else L.t("${count(n)} רגעים", "${count(n)} moments")
-                    textSize = 11f
+                    textSize = 13f
                     gravity = Gravity.CENTER
                     setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.ink_soft))
                 })
@@ -753,6 +756,8 @@ class HomeActivity : AppCompatActivity() {
                 clipToOutline = true
                 Covers.load(this, m)
                 setOnClickListener { open(m) }
+                contentDescription = Fmt.title(m) + ", " + Fmt.day(m.time)
+                A11y.button(this)
                 layoutParams = LinearLayout.LayoutParams(size, size).apply { if (i > 0) marginStart = -mv.dp(12) }
             })
         }
@@ -779,6 +784,7 @@ class HomeActivity : AppCompatActivity() {
                 textSize = 14f
                 setTextColor(DS.inkSoft(this@HomeActivity))
                 setPadding(0, mv.dp(14), 0, 0)
+                minHeight = mv.dp(48); gravity = Gravity.CENTER_VERTICAL
                 setOnClickListener { playUri(last.first) }
             })
         }
@@ -803,7 +809,7 @@ class HomeActivity : AppCompatActivity() {
                     Toast.makeText(this, L.t("הסרטון של השבוע מוכן: ${r.count} רגעים ❤️", "Your weekly video is ready: ${r.count} moments ❤️"), Toast.LENGTH_SHORT).show()
                     playUri(r.uri)
                 }.onFailure { e ->
-                    Toast.makeText(this, e.message ?: L.t("לא הצלחתי ליצור את הסרטון", "Couldn't create the video"), Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, L.t("לא הצלחנו ליצור את הסרטון. נסו שוב.", "Couldn't create the video. Try again."), Toast.LENGTH_LONG).show()
                 }
             }
         }

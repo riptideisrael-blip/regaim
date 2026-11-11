@@ -983,7 +983,7 @@ class CaptureService : Service() {
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(open)
-            .addAction(0, L.t("♥ שמור רגע", "♥ Save moment"), save)
+            .addAction(0, L.t("שמירת רגע", "Save moment"), save)
             .addAction(0, L.t("עצור", "Stop"), stop)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)

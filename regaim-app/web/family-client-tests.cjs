@@ -14,12 +14,12 @@ class Element {
   replaceChildren(...items) { this.children=items; }
   focus() {}
 }
-function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
+function environment({ oldCode=false, oldServer=false, denyAuth=false, foreignServer=false }={}) {
   const elements = new Map();
   const requests = [];
   const store = new Map([['m_name','שם דינמי']]);
-  const base='https://fixture.supabase.co';
-  const server=Buffer.from(base+'|sb_publishable_fixture_only').toString('base64url');
+  const base='https://acqgmcmvxijyijhgivnt.supabase.co';
+  const server=Buffer.from((foreignServer?'https://someone-else.supabase.co':base)+'|sb_publishable_fixture_only').toString('base64url');
   const get=(id)=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const response=(value,ok=true,status=200)=>({ok,status,json:async()=>value,text:async()=>JSON.stringify(value)});
   const context={
@@ -53,6 +53,9 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
   env=environment({oldServer:true});
   await assert.rejects(env.api.load(),/^(?!.*v3)(?=.*בעדכון).*$/s);
   assert(!env.requests.some(r=>r.url.includes('/posts?')),'old server does not load insecure posts');
+  env=environment({foreignServer:true});
+  await env.api.load().catch(()=>{});
+  assert.equal(env.requests.length,0,'a link that names another server is ignored: nothing is sent to it');
   env=environment();
   await env.api.load();
   assert(env.requests.some(r=>r.url.includes('/rpc/redeem_family_invite')),'invite must become authenticated membership');
@@ -87,5 +90,5 @@ function environment({ oldCode=false, oldServer=false, denyAuth=false }={}) {
   assert(/type !== "recovery"/.test(reset),'reset page needs a recovery link');
   assert(/method: "PUT"/.test(reset)&&/\/auth\/v1\/user/.test(reset),'reset page only updates the password');
   assert(!/service_role|secret/i.test(reset),'no secret keys in the page');
-  console.log('PASS: 11 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
+  console.log('PASS: 12 offline Auth/invite/media/reaction/comment/conversation contracts. No live service contacted.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

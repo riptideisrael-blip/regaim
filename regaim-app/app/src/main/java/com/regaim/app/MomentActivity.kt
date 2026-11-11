@@ -91,6 +91,7 @@ class MomentActivity : AppCompatActivity() {
         bigPlay = findViewById(R.id.btnBigPlay)
         playPause = findViewById(R.id.btnPlayPause)
         seek = findViewById(R.id.videoSeek)
+        seek.contentDescription = L.t("מיקום בסרטון", "Position in the video")
         timeText = findViewById(R.id.videoTime)
         totalText = findViewById(R.id.videoTotal)
         muteBtn = findViewById(R.id.btnMute)
@@ -281,6 +282,13 @@ class MomentActivity : AppCompatActivity() {
         })
         layer.setOnTouchListener { _, e -> gesture.onTouchEvent(e) }
         layer.contentDescription = if (memory.isVideo) L.t("נגן או עצור", "Play or pause") else L.t("פתיחה במסך מלא", "Open full screen")
+        // A screen reader's double tap is a click: the same as one tap. "Love it" (a double tap) is its own action.
+        layer.setOnClickListener {
+            if (!memory.isVideo) { if (!memory.isPending) fullscreen() }
+            else if (video.isPlaying) pause() else play()
+        }
+        A11y.button(layer)
+        androidx.core.view.ViewCompat.addAccessibilityAction(layer, L.t("אהבתי", "Love it")) { _, _ -> toggleFavorite(); true }
     }
 
     private fun setControls(show: Boolean) {
@@ -299,7 +307,9 @@ class MomentActivity : AppCompatActivity() {
     /** While playing, the controls step aside after a moment so the clip fills the frame. */
     private fun scheduleHide() {
         ui.removeCallbacks(hideControls)
-        if (memory.isVideo && video.isPlaying) ui.postDelayed(hideControls, 2600)
+        // With a screen reader the controls stay (they'd vanish while being looked for).
+        if (A11y.screenReader(this)) return
+        if (memory.isVideo && video.isPlaying) ui.postDelayed(hideControls, A11y.timeout(this, 2600))
     }
 
     private fun play() {
@@ -337,7 +347,7 @@ class MomentActivity : AppCompatActivity() {
             background = DS.oval(0x59000000)
             contentDescription = L.t("מסך מלא", "Full screen")
             setOnClickListener { fullscreen() }
-            layoutParams = android.widget.FrameLayout.LayoutParams((40 * d).toInt(), (40 * d).toInt(), android.view.Gravity.BOTTOM or android.view.Gravity.START).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams((48 * d).toInt(), (48 * d).toInt(), android.view.Gravity.BOTTOM or android.view.Gravity.START).apply {
                 setMargins((14 * d).toInt(), 0, 0, (34 * d).toInt())
             }
         })
@@ -377,6 +387,9 @@ class MomentActivity : AppCompatActivity() {
             values = listOf(start, end)
             layoutDirection = View.LAYOUT_DIRECTION_LTR
             setMinSeparationValue(1000f)
+            // Said as times ("0:03"), not milliseconds.
+            setLabelFormatter { Fmt.shortDuration(it.toLong()) }
+            contentDescription = L.t("טווח הקטע", "The clip's range")
         }
         fun showRange() {
             val values = slider.values
@@ -452,6 +465,7 @@ class MomentActivity : AppCompatActivity() {
     private fun bindStory(first: Boolean) {
         val m = memory
         val desc = findViewById<TextView>(R.id.momentDesc)
+        A11y.live(desc)
         mv.stopPulse(desc)
         // (setOnClickListener(null) still leaves it clickable: plain words mustn't say "double-tap to activate".)
         desc.setOnClickListener(null); desc.isClickable = false; desc.contentDescription = null
@@ -545,9 +559,10 @@ class MomentActivity : AppCompatActivity() {
                 setBackgroundResource(R.drawable.chat_chip_bg)
                 setPadding(mv.dp(10), 0, mv.dp(10), 0)
                 // Same height for every chip, one line or two.
-                layoutParams = LinearLayout.LayoutParams(0, mv.dp(56), 1f).apply {
+                layoutParams = LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                     marginStart = mv.dp(4); marginEnd = mv.dp(4)
                 }
+                minimumHeight = mv.dp(56)
                 if (onClick != null) setOnClickListener { onClick() }
             }
             box.addView(mv.icon(icon, 22, iconColor))
@@ -676,7 +691,7 @@ class MomentActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@MomentActivity, R.color.ink))
         })
         card.addView(TextView(this).apply {
-            text = L.t("סרט אנימציה מצויר בתלת-ממד (בסגנון פיקסאר).", "A 3D animated film (Pixar style).")
+            text = L.t("סרט אנימציה מצויר בתלת-ממד.", "A 3D animated film.")
             textSize = 13f
             setTextColor(DS.inkSoft(this@MomentActivity))
             setPadding(0, mv.dp(4), 0, mv.dp(10))
@@ -750,7 +765,10 @@ class MomentActivity : AppCompatActivity() {
                         Toast.makeText(this, L.t("נמצא: ${Fmt.duration(found.first)}–${Fmt.duration(found.second)}", "Found: ${Fmt.duration(found.first)}–${Fmt.duration(found.second)}"), Toast.LENGTH_LONG).show()
                         bind(first = false)
                     }
-                }.onFailure { Toast.makeText(this, it.message ?: "", Toast.LENGTH_LONG).show() }
+                }.onFailure {
+                    android.util.Log.w("Moment", "findMoment failed", it)
+                    Toast.makeText(this, L.t("לא הצלחנו למצוא את הרגע עכשיו. נסו שוב בעוד רגע.", "We couldn't find the moment right now. Try again in a moment."), Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -771,6 +789,7 @@ class MomentActivity : AppCompatActivity() {
                 startActivity(Intent(this, MemoriesActivity::class.java).putExtra(MemoriesActivity.EXTRA_PERSON, n)
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
             }.apply {
+                A11y.longPress(this, L.t("הסרה מהרגע", "Remove from this moment"))
                 setOnLongClickListener {
                     AlertDialog.Builder(this@MomentActivity).setTitle(L.t("להסיר את $n מהרגע הזה?", "Remove $n from this moment?"))
                         .setPositiveButton(L.t("הסר", "Remove")) { _, _ -> setPeople(Fmt.names(memory) - n, rewrite = false) }
@@ -938,6 +957,7 @@ class MomentActivity : AppCompatActivity() {
         asking = true
         bindAsk()
         val answer = findViewById<TextView>(R.id.askAnswer)
+        A11y.live(answer)
         val related = findViewById<LinearLayout>(R.id.askRelated)
         related.removeAllViews()
         answer.visibility = View.VISIBLE
@@ -990,8 +1010,10 @@ class MomentActivity : AppCompatActivity() {
     private fun bindActions() {
         val row = findViewById<LinearLayout>(R.id.actionsRow)
         row.removeAllViews()
-        fun add(icon: Int, label: String, colorRes: Int = R.color.ink, action: () -> Unit) {
+        fun add(icon: Int, label: String, colorRes: Int = R.color.ink, state: String? = null, action: () -> Unit) {
             row.addView(LinearLayout(this).apply {
+                A11y.button(this)
+                if (state != null) androidx.core.view.ViewCompat.setStateDescription(this, state)
                 orientation = LinearLayout.VERTICAL
                 gravity = android.view.Gravity.CENTER
                 setBackgroundResource(android.R.drawable.list_selector_background)
@@ -999,7 +1021,7 @@ class MomentActivity : AppCompatActivity() {
                 addView(mv.icon(icon, 22, colorRes).apply { (layoutParams as LinearLayout.LayoutParams).bottomMargin = mv.dp(3) })
                 addView(TextView(this@MomentActivity).apply {
                     text = label
-                    textSize = 11f
+                    textSize = 13f
                     gravity = android.view.Gravity.CENTER
                     setTextColor(ContextCompat.getColor(this@MomentActivity, colorRes))
                 })
@@ -1011,7 +1033,8 @@ class MomentActivity : AppCompatActivity() {
             })
         }
         add(if (memory.favorite) R.drawable.ic_heart else R.drawable.ic_heart_outline, L.t("אהבתי", "Love"),
-            if (memory.favorite) R.color.heart else R.color.ink) { toggleFavorite() }
+            if (memory.favorite) R.color.heart else R.color.ink,
+            state = if (memory.favorite) L.t("מסומן", "On") else L.t("לא מסומן", "Off")) { toggleFavorite() }
         add(R.drawable.ic_share_outline, L.t("שתף", "Share")) { share() }
         val published = Circle.wasShared(this, memory) || Community.wasPublished(this, memory)
         add(R.drawable.ic_mail, if (published) L.t("פורסם", "Posted") else L.t("פרסם", "Post"), R.color.accent) {
@@ -1047,7 +1070,7 @@ class MomentActivity : AppCompatActivity() {
                 r.onSuccess {
                     Toast.makeText(this, L.t("שותף עם ${Circle.name(this)} ❤️", "Shared with ${Circle.name(this)} ❤️"), Toast.LENGTH_SHORT).show()
                     bindActions()
-                }.onFailure { e -> Toast.makeText(this, L.t("לא הצלחתי לשתף: ${e.message}", "Couldn't share: ${e.message}"), Toast.LENGTH_LONG).show() }
+                }.onFailure { e -> Toast.makeText(this, L.t("לא הצלחנו לשתף. נסו שוב.", "Couldn't share. Try again."), Toast.LENGTH_LONG).show() }
             }
         }
     }
@@ -1124,6 +1147,12 @@ class MomentActivity : AppCompatActivity() {
         box.addView(ui.text(L.t("למה זה רגע שלך", "Why it matters to you"), 13f, R.color.ink_soft, top = 10))
         val reason = ui.field(L.t("למשל: היא רצה אליי מהגן", "e.g. She ran to me at pickup"), m.reason, multiline = true, top = 2)
         box.addView(reason)
+        // Each label tied to its field (the fields come filled in, so the hint alone is never said).
+        for (i in 1 until box.childCount) {
+            val f = box.getChildAt(i) as? EditText ?: continue
+            val l = box.getChildAt(i - 1) as? TextView ?: continue
+            f.id = View.generateViewId(); l.labelFor = f.id
+        }
         box.addView(ui.text(L.t("קטגוריה", "Category"), 13f, R.color.ink_soft, top = 10))
         var category = m.category
         box.addView(ui.chips(Categories.ALL.map { L.category(it) }, Categories.ALL.indexOf(m.category), top = 4) { category = Categories.ALL[it] })

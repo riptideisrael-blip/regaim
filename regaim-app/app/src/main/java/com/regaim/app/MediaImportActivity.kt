@@ -87,7 +87,8 @@ class MediaImportActivity : AppCompatActivity() {
         if (isFinishing || isDestroyed) return
         val st = ImportService.State
         if (st.finishedJobs == before) {
-            status.text = L.t("מוסיפים ${st.done} מתוך ${st.total}... אפשר לצאת מהמסך, ההוספה ממשיכה ברקע.", "Adding ${st.done} of ${st.total}... You can leave this screen; adding goes on in the background.")
+            val t = L.t("מוסיפים ${st.done} מתוך ${st.total}... אפשר לצאת מהמסך, ההוספה ממשיכה ברקע.", "Adding ${st.done} of ${st.total}... You can leave this screen; adding goes on in the background.")
+            if (status.text.toString() != t) status.text = t
             status.postDelayed({ watch(before) }, 1000)
             return
         }
@@ -128,7 +129,9 @@ class MediaImportActivity : AppCompatActivity() {
         val content = findViewById<LinearLayout>(R.id.screenContent)
         content.addView(ui.text(L.t("גם התמונות והסרטונים שכבר אצלכם יכולים להיות חלק מהסיפור המשפחתי.", "The photos and videos you already have can be part of your family story too."), 17f, top = 18))
         content.addView(ui.hint(L.t("רק מה שתבחרו יתווסף. הזיכרון יישאר פרטי עד שתחליטו לשתף אותו עם המשפחה.", "Only what you pick is added. It stays private until you choose to share it with family."), top = 10))
-        title = ui.field(L.t("איך תרצו לקרוא לרגע הזה? (לא חובה)", "What would you like to call this moment? (optional)"), "", top = 22)
+        // A visible label tied to the field (the hint alone disappears once you type).
+        content.addView(ui.text(L.t("שם לרגע (לא חובה)", "A name for the moment (optional)"), 14f, bold = true, top = 22).apply { setTag(R.id.tagA11yLabel, true) })
+        title = ui.field(L.t("איך תרצו לקרוא לרגע הזה?", "What would you like to call this moment?"), "", top = 4)
         content.addView(title)
         actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         actions.addView(ui.button(L.t("בחרו תמונות וסרטונים", "Choose photos and videos"), primary = true, top = 20) { pick(ActivityResultContracts.PickVisualMedia.ImageAndVideo) })
@@ -136,6 +139,8 @@ class MediaImportActivity : AppCompatActivity() {
         content.addView(actions)
         status = ui.hint(L.t("בסרטון שתוסיפו תוכלו לבחור בעצמכם את הקטע שתרצו לזכור.", "For videos, you can choose the exact part you want to remember."), top = 18)
         content.addView(status)
+        // Progress and "couldn't add" are said by themselves.
+        A11y.live(status)
         if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_PICK_NOW, false)) pick(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
     }
 

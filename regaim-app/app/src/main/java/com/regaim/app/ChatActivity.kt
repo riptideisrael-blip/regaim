@@ -145,8 +145,9 @@ class ChatActivity : AppCompatActivity() {
         input.setText(q)
         val userMessage = addUser(q)
         val thinking = addAssistant(L.t("רגע, אנחנו מחפשים בזיכרונות...", "Searching your memories…"), emptyList())
+        thinking.announceForAccessibility(L.t("מחפשים בזיכרונות", "Searching your memories"))
         busy = true
-        sendBtn.isEnabled = false
+        sendBtn.isEnabled = false; sendBtn.alpha = 0.4f
         input.isEnabled = false
         val past = history.toList()
         worker.execute {
@@ -166,16 +167,19 @@ class ChatActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 thread.removeView(thinking)
                 busy = false
-                sendBtn.isEnabled = true
+                sendBtn.isEnabled = true; sendBtn.alpha = 1f
                 input.isEnabled = true
                 result.onSuccess { answer ->
                     val byId = MemoryStore.kept(this).associateBy { it.id }
-                    addAssistant(answer.text, answer.ids.mapNotNull { byId[it] })
+                    val shown = addAssistant(answer.text, answer.ids.mapNotNull { byId[it] })
+                    // The answer is read out (it arrives while the reader is still on the question).
+                    shown.announceForAccessibility("Moments: " + answer.text)
                     history.add("user" to q)
                     history.add("assistant" to answer.text)
                     input.setText("")
                 }.onFailure {
                     thread.removeView(userMessage)
+                    thread.announceForAccessibility(L.t("החיפוש לא הושלם. השאלה נשארה בשדה, ואפשר לנסות שוב.", "The search didn't finish. Your question is still in the field, so you can try again."))
                     addAssistant(L.t("לא הצלחנו להשלים את החיפוש כרגע. השאלה נשמרה בשדה למטה, ואפשר לנסות שוב. אם בחרת שירות AI, כדאי לבדוק את החיבור ואת ההגדרה ב״אפשרויות״.", "We couldn't finish the search right now. Your question is saved below so you can try again. If you're using an AI service, check your connection and the setup under \"Options\"."), emptyList())
                     input.setText(q)
                     input.setSelection(input.text.length)
@@ -279,6 +283,8 @@ class ChatActivity : AppCompatActivity() {
 
     private fun addUser(text: String): View {
         val tv = bubbleText(text, R.drawable.chat_user_bg, ContextCompat.getColor(this, R.color.white))
+        // Who said it, in words (not only which side and color).
+        tv.contentDescription = L.t("אתם: ", "You: ") + text
         val row = LinearLayout(this).apply {
             gravity = Gravity.START // RTL: user on the right
             addView(tv)
@@ -292,7 +298,7 @@ class ChatActivity : AppCompatActivity() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         box.addView(LinearLayout(this).apply {
             gravity = Gravity.END
-            addView(bubbleText(text, R.drawable.chat_ai_bg, ContextCompat.getColor(this@ChatActivity, R.color.ink)))
+            addView(bubbleText(text, R.drawable.chat_ai_bg, ContextCompat.getColor(this@ChatActivity, R.color.ink)).apply { contentDescription = "Moments: $text" })
         })
         if (memories.isNotEmpty()) {
             val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -333,6 +339,8 @@ class ChatActivity : AppCompatActivity() {
         v.findViewById<TextView>(R.id.bubbleTitle).text = if (m.time > 0) (if (m.timeSource == "imported") L.t("נוסף ב־", "Added ") else "") + SimpleDateFormat("d.M HH:mm", L.locale).format(Date(m.time)) else L.t("זיכרון שמור", "Saved memory")
         v.findViewById<TextView>(R.id.bubbleSub).text = m.displayTitle.ifBlank { L.t("רגע ששמרנו", "A saved moment") }
         v.setOnClickListener { MomentActivity.open(this, m.id) }
+        v.contentDescription = m.displayTitle.ifBlank { L.t("רגע ששמרנו", "A saved moment") } + ", " + Fmt.dayTime(m.time) + L.t(". פתיחה", ". Open")
+        A11y.button(v)
         return v
     }
 

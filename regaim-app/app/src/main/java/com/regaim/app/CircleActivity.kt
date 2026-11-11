@@ -38,6 +38,17 @@ class CircleActivity : AppCompatActivity() {
     private var loading = false
     private var error = ""
     private var busyText = ""
+    /** The shared gallery's status last said (the card is built again on every render: said only when it changes). */
+    private var partnerSaid = ""
+
+    /** A reaction's name, said instead of the emoji's own long name. */
+    private fun emojiName(e: String) = when (e) {
+        "❤️" -> L.t("לב", "Heart")
+        "😂" -> L.t("צחוק", "Laugh")
+        "😍" -> L.t("אהבה", "Love")
+        "🥹" -> L.t("התרגשות", "Touched")
+        else -> e
+    }
     private var loadedUser = ""
     private var loadedCircle = ""
 
@@ -112,7 +123,7 @@ class CircleActivity : AppCompatActivity() {
 
     /** Joining another family's circle from inside a circle: paste the invite link (or code). */
     private fun joinOther() {
-        val field = ui.field(L.t("הדביקו כאן את קישור ההזמנה", "Paste the invite link here"), "")
+        val field = ui.field(L.t("הדביקו כאן את קישור ההזמנה", "Paste the invite link here"), "", kind = Ui.Kind.URL)
         val box = android.widget.FrameLayout(this).apply { setPadding(ui.dp(20), ui.dp(8), ui.dp(20), 0); addView(field) }
         AlertDialog.Builder(this)
             .setTitle(L.t("הצטרפות למעגל של משפחה אחרת", "Join another family's circle"))
@@ -185,14 +196,14 @@ class CircleActivity : AppCompatActivity() {
 
     private fun serverSetup() {
         val card = ui.card(top = 16)
-        card.addView(ui.text(L.t("חיבור לשרת של המשפחה", "Connect your family server"), 18f, bold = true))
+        card.addView(ui.text(L.t("חיבור לשרת של המשפחה", "Connect your family server"), 18f, bold = true).apply { A11y.heading(this) })
         card.addView(ui.hint(L.t("מ-Supabase: Project Settings ← API. מעתיקים את ה-Project URL ואת המפתח הציבורי (anon / publishable).", "In Supabase: Project Settings → API. Copy the Project URL and the public key (anon / publishable)."), top = 4))
-        val url = ui.field("https://xxxx.supabase.co", Circle.url(this))
-        val key = ui.field(L.t("המפתח הציבורי", "Public key"), Circle.key(this))
+        val url = ui.field("https://xxxx.supabase.co", Circle.url(this), kind = Ui.Kind.URL)
+        val key = ui.field(L.t("המפתח הציבורי", "Public key"), Circle.key(this), kind = Ui.Kind.CODE)
         card.addView(url)
         card.addView(key)
         card.addView(ui.text(L.t("כתובת דף המשפחה (לסבא וסבתא)", "Family page link (for grandparents)"), 14f, R.color.ink_soft, top = 12))
-        val web = ui.field(Circle.DEFAULT_WEB, Circle.web(this), top = 4)
+        val web = ui.field(Circle.DEFAULT_WEB, Circle.web(this), top = 4, kind = Ui.Kind.URL)
         card.addView(web)
         card.addView(ui.hint(L.t("אם העלית את index.html ל-GitHub Pages של הריפו, השאר כמו שזה.", "If you uploaded index.html to the repo's GitHub Pages, leave this as is."), top = 4))
         card.addView(ui.button(L.t("שמור והמשך", "Save and continue"), primary = true, top = 14) {
@@ -210,14 +221,16 @@ class CircleActivity : AppCompatActivity() {
 
     private fun createOrJoin() {
         if (!Account.signedIn(this)) {
-            content.addView(ui.text(L.t("המשפחה שלכם, יחד בזיכרונות", "Your family, together in memories"), 22f, bold = true, top = 22))
+            content.addView(ui.text(L.t("המשפחה שלכם, יחד בזיכרונות", "Your family, together in memories"), 22f, bold = true, top = 22).apply { A11y.heading(this) })
             content.addView(ui.hint(L.t("התחברו כדי לפתוח מעגל או לקבל הזמנה. הזיכרונות בטלפון זמינים גם בלי חשבון.", "Sign in to start a circle or accept an invite. Memories on your phone work without an account."), top = 8))
             content.addView(ui.button(L.t("התחברות למשפחה", "Sign in to family"), primary = true, top = 16) { WelcomeActivity.open(this) })
             return
         }
         val card = ui.card(top = 16)
-        card.addView(ui.text(L.t("פתחו מעגל משפחה", "Start a family circle"), 18f, bold = true))
-        val name = ui.field(L.t("שם המעגל", "Circle name"), Profile.homeTitle(this))
+        card.addView(ui.text(L.t("פתחו מעגל משפחה", "Start a family circle"), 18f, bold = true).apply { A11y.heading(this) })
+        // A visible label: the field comes filled in, so its hint alone isn't seen.
+        card.addView(ui.text(L.t("שם המעגל", "Circle name"), 14f, R.color.ink_soft, top = 8).apply { setTag(R.id.tagA11yLabel, true) })
+        val name = ui.field(L.t("שם המעגל", "Circle name"), Profile.homeTitle(this), top = 4)
         card.addView(name)
         card.addView(ui.button(L.t("צור מעגל", "Create circle"), primary = true, top = 12) {
             run(L.t("פותחים את המעגל...", "Creating your circle...")) {
@@ -226,8 +239,8 @@ class CircleActivity : AppCompatActivity() {
             }
         })
         card.addView(ui.divider())
-        card.addView(ui.text(L.t("או הצטרפו למעגל קיים", "Or join an existing circle"), 16f, bold = true, top = 6))
-        val code = ui.field(L.t("קישור הזמנה או קוד הזמנה מאובטח", "Invite link or secure invite code"), "")
+        card.addView(ui.text(L.t("או הצטרפו למעגל קיים", "Or join an existing circle"), 16f, bold = true, top = 6).apply { A11y.heading(this) })
+        val code = ui.field(L.t("קישור הזמנה או קוד הזמנה מאובטח", "Invite link or secure invite code"), "", kind = Ui.Kind.URL)
         card.addView(code)
         card.addView(ui.button(L.t("הצטרף", "Join"), top = 10) {
             run(L.t("מצטרפים...", "Joining...")) {
@@ -243,8 +256,11 @@ class CircleActivity : AppCompatActivity() {
             render()
         })
         content.addView(card)
-        if (error.isNotEmpty()) content.addView(ui.hint(error, top = 10))
+        if (error.isNotEmpty()) content.addView(errorLine(error))
     }
+
+    /** An error that stays on the screen, in the error color, read out by itself. */
+    private fun errorLine(msg: String) = ErrorLine.make(this, top = 10).also { ErrorLine.show(it, msg) }
 
     private fun run(busy: String, work: () -> String) {
         if (worker.isShutdown || busyText.isNotEmpty()) return
@@ -271,8 +287,14 @@ class CircleActivity : AppCompatActivity() {
      */
     private fun partnerCard() {
         val card = ui.card(top = 10)
-        card.addView(ui.text(L.t("🔒 גלריה משותפת לשני ההורים", "🔒 A shared gallery for both parents"), 17f, bold = true))
-        val line = ui.hint(L.t("בודקים…", "Checking…"), top = 4).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
+        card.addView(ui.text(L.t("🔒 גלריה משותפת לשני ההורים", "🔒 A shared gallery for both parents"), 17f, bold = true).apply { A11y.heading(this) })
+        // Read out only when the status really changes (this card is built again on every render).
+        val line = ui.hint(L.t("בודקים…", "Checking…"), top = 4)
+        fun say(t: String) {
+            line.accessibilityLiveRegion = if (t != partnerSaid) View.ACCESSIBILITY_LIVE_REGION_POLITE else View.ACCESSIBILITY_LIVE_REGION_NONE
+            partnerSaid = t
+            line.text = t
+        }
         card.addView(line)
         val actions = ui.horizontal(top = 4)
         card.addView(actions)
@@ -286,8 +308,8 @@ class CircleActivity : AppCompatActivity() {
                 actions.removeAllViews()
                 if (status == null) {
                     // (A missing server function and no internet look the same here: parents get the plain words.)
-                    line.text = if (Account.isAdmin(app)) L.t("צריך להריץ קודם את partner-gallery.sql ב-Supabase.", "Run partner-gallery.sql in Supabase first.")
-                        else L.t("אין חיבור כרגע. נסו שוב בעוד רגע.", "No connection right now. Try again in a moment.")
+                    say(if (Account.isAdmin(app)) L.t("צריך להריץ קודם את partner-gallery.sql ב-Supabase.", "Run partner-gallery.sql in Supabase first.")
+                        else L.t("אין חיבור כרגע. נסו שוב בעוד רגע.", "No connection right now. Try again in a moment."))
                     return@runOnUiThread
                 }
                 // What goes besides the moments, said before choosing (not only once it's on).
@@ -295,12 +317,12 @@ class CircleActivity : AppCompatActivity() {
                     "Also shared: the children from the profile (name, birthday, picture and film character), films you made (whole) and the children's Pitzki films. A child the other phone doesn't have is added there.")
                 val others = members.filter { it.userId != Account.id(app) }
                 val chosen = others.firstOrNull { it.userId == status.first }
-                line.text = when {
+                say(when {
                     chosen == null -> L.t("כל רגע שאחד מכם שומר יעבור אוטומטית לשני, רק לשניכם (לא לשאר המשפחה). קטעים קצרים של 10 שניות.",
                         "Every moment one of you keeps goes automatically to the other, only to the two of you (not the rest of the family). Short 10-second clips.")
                     status.second -> L.t("✓ פעיל עם ${chosen.name}: רגעים חדשים עוברים ביניכם אוטומטית.", "✓ On with ${chosen.name}: new moments go between you automatically.")
                     else -> L.t("בחרת ב${chosen.name}. עכשיו מחכים לאישור של ${chosen.name} באפליקציה.", "You chose ${chosen.name}. Waiting for ${chosen.name} to choose you in their app.")
-                }
+                })
                 if (chosen == null) card.addView(ui.hint(alsoShared, top = 4))
                 if (chosen != null && status.second) PartnerShare.turnOn(app, chosen.userId)
                 actions.addView(ui.action(if (chosen == null) L.t("לבחור את בן או בת הזוג", "Choose your partner") else L.t("להחליף", "Change")) {
@@ -405,7 +427,7 @@ class CircleActivity : AppCompatActivity() {
         val file = check(L.t("לשתף את תיק המשפחה", "Share the family file"), L.t("קבלות, מסמכים, שוברים וחיסכון של הילדים. נשמרים בשרת המשפחה, רק לשניכם (הרשאות, לא הצפנה מקצה לקצה).", "Receipts, documents, vouchers and the children's savings. Kept on the family's server, only for the two of you (permissions, not end-to-end encryption)."), FamilyFileSync.on(app))
         box.addView(ui.action(L.t("מה בדיוק עובר בתיק ›", "What exactly the file shares ›")) {
             // Both: what the file is (agreed to by ticking) and what sharing it means.
-            AlertDialog.Builder(this).setMessage(FamilyFile.consentText() + "\n\n" + FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
+            AlertDialog.Builder(this).setTitle(L.t("מה עובר בתיק המשפחה", "What the family file shares")).setMessage(FamilyFile.consentText() + "\n\n" + FamilyFileSync.shareConsentText(whoName)).setPositiveButton(L.t("הבנתי", "Got it"), null).show()
         })
         val notify = check(L.t("התראה כשמגיע משהו חדש מ$whoName", "Notify me when $whoName shares something"), L.t("רגע חדש או פריט חדש בתיק, תוך כרבע שעה.", "A new moment or file item, within about 15 minutes."), true)
         AlertDialog.Builder(this)
@@ -450,13 +472,13 @@ class CircleActivity : AppCompatActivity() {
 
     private fun circleHome() {
         val head = ui.card(top = 14)
-        head.addView(ui.text(Circle.name(this), 20f, bold = true))
+        head.addView(ui.text(Circle.name(this), 20f, bold = true).apply { A11y.heading(this) })
         head.addView(ui.hint(L.t("הזיכרונות משותפים לכל החברים המאושרים במעגל", "Memories are shared with all approved circle members"), top = 2))
         head.addView(ui.button(L.t("שיחה במשפחה", "Family chat"), top = 8) { FamilyChatActivity.open(this) })
         head.addView(ui.button(L.t("הזמינו את המשפחה", "Invite your family"), primary = true, top = 12) { invite() })
         head.addView(ui.button(L.t("שתפו רגע ששמרתם", "Share a saved moment"), top = 8) { pickMoment() })
         val row = ui.horizontal(top = 4)
-        row.addView(ui.action(L.t("תמונה או סרטון", "Photo or video")) { AlertDialog.Builder(this).setItems(arrayOf(L.t("תמונה", "Photo"), L.t("סרטון", "Video"))) { _, i -> pick.launch(if (i == 0) "image/*" else "video/*") }.show() })
+        row.addView(ui.action(L.t("תמונה או סרטון", "Photo or video")) { AlertDialog.Builder(this).setTitle(L.t("מה לשתף מהגלריה?", "Share what from the gallery?")).setItems(arrayOf(L.t("תמונה", "Photo"), L.t("סרטון", "Video"))) { _, i -> pick.launch(if (i == 0) "image/*" else "video/*") }.show() })
         row.addView(ui.action(L.t("השם שלי", "My name")) { editMe() })
         row.addView(ui.action(L.t("רענון", "Refresh")) { load(); toast(L.t("מרענן...", "Refreshing...")) })
         head.addView(row)
@@ -469,8 +491,18 @@ class CircleActivity : AppCompatActivity() {
         })
         content.addView(head)
         partnerCard()
-        if (busyText.isNotEmpty()) content.addView(ui.hint(busyText, top = 10).also { mv.pulse(it) })
-        if (error.isNotEmpty()) content.addView(ui.hint(error, top = 10))
+        // Still text (no blinking), read out by itself; a small spinner shows it's working.
+        if (busyText.isNotEmpty()) {
+            val busyRow = ui.horizontal(top = 10)
+            busyRow.addView(android.widget.ProgressBar(this).apply {
+                isIndeterminate = true
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                layoutParams = LinearLayout.LayoutParams(ui.dp(20), ui.dp(20)).apply { marginEnd = ui.dp(8) }
+            })
+            busyRow.addView(ui.hint(busyText, top = 0).apply { A11y.live(this) })
+            content.addView(busyRow)
+        }
+        if (error.isNotEmpty()) content.addView(errorLine(error))
 
         val f = feed
         if (f == null) {
@@ -481,7 +513,7 @@ class CircleActivity : AppCompatActivity() {
             val e = ui.card(top = 18)
             e.gravity = Gravity.CENTER_HORIZONTAL
             e.addView(android.widget.ImageView(this).apply { setImageResource(R.drawable.ic_heart_outline); setColorFilter(androidx.core.content.ContextCompat.getColor(this@CircleActivity, R.color.ink)); layoutParams = android.widget.LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)).apply { gravity = android.view.Gravity.CENTER_HORIZONTAL } })
-            e.addView(ui.text(L.t("עדיין אין כאן רגעים", "No moments here yet"), 19f, bold = true, top = 6).apply { gravity = Gravity.CENTER })
+            e.addView(ui.text(L.t("עדיין אין כאן רגעים", "No moments here yet"), 19f, bold = true, top = 6).apply { gravity = Gravity.CENTER; A11y.heading(this) })
             e.addView(ui.text(L.t("פתחו רגע ולחצו \"שתף למעגל המשפחה\", או שתפו תמונה מהגלריה.", "Open a moment and tap \"Share to family circle\", or share a photo from your gallery."), 15f, R.color.ink_soft, top = 6).apply { gravity = Gravity.CENTER })
             content.addView(e)
             return
@@ -555,6 +587,8 @@ class CircleActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(mv.dp(64), mv.dp(64), Gravity.CENTER)
         })
         media.setOnClickListener { openMedia(p) }
+        media.contentDescription = (if (p.kind == "photo") L.t("פתיחת התמונה: ", "Open the photo: ") else L.t("ניגון הסרטון: ", "Play the video: ")) + p.title.ifBlank { p.author }
+        A11y.button(media)
         box.addView(media)
 
         val body = LinearLayout(this).apply {
@@ -568,12 +602,16 @@ class CircleActivity : AppCompatActivity() {
             typeface = DS.heading
             setTextColor(ContextCompat.getColor(this@CircleActivity, R.color.ink))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            A11y.heading(this)
         })
         if (p.authorId.isNotEmpty() && p.authorId == Account.id(this)) titleRow.addView(TextView(this).apply {
             text = "⋯"
             textSize = 22f
+            gravity = Gravity.CENTER
+            minWidth = mv.dp(48); minHeight = mv.dp(48)
             setTextColor(ContextCompat.getColor(this@CircleActivity, R.color.ink_soft))
-            setPadding(mv.dp(12), 0, mv.dp(4), mv.dp(4))
+            contentDescription = L.t("אפשרויות לרגע: ", "Options for the moment: ") + p.title
+            A11y.button(this)
             setOnClickListener { v -> postMenu(v, p) }
         })
         body.addView(titleRow)
@@ -599,9 +637,17 @@ class CircleActivity : AppCompatActivity() {
             val all = f.reactions.filter { it.postId == p.id && it.emoji == e }
             val mine = all.any { it.authorId.isNotEmpty() && it.authorId == Account.id(this) }
             reacts.addView(mv.tag(e + if (all.isNotEmpty()) " ${all.size}" else "").apply {
+                // Yours: a strong outline (not only a slightly different fill), and said in words with who reacted.
                 if (mine) background = android.graphics.drawable.GradientDrawable().apply {
                     cornerRadius = DS.radiusMedia(this@CircleActivity); setColor(DS.buttonSecondary(this@CircleActivity))
+                    setStroke(mv.dp(2), DS.buttonPressed(this@CircleActivity))
                 }
+                minHeight = mv.dp(48); minWidth = mv.dp(48); gravity = Gravity.CENTER
+                isSelected = mine
+                contentDescription = emojiName(e) + ", ${all.size}" +
+                    (if (mine) L.t(", סימנתם. לחיצה מבטלת", ", yours. Tap to remove") else "") +
+                    (if (all.isNotEmpty()) L.t(". הגיבו: ", ". Reacted: ") + all.joinToString(", ") { r -> r.member } else "")
+                A11y.button(this)
                 setOnClickListener {
                     scaleX = 0.8f; scaleY = 0.8f
                     animate().scaleX(1f).scaleY(1f).setDuration(200).start()
@@ -614,13 +660,24 @@ class CircleActivity : AppCompatActivity() {
             })
         }
         val cs = f.comments.filter { it.postId == p.id }
-        reacts.addView(mv.tag(if (cs.isEmpty()) L.t("תגובה", "Comment") else L.t("${cs.size} תגובות", "${cs.size} comments")).apply { setOnClickListener { addComment(p) } })
+        reacts.addView(mv.tag(if (cs.isEmpty()) L.t("תגובה", "Comment") else L.t("${cs.size} תגובות", "${cs.size} comments")).apply {
+            minHeight = mv.dp(48); gravity = Gravity.CENTER
+            contentDescription = L.t("הוספת תגובה", "Add a comment") + if (cs.isEmpty()) "" else L.t(", ${cs.size} תגובות", ", ${cs.size} comments")
+            A11y.button(this)
+            setOnClickListener { addComment(p) }
+        })
         body.addView(ui.scrollRow(reacts, top = 12))
         for (c in cs.takeLast(5)) body.addView(ui.text("${c.member}: ${c.body}", 15f, top = 6))
         if (cs.size > 5) body.addView(ui.action(L.t("כל ${cs.size} התגובות", "All ${cs.size} comments")) { showComments(p, cs) })
-        body.addView(ui.action(L.t("שיחה על הזיכרון", "Chat about this memory")) { FamilyChatActivity.open(this, p.id, p.title) })
+        body.addView(ui.action(L.t("שיחה על הזיכרון", "Chat about this memory")) { FamilyChatActivity.open(this, p.id, p.title) }.apply {
+            contentDescription = L.t("שיחה על הזיכרון: ", "Chat about: ") + p.title.ifBlank { p.author }
+            setTag(R.id.tagA11yKey, "chat:${p.id}")
+        })
         box.addView(body)
-        if (p.authorId.isNotEmpty() && p.authorId == Account.id(this)) box.setOnLongClickListener { postMenu(it, p); true }
+        if (p.authorId.isNotEmpty() && p.authorId == Account.id(this)) {
+            box.setOnLongClickListener { postMenu(it, p); true }
+            A11y.longPress(box, L.t("אפשרויות לרגע", "Moment options"))
+        }
         return box
     }
 
@@ -677,9 +734,10 @@ class CircleActivity : AppCompatActivity() {
                 if (Circle.wasShared(this@CircleActivity, m)) {
                     frame.addView(TextView(this@CircleActivity).apply {
                     text = L.t("שותף", "Shared")
-                    textSize = 11f
+                    textSize = 12f
                     setTextColor(DS.onPhoto(context))
-                    setBackgroundResource(R.drawable.pill_dark)
+                    // A dark enough pill to read on any picture.
+                    background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = mv.dp(10).toFloat(); setColor(ContextCompat.getColor(context, R.color.ds_photo_scrim_strong)) }
                     setPadding(mv.dp(8), mv.dp(3), mv.dp(8), mv.dp(3))
                     layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
                         setMargins(mv.dp(6), mv.dp(6), mv.dp(6), mv.dp(6))
@@ -701,6 +759,8 @@ class CircleActivity : AppCompatActivity() {
                     setTextColor(ContextCompat.getColor(this@CircleActivity, R.color.ink_soft))
                     setPadding(mv.dp(2), 0, mv.dp(2), 0)
                 })
+                contentDescription = Fmt.title(m) + ", " + Fmt.dayTime(m.time) + if (Circle.wasShared(this@CircleActivity, m)) L.t(", כבר שותף", ", already shared") else ""
+                A11y.button(this)
                 setOnClickListener {
                     dialog.dismiss()
                     ShareActivity.share(this@CircleActivity, m.id)
@@ -713,16 +773,12 @@ class CircleActivity : AppCompatActivity() {
 
     private fun openMedia(p: Circle.Post) {
         if (p.pitzki) { PitzkiActivity.open(this); return }
-        try {
-            val type = if (p.kind == "photo") "image/*" else "video/*"
-            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(p.video), type))
-        } catch (_: Exception) {
-            toast(L.t("אין באפליקציה נגן מתאים", "No compatible player found"))
-        }
+        // Opens right here (no list of other apps to choose from).
+        MediaViewerActivity.open(this, p.video, photo = p.kind == "photo", title = p.title)
     }
 
     private fun addComment(p: Circle.Post) {
-        val field = ui.field(L.t("כתבו משהו...", "Write something..."), "")
+        val field = ui.field(L.t("כתבו משהו...", "Write something..."), "", multiline = true)
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(mv.dp(20), mv.dp(8), mv.dp(20), 0)
@@ -731,7 +787,7 @@ class CircleActivity : AppCompatActivity() {
         AlertDialog.Builder(this).setTitle(p.title.ifEmpty { L.t("תגובה", "Comment") }).setView(box)
             .setPositiveButton(L.t("שלח", "Send")) { _, _ ->
                 val text = field.text.toString().trim()
-                if (text.isEmpty()) return@setPositiveButton
+                if (text.isEmpty()) { toast(L.t("התגובה ריקה, ולכן לא נשלחה.", "The comment is empty, so it wasn't sent.")); return@setPositiveButton }
                 worker.execute {
                     val failure = try { Circle.comment(applicationContext, p.id, text); null } catch (e: Exception) { e.message ?: L.t("התגובה לא נשלחה", "Comment wasn't sent") }
                     runOnUiThread { if (!isDestroyed) { if (failure != null) toast(failure); load() } }
@@ -748,7 +804,7 @@ class CircleActivity : AppCompatActivity() {
     }
 
     private fun editMe() {
-        val field = ui.field(L.t("איך תרצו להופיע למשפחה?", "How should your family see your name?"), Circle.me(this))
+        val field = ui.field(L.t("איך תרצו להופיע למשפחה?", "How should your family see your name?"), Circle.me(this), kind = Ui.Kind.NAME)
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(mv.dp(20), mv.dp(8), mv.dp(20), 0)

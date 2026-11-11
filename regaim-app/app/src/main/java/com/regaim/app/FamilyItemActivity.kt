@@ -244,19 +244,19 @@ class FamilyItemActivity : AppCompatActivity() {
 
         content.addView(ui.section(if (!isNew && FamilyItems.isWallet(item)) L.t("עריכת פרטים", "Edit the details") else L.t("מה זה?", "What is it?")))
         val kinds = FamilyItems.Kind.values().toList()
-        content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(item.kind), top = 6) { i -> fromFields(); item = item.copy(kind = kinds[i]); render() })
+        content.addView(ui.chips(kinds.map { it.label }, kinds.indexOf(item.kind), top = 6, label = L.t("סוג הפריט", "Kind of item")) { i -> fromFields(); item = item.copy(kind = kinds[i]); render() })
 
         val kids = children()
         if (kids.isNotEmpty()) {
-            content.addView(ui.text(L.t("של מי?", "Whose?"), 15f, bold = true, top = 14))
+            content.addView(ui.text(L.t("של מי?", "Whose?"), 15f, bold = true, top = 14).apply { A11y.heading(this) })
             val names = listOf(L.t("כל המשפחה", "The whole family")) + kids.map { it.name }
             val sel = kids.indexOfFirst { it.id == item.child }.let { if (it < 0) 0 else it + 1 }
-            content.addView(ui.chips(names, sel, top = 6) { i -> fromFields(); item = item.copy(child = if (i == 0) "" else kids[i - 1].id); render() })
+            content.addView(ui.chips(names, sel, top = 6, label = L.t("של מי", "Whose")) { i -> fromFields(); item = item.copy(child = if (i == 0) "" else kids[i - 1].id); render() })
         }
 
         // For what: the parent picks where it's filed (receipts, documents, warranties).
         if (item.kind == FamilyItems.Kind.RECEIPT || item.kind == FamilyItems.Kind.DOCUMENT || item.kind == FamilyItems.Kind.WARRANTY) {
-            content.addView(ui.text(L.t("קטגוריה", "Category"), 15f, bold = true, top = 14))
+            content.addView(ui.text(L.t("קטגוריה", "Category"), 15f, bold = true, top = 14).apply { A11y.heading(this) })
             content.addView(categoryPicker())
         }
 
@@ -285,15 +285,24 @@ class FamilyItemActivity : AppCompatActivity() {
                     L.t("30 יום", "30 days") to { d: String -> FamilyItems.plusDays(d, 30) },
                     L.t("60 יום", "60 days") to { d: String -> FamilyItems.plusDays(d, 60) },
                 )
-                content.addView(ui.chips(opts.map { it.first }, -1, top = 6) { n ->
-                    fromFields()
-                    val from = item.date.ifEmpty { java.time.LocalDate.now().toString() }
-                    item = item.copy(date = from, expires = opts[n].second(from)); render()
-                })
+                // One-time actions ("set it to a year"), so buttons, not a choice that stays selected.
+                val quick = ui.horizontal(top = 6)
+                opts.forEach { (label, plus) ->
+                    quick.addView(ui.action(label) {
+                        fromFields()
+                        val from = item.date.ifEmpty { java.time.LocalDate.now().toString() }
+                        item = item.copy(date = from, expires = plus(from)); render()
+                        content.announceForAccessibility(L.t("התוקף עודכן: ", "Valid until: ") + FamilyItems.short(item.expires))
+                    }.apply {
+                        minHeight = ui.dp(48); minWidth = ui.dp(48); setPadding(ui.dp(10), 0, ui.dp(10), 0)
+                        contentDescription = (if (warranty) L.t("אחריות ל", "Warranty for ") else L.t("החלפה עד ", "Exchange within ")) + label
+                    })
+                }
+                content.addView(quick)
             }
         } else fExpires = null
         if (voucher) {
-            fCode = ui.field(L.t("קוד / מספר כרטיס", "Code / card number"), item.code)
+            fCode = ui.field(L.t("קוד או מספר כרטיס", "Code / card number"), item.code, kind = Ui.Kind.CODE)
             fBalance = ui.field(L.t("יתרה ידועה ב-₪ (אם יש)", "Known balance in ₪ (if any)"), item.balance?.let { FamilyItems.money(it).removeSuffix(" ₪") }.orEmpty()).apply {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             }
@@ -380,8 +389,17 @@ class FamilyItemActivity : AppCompatActivity() {
     private fun save() {
         fromFields()
         val badDate = listOf(fDate, fExpires).any { f -> f != null && f.text.isNotBlank() && FamilyItems.cleanDate(f.text.toString()).isEmpty() }
-        if (badDate) { Toast.makeText(this, L.t("תאריך לא תקין. כותבים יום.חודש.שנה, למשל 1.10.2026", "That date isn't valid. Write day.month.year, e.g. 1.10.2026"), Toast.LENGTH_LONG).show(); return }
-        if (item.title.isBlank() && item.vendor.isBlank()) { Toast.makeText(this, L.t("כתבו כותרת או ממי זה", "Add a title or who it's from"), Toast.LENGTH_SHORT).show(); return }
+        // The error on the field itself: shown there, focused, and read out (a toast disappears and says nothing of where).
+        if (badDate) {
+            val bad = listOf(fDate, fExpires).first { f -> f != null && f.text.isNotBlank() && FamilyItems.cleanDate(f.text.toString()).isEmpty() }!!
+            ErrorLine.field(bad, L.t("תאריך לא תקין. כותבים יום.חודש.שנה, למשל 1.10.2026", "That date isn't valid. Write day.month.year, e.g. 1.10.2026"))
+            return
+        }
+        if (item.title.isBlank() && item.vendor.isBlank()) {
+            fTitle?.let { ErrorLine.field(it, L.t("כתבו כותרת או ממי זה (אחד מהם חובה)", "Add a title or who it's from (one of them is required)")) }
+                ?: Toast.makeText(this, L.t("כתבו כותרת או ממי זה", "Add a title or who it's from"), Toast.LENGTH_LONG).show()
+            return
+        }
         val dup = if (isNew) FamilyItems.duplicateOf(FamilyFile.all(this), item) else null
         if (dup != null) {
             AlertDialog.Builder(this)
@@ -470,9 +488,11 @@ class FamilyItemActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
             }
             fun pill(label: String, onClick: () -> Unit) = TextView(this@FamilyItemActivity).apply {
-                text = label; textSize = 14f; setTextColor(DS.primary(this@FamilyItemActivity)); typeface = DS.emphasis; gravity = android.view.Gravity.CENTER
+                // The darker blue on the light-blue pill (5.95:1; the brand blue was 4.40:1).
+                text = label; textSize = 14f; setTextColor(DS.buttonPressed(this@FamilyItemActivity)); typeface = DS.emphasis; gravity = android.view.Gravity.CENTER
                 background = DS.rounded(DS.selected(this@FamilyItemActivity), ui.dp(12).toFloat())
-                setPadding(ui.dp(14), ui.dp(9), ui.dp(14), ui.dp(9)); minHeight = ui.dp(44)
+                setPadding(ui.dp(14), ui.dp(9), ui.dp(14), ui.dp(9)); minHeight = ui.dp(48)
+                A11y.button(this)
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = ui.dp(8) }
                 setOnClickListener { onClick() }
             }

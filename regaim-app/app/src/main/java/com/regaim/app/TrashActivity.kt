@@ -87,7 +87,7 @@ class TrashActivity : AppCompatActivity() {
             setColorFilter(ui.color(R.color.accent))
             setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10))
             contentDescription = L.t("שחזור", "Restore")
-            layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44))
+            layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
             setOnClickListener { restore(setOf(m.id)) }
         })
         card.addView(ImageView(this).apply {
@@ -95,7 +95,7 @@ class TrashActivity : AppCompatActivity() {
             setColorFilter(ui.color(R.color.ink_soft))
             setPadding(ui.dp(11), ui.dp(11), ui.dp(11), ui.dp(11))
             contentDescription = L.t("מחיקה לצמיתות", "Delete forever")
-            layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44))
+            layoutParams = LinearLayout.LayoutParams(ui.dp(48), ui.dp(48))
             setOnClickListener { confirmForever(setOf(m.id)) }
         })
         return card

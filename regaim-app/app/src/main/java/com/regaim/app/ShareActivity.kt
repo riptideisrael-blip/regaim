@@ -137,6 +137,9 @@ class ShareActivity : AppCompatActivity() {
                 setMinSeparationValue(2000f)
                 isEnabled = recut
                 layoutDirection = View.LAYOUT_DIRECTION_LTR
+                // Said as times ("0:12"), not raw milliseconds, and with a name.
+                setLabelFormatter { fmt(it) }
+                contentDescription = L.t("הקטע לשיתוף", "The clip to share")
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(6) }
             }
             var last = listOf(a, b)
@@ -166,10 +169,20 @@ class ShareActivity : AppCompatActivity() {
             content.addView(labels)
             showLabels()
             range = r
-            content.addView(ui.button(L.t("▶ נגן את הקטע", "▶ Play clip"), top = 4) {
-                val vs = r.values
-                if (vs.size >= 2) { v.seekTo(vs[0].toInt()); v.start() }
-            })
+            // Play, and pause again (the same button).
+            lateinit var playBtn: com.google.android.material.button.MaterialButton
+            playBtn = ui.button(L.t("▶ נגן את הקטע", "▶ Play clip"), top = 4) {
+                if (v.isPlaying) {
+                    v.pause()
+                    playBtn.text = L.t("▶ נגן את הקטע", "▶ Play clip")
+                } else {
+                    val vs = r.values
+                    if (vs.size >= 2) { v.seekTo(vs[0].toInt()); v.start() }
+                    playBtn.text = L.t("⏸ השהיה", "⏸ Pause")
+                }
+            }
+            v.setOnCompletionListener { playBtn.text = L.t("▶ נגן את הקטע", "▶ Play clip") }
+            content.addView(playBtn)
             v.setOnPreparedListener { mp -> mp.isLooping = false; v.seekTo(a.toInt()) }
             v.setOnErrorListener { _, _, _ -> true }
             v.setVideoURI(if (m.uri.startsWith("content://")) Uri.parse(m.uri) else Uri.parse("file://" + m.uri))
@@ -180,7 +193,9 @@ class ShareActivity : AppCompatActivity() {
         // ---- words ----
         content.addView(ui.hint(L.t("השיתוף יופיע לכל החברים המאושרים במעגל שלכם. בחירת אנשים מסוימים עדיין אינה זמינה.", "This will be shared with all approved members of your circle. Choosing specific people isn't available yet."), top = 14))
         content.addView(ui.section(L.t("כמה מילים", "A few words")))
-        val title = ui.field(L.t("כותרת", "Title"), p?.title ?: m?.let { Fmt.title(it) } ?: "")
+        // A visible label: the title comes filled in, so its hint alone isn't seen.
+        content.addView(ui.text(L.t("כותרת", "Title"), 14f, R.color.ink_soft, top = 8).apply { setTag(R.id.tagA11yLabel, true) })
+        val title = ui.field(L.t("כותרת", "Title"), p?.title ?: m?.let { Fmt.title(it) } ?: "", top = 4)
         content.addView(title)
         val caption = ui.field(L.t("מה תרצו לספר למשפחה? (למשל: הפעם הראשונה שהוא...)", "What would you like to tell the family? (e.g. the first time he...)"), p?.caption ?: "", multiline = true)
         content.addView(caption)
@@ -192,7 +207,7 @@ class ShareActivity : AppCompatActivity() {
         // ---- style + preview ----
         content.addView(ui.section(L.t("עיצוב", "Style")))
         val names = Circle.STYLES.map { it.second }
-        content.addView(ui.chips(names, Circle.STYLES.indexOfFirst { it.first == style }.coerceAtLeast(0), top = 8) { i ->
+        content.addView(ui.chips(names, Circle.STYLES.indexOfFirst { it.first == style }.coerceAtLeast(0), top = 8, label = L.t("עיצוב", "Style")) { i ->
             style = Circle.STYLES[i].first
             applyPreview()
         })
@@ -214,7 +229,9 @@ class ShareActivity : AppCompatActivity() {
             textSize = 16f
             setTextColor(Color.WHITE)
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
-            setPadding(ui.dp(16), 0, ui.dp(16), ui.dp(14))
+            // On a dark band of its own, so it reads on any picture and at any font size.
+            setPadding(ui.dp(16), ui.dp(10), ui.dp(16), ui.dp(14))
+            setBackgroundColor(androidx.core.content.ContextCompat.getColor(this@ShareActivity, R.color.ds_photo_scrim_strong))
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
         }
         card.addView(previewCaption)
@@ -238,7 +255,7 @@ class ShareActivity : AppCompatActivity() {
             send(d)
         })
         if (p != null) {
-            content.addView(ui.action(L.t("🗑 מחק מהמעגל", "🗑 Remove from circle"), R.color.danger) {
+            content.addView(ui.action(L.t("מחיקה מהמעגל", "Remove from circle"), R.color.danger) {
                 AlertDialog.Builder(this).setTitle(L.t("למחוק את הרגע מהמעגל?", "Remove this moment from the circle?"))
                     .setMessage(L.t("הוא יימחק מהמעגל לכולם. הרגע עצמו נשאר אצלך בטלפון.", "It will be removed for everyone in the circle. The moment itself stays on your phone."))
                     .setPositiveButton(L.t("מחק", "Remove")) { _, _ ->

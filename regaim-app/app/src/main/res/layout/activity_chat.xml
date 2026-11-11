@@ -34,6 +34,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:text="@string/ask_title"
+                android:accessibilityHeading="true"
                 android:textColor="@color/ink"
                 android:textSize="24sp"
                 android:textStyle="bold" />
@@ -53,6 +54,9 @@
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackground"
             android:padding="12dp"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
+            android:gravity="center"
             android:text="@string/key_btn"
             android:textColor="@color/ink_soft"
             android:textSize="15sp" />

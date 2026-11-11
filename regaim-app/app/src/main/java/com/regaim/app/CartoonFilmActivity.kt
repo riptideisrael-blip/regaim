@@ -102,7 +102,16 @@ class CartoonFilmActivity : AppCompatActivity() {
         ticker.removeCallbacks(tick)
         val s = session
         shownState = s?.state
-        content.addView(ui.text(L.t("הרגע הזה, כסרט אנימציה", "This moment, as an animated film"), 19f, bold = true, top = 14))
+        content.addView(ui.text(L.t("הרגע הזה, כסרט אנימציה", "This moment, as an animated film"), 19f, bold = true, top = 14).apply { A11y.heading(this) })
+        // A new step is said (the screen was redrawn).
+        if (s != null) content.announceForAccessibility(when (s.state) {
+            CartoonFilm.Session.State.PREPARING -> L.t("שלב 1 מתוך 2: מציירים את הדמויות", "Step 1 of 2: drawing the characters")
+            CartoonFilm.Session.State.LOOK -> L.t("הדמויות מוכנות לאישור", "The characters are ready to approve")
+            CartoonFilm.Session.State.FILMING -> L.t("שלב 2 מתוך 2: הסרט בהכנה", "Step 2 of 2: making the film")
+            CartoonFilm.Session.State.DONE -> L.t("הסרט מוכן", "The film is ready")
+            CartoonFilm.Session.State.FAILED -> L.t("הסרט לא הצליח", "The film didn't work")
+            else -> ""
+        })
 
         when (s?.state) {
             null, CartoonFilm.Session.State.CANCELLED -> renderStart()
@@ -115,8 +124,8 @@ class CartoonFilmActivity : AppCompatActivity() {
     }
 
     private fun intro() = L.t(
-        "אנחנו מציירים את הרגע מחדש כדמויות אנימציה בתלת-ממד, בסגנון סרטי פיקסאר: סרט של ${CartoonFilm.seconds(memory)} שניות, עם הקולות מהרגע עצמו. קודם תאשרו איך הדמויות נראות, ורק אז נכין את הסרט. אפשר להאריך אחר כך.",
-        "We redraw the moment as 3D animated characters, Pixar-movie style: a ${CartoonFilm.seconds(memory)}-second film, with the moment's own sound. First you approve how the characters look, then we make the film. You can make it longer afterwards.")
+        "אנחנו מציירים את הרגע מחדש כדמויות אנימציה בתלת-ממד: סרט של ${CartoonFilm.seconds(memory)} שניות, עם הקולות מהרגע עצמו. קודם תאשרו איך הדמויות נראות, ורק אז נכין את הסרט. אפשר להאריך אחר כך.",
+        "We redraw the moment as 3D animated characters: a ${CartoonFilm.seconds(memory)}-second film, with the moment's own sound. First you approve how the characters look, then we make the film. You can make it longer afterwards.")
 
     private fun renderStart() {
         content.addView(ui.hint(intro(), top = 6))
@@ -158,7 +167,7 @@ class CartoonFilmActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(size, size).apply { topMargin = ui.dp(18); gravity = android.view.Gravity.CENTER_HORIZONTAL }
         }
         content.addView(ring)
-        statusText = ui.text(s.status, 15f, top = 14).apply { gravity = android.view.Gravity.CENTER }
+        statusText = ui.text(s.status, 15f, top = 14).apply { gravity = android.view.Gravity.CENTER; A11y.live(this) }
         content.addView(statusText)
         ticker.post(tick)
         if (s.state == CartoonFilm.Session.State.FILMING)
@@ -198,7 +207,10 @@ class CartoonFilmActivity : AppCompatActivity() {
                     setImageBitmap(b)
                     setBackgroundResource(R.drawable.rounded_media)
                     clipToOutline = true
-                    alpha = if (i == s.chosenLook) 1f else 0.55f
+                    // Which one is chosen: a frame (below) and said in words, not only by fading the others.
+                    contentDescription = L.t("ציור ${i + 1} מתוך ${all.size}", "Drawing ${i + 1} of ${all.size}")
+                    A11y.choice(this, i, all.size) { i == s.chosenLook }
+                    alpha = if (i == s.chosenLook) 1f else 0.7f
                     setPadding(if (i == s.chosenLook) ui.dp(3) else 0, if (i == s.chosenLook) ui.dp(3) else 0, if (i == s.chosenLook) ui.dp(3) else 0, if (i == s.chosenLook) ui.dp(3) else 0)
                     background = android.graphics.drawable.GradientDrawable().apply {
                         cornerRadius = ui.dp(12).toFloat()
@@ -220,7 +232,9 @@ class CartoonFilmActivity : AppCompatActivity() {
             s.makeFilm(mood, voices && memory.isVideo)
         })
         if (s.redrawsLeft > 0) content.addView(ui.button(L.t("ציירו שוב (עוד ${s.redrawsLeft})", "Draw again (${s.redrawsLeft} left)"), top = 6) { s.redraw() })
-        content.addView(ui.action(L.t("ביטול (הקרדיט יחזור)", "Cancel (credit returned)"), R.color.danger) { s.cancel(); session = null; render() }
+        content.addView(ui.action(L.t("ביטול (הקרדיט יחזור)", "Cancel (credit returned)"), R.color.danger) {
+            A11y.confirm(this, L.t("לבטל את הסרט? הציורים יימחקו והקרדיט יחזור.", "Cancel the film? The drawings are deleted and the credit returned."), L.t("ביטול הסרט", "Cancel film")) { s.cancel(); session = null; render() }
+        }
             .apply { setPadding(0, ui.dp(14), 0, 0) })
     }
 
@@ -239,11 +253,15 @@ class CartoonFilmActivity : AppCompatActivity() {
                 clipToOutline = true
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, boxH).apply { topMargin = ui.dp(10) }
             }
-            box.addView(VideoView(this).apply {
+            // Doesn't start by itself (its sound would talk over a screen reader): play / pause / seek with the controls.
+            val player = VideoView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT, android.view.Gravity.CENTER)
                 setVideoPath(file.absolutePath)
-                setOnPreparedListener { it.isLooping = true; start() }
-            })
+                setOnPreparedListener { seekTo(1) }
+            }
+            box.addView(player)
+            A11y.videoControls(player, box, L.t("הסרט המצויר. לחצו לניגון", "The animated film. Tap to play"))
+            player.setOnClickListener { if (player.isPlaying) player.pause() else player.start() }
             content.addView(box)
         }
         val savedId = s.savedId
@@ -334,7 +352,9 @@ class CartoonFilmActivity : AppCompatActivity() {
 
 /** A round progress indicator: a ring that fills clockwise around a circular picture, with the percent in the middle. */
 private class ProgressRing(ctx: Context, private val picture: android.graphics.Bitmap?) : View(ctx) {
+    /** Drawn, and said to a screen reader as "45 percent". */
     var percent = 0
+        set(v) { field = v; contentDescription = L.t("הושלמו $v אחוז", "$v percent done") }
     private val d = ctx.resources.displayMetrics.density
     private val track = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE; strokeWidth = 10 * d; color = 0x22000000
@@ -346,7 +366,7 @@ private class ProgressRing(ctx: Context, private val picture: android.graphics.B
     private val shade = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0x66000000 }
     private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEEF3F9.toInt() }
     private val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = android.graphics.Paint.Align.CENTER; textSize = 30 * d; isFakeBoldText = true
+        textAlign = android.graphics.Paint.Align.CENTER; textSize = 30 * ctx.resources.displayMetrics.scaledDensity; isFakeBoldText = true
     }
     private val picPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
     private val box = android.graphics.RectF()

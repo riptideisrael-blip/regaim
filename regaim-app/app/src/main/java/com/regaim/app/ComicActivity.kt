@@ -115,7 +115,8 @@ class ComicActivity : AppCompatActivity() {
                     if (list.size > 1) Toast.makeText(this, L.t("נוצרו ${list.size} גרסאות. בחר את זאת שאתה אוהב למטה", "${list.size} versions ready. Pick your favorite below"), Toast.LENGTH_LONG).show()
                     if (!ClaudeClient.hasKey(this)) Toast.makeText(this, L.t("עם מפתח Claude הקומיקס יקבל גם סיפור וטקסטים", "Add a Claude key to give your comic a story and captions"), Toast.LENGTH_LONG).show()
                 }.onFailure { e ->
-                    status.text = L.t("לא הצלחתי לצייר: ${e.message}", "Couldn't draw the comic: ${e.message}")
+                    android.util.Log.w("Comic", "failed", e)
+                    status.text = L.t("לא הצלחנו לצייר את הקומיקס. בדקו את החיבור ונסו שוב.", "Couldn't draw the comic. Check the connection and try again.")
                 }
             }
         }
@@ -125,6 +126,10 @@ class ComicActivity : AppCompatActivity() {
         val m = made.getOrNull(i) ?: return
         selected = i
         image.setImageBitmap(BitmapFactory.decodeFile(m.file.absolutePath))
+        // The comic is a picture with words in it: at least its title and page are said (it used to be hidden).
+        image.contentDescription = L.t("קומיקס", "Comic") + (if (m.title.isNotBlank()) ": ${m.title}" else "") +
+            (if (m.page > 0) L.t(", עמוד ${m.page + 1}", ", page ${m.page + 1}") else "")
+        image.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         renderVersions()
     }
 
@@ -145,11 +150,16 @@ class ComicActivity : AppCompatActivity() {
                     setColor(if (i == selected) 0xFFFFE9A8.toInt() else 0x33FFFFFF)
                 }
                 layoutParams = LinearLayout.LayoutParams((54 * d).toInt(), (96 * d).toInt()).apply { marginEnd = (8 * d).toInt() }
+                // The chosen version is said as selected (it was shown only by the yellow frame).
+                contentDescription = (if (m.page > 0) L.t("עמוד ${m.page + 1}", "Page ${m.page + 1}") else L.t("גרסה ${i + 1}", "Version ${i + 1}")) +
+                    (if (m.file.absolutePath in saved) L.t(", נשמר", ", saved") else "")
+                A11y.choice(this, i, made.size) { i == selected }
                 setOnClickListener { select(i) }
             }
             val label = TextView(this).apply {
                 text = (if (m.page > 0) L.t("עמ׳ ${m.page + 1}", "Page ${m.page + 1}") else L.t("גרסה ${i + 1}", "Version ${i + 1}")) + if (m.file.absolutePath in saved) " ✓" else ""
-                textSize = 11f
+                textSize = 12f
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 setTextColor(0xFFE4ECF6.toInt())
             }
             versionsRow.addView(LinearLayout(this).apply {

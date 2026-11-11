@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>מחיקת חשבון · Moments</title>
-<meta name="theme-color" content="#FAF8F5">
+<meta name="theme-color" content="#F7F9FC">
 <style>
-  :root { --bg: #FAF8F5; --ink: #1F1D2B; --soft: #6E6A80; --line: #ECE7E1; --accent: #5B4FE0; }
+  :root { --bg: #F7F9FC; --ink: #0F1B2D; --soft: #4F5B6D; --line: #DDE4EE; --accent: #1A62B8; --error: #B3261E; }
   * { box-sizing: border-box; }
   body { margin: 0 auto; max-width: 640px; padding: 28px 16px 64px; background: var(--bg); color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", Arial, sans-serif; line-height: 1.6; }
   h1 { font-size: 26px; margin: 0 0 6px; }
-  h2 { font-size: 18px; margin: 28px 0 6px; }
+  h2, h3 { font-size: 18px; margin: 28px 0 6px; }
+  h2.big { font-size: 26px; margin: 0 0 6px; }
   p, li { font-size: 16px; }
   .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; margin-top: 16px; }
   .soft { color: var(--soft); font-size: 14px; }
@@ -19,11 +20,15 @@
   hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
   [lang="en"] { direction: ltr; text-align: left; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .skip { position: absolute; inset-inline-start: -9999px; top: 8px; background: #fff; padding: 8px 12px; border-radius: 8px; min-height: 44px; display: inline-flex; align-items: center; color: var(--accent); }
+  .skip:focus { inset-inline-start: 16px; }
+  .foot a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
   .foot { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
 </style>
 </head>
 <body>
-<main>
+<a class="skip" href="#main">דילוג לתוכן</a>
+<main id="main">
 <h1>מחיקת חשבון Moments</h1>
 <p class="soft">האפליקציה Moments (com.regaim.app)</p>
 
@@ -52,6 +57,7 @@
   <li>הפריטים ששלחתם לתיק המשפחה המשותף, והקבצים שלהם.</li>
   <li>קובצי הדפסה של ספרים, דוחות קריסה ורישום העלויות של החשבון.</li>
   <li>מפתח הגיבוי. בלעדיו אי אפשר יותר לפתוח גיבוי בגוגל דרייב.</li>
+  <li>מה ששירות הציור (fal.ai) עוד שומר מבקשות ציור של החשבון: השרת שלנו מבקש ממנו למחוק. מה שלא נמחק שם מיד, נמחק אצל fal אחרי 90 יום לכל היותר.</li>
 </ul>
 <p>מעגל משפחה שאתם מנהלים עובר לבן המשפחה שהצטרף ראשון. אם אין בו אף אחד אחר, הוא נמחק עם כל הקבצים שבו.</p>
 
@@ -69,10 +75,10 @@
 
 <hr>
 
-<div lang="en">
-<h1>Delete your Moments account</h1>
+<section lang="en" aria-labelledby="en-title">
+<h2 id="en-title" class="big">Delete your Moments account</h2>
 <div class="card">
-  <h2>In the app</h2>
+  <h3>In the app</h3>
   <ol>
     <li>Open Moments and go to Settings.</li>
     <li>In the account card, tap <b>Delete account</b>.</li>
@@ -80,21 +86,22 @@
   </ol>
 </div>
 <div class="card">
-  <h2>Without the app</h2>
+  <h3>Without the app</h3>
   <p>Email <a href="mailto:yossefrevivo@gmail.com?subject=Delete%20my%20Moments%20account">yossefrevivo@gmail.com</a> from the address you signed up with,
     subject "Delete my Moments account". We'll delete it within 30 days and confirm by email.</p>
 </div>
-<h2>What is deleted</h2>
+<h3>What is deleted</h3>
 <p>Your account; the moments, photos and videos you shared to the family circle with your comments, reactions and messages; what you shared with the other parent in the shared gallery (moments, the children's pictures, Pitzki's films); the items you sent to the shared family file and their files; your community posts and books with your likes, reports and blocks; your credits, unused paid books and our purchase records; print files, crash reports and the account's cost log; and the backup key (without it a Google Drive backup can't be opened). A family circle you run passes to the member who joined first, or is deleted with its files if there's nobody else.</p>
-<h2>What is not deleted</h2>
-<p>The memories on your phone (uninstall the app to remove them); the "Moments גיבוי" folder in your Google Drive (delete it in Drive); what the other parent kept on their phone (what they shared only with you is deleted from the server, as nobody else can see it); the children's names and birthdays you added to the family circle, while it has other members; payment records at Google Play and orders at Lulu, kept under their own policies.</p>
-<h2>Grandparents and guests from the link</h2>
+<h3>What is not deleted</h3>
+<p>The memories on your phone (uninstall the app to remove them); the "<span lang="he" dir="rtl">Moments גיבוי</span>" folder in your Google Drive (delete it in Drive); what the other parent kept on their phone (what they shared only with you is deleted from the server, as nobody else can see it); the children's names and birthdays you added to the family circle, while it has other members; payment records at Google Play and orders at Lulu, kept under their own policies.</p>
+<h3>Grandparents and guests from the link</h3>
 <p>Joined the family circle from a link without an account? To delete what you posted (name, comments, messages, photos and videos), email <a href="mailto:yossefrevivo@gmail.com">yossefrevivo@gmail.com</a> with who in the family invited you. We'll delete it within 30 days and confirm by email.</p>
-</div>
+</section>
 </main>
 
 <nav class="foot" aria-label="קישורים">
   <a href="index.html">מעגל המשפחה</a>
+  <a href="terms.html">תנאי שימוש</a>
   <a href="privacy.html">מדיניות פרטיות</a>
   <a href="accessibility.html">הצהרת נגישות</a>
   <a href="delete-account.html">מחיקת חשבון</a>

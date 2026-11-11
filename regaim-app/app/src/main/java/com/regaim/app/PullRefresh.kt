@@ -18,11 +18,17 @@ object PullRefresh {
         val srl = SwipeRefreshLayout(a).apply {
             setColorSchemeColors(DS.primary(a))
             setProgressBackgroundColorSchemeColor(DS.card(a))
-            contentDescription = L.t("משיכה למטה לרענון", "Pull down to refresh")
         }
         srl.addView(scroll, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         parent.addView(srl, index, lp)
-        srl.setOnRefreshListener {
+        lateinit var refresh: () -> Unit
+        // Without the gesture (screen readers, switch access): a named action does the same.
+        androidx.core.view.ViewCompat.addAccessibilityAction(srl, L.t("רענון", "Refresh")) { _, _ ->
+            if (!srl.isRefreshing) { srl.isRefreshing = true; refresh() }
+            true
+        }
+        srl.setOnRefreshListener { refresh() }
+        refresh = {
             Thread {
                 try { work() } catch (_: Exception) { } // no connection: what's on the phone stays
                 a.runOnUiThread {

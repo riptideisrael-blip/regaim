@@ -61,7 +61,7 @@ class MilestonesActivity : AppCompatActivity() {
             val bmp = if (m.thumb.isNotEmpty()) BitmapFactory.decodeFile(m.thumb) else null
             if (bmp != null) h.image.setImageBitmap(bmp) else h.image.setImageResource(R.drawable.bubble_placeholder)
             h.title.text = m.milestone
-            h.date.text = SimpleDateFormat("d.M.yyyy", Locale.US).format(Date(m.time)) +
+            h.date.text = Fmt.day(m.time) +
                 if (m.place.isNotEmpty()) " · ${m.place}" else ""
             h.desc.text = m.description
             h.desc.visibility = if (m.description.isEmpty()) View.GONE else View.VISIBLE

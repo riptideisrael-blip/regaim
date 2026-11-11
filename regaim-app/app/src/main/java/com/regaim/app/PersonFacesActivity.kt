@@ -47,7 +47,7 @@ class PersonFacesActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(ui.dp(20), ui.dp(18), ui.dp(12), ui.dp(4))
         }
-        title = ui.text("", 20f, bold = true)
+        title = ui.text("", 20f, bold = true).apply { A11y.heading(this) }
         head.addView(title, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         head.addView(ui.action(L.t("סגור", "Close")) { finish() })
         root.addView(head)
@@ -79,13 +79,13 @@ class PersonFacesActivity : AppCompatActivity() {
         val side = (resources.displayMetrics.widthPixels - ui.dp(24)) / 4
         for (row in faces.chunked(4)) {
             val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (f in row) line.addView(cell(f, side))
+            for (f in row) line.addView(cell(f, side, faces.indexOf(f) + 1, faces.size))
             grid.addView(line)
         }
         paintButton()
     }
 
-    private fun cell(f: FaceShot, side: Int): View {
+    private fun cell(f: FaceShot, side: Int, index: Int, count: Int): View {
         val frame = FrameLayout(this).apply { setPadding(ui.dp(3), ui.dp(3), ui.dp(3), ui.dp(3)) }
         val img = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -100,6 +100,10 @@ class PersonFacesActivity : AppCompatActivity() {
             visibility = if (f.id in picked) View.VISIBLE else View.GONE
         }
         frame.addView(mark, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        mark.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        // Said as "face 3 of 20, marked as not them" / "not marked".
+        frame.contentDescription = L.t("פנים ${index} מתוך ${count}", "Face ${index} of ${count}")
+        A11y.check(frame) { f.id in picked }
         frame.setOnClickListener {
             if (!picked.add(f.id)) picked.remove(f.id)
             mark.visibility = if (f.id in picked) View.VISIBLE else View.GONE

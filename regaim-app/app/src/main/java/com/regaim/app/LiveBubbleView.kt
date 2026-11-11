@@ -52,7 +52,17 @@ class LiveBubbleView @JvmOverloads constructor(
     /** Flash when a moment was just caught. */
     var caught = false
 
+    /** What the bubble shows, in words (its text is drawn, so a screen reader can't see it otherwise). */
+    override fun getContentDescription(): CharSequence = when {
+        !recording -> L.t("התחלת תפיסת רגעים. לחצו על הכפתור והבועה תתחיל לצלם", "Start catching moments. Tap and the bubble starts recording")
+        caught -> L.t("נתפס רגע", "Moment caught")
+        bitmap == null -> L.t("המצלמה מתחממת", "Camera warming up")
+        else -> L.t("מקליט, רמת צחוק ${(level * 100).toInt()} אחוז", "Recording, laughter level ${(level * 100).toInt()} percent")
+    }
+
     private val density = resources.displayMetrics.density
+    /** Text follows the phone's font size (sp), like the rest of the app. */
+    private fun sp(v: Float) = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
     private val ringWidth = 10f * density
     private val accent = Color.parseColor("#1A6FCC")
     private val accentSoft = Color.parseColor("#EEF3F9")
@@ -60,7 +70,8 @@ class LiveBubbleView @JvmOverloads constructor(
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accentSoft }
     private val photo = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val dim = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(90, 31, 29, 43) }
+    // Dark enough under the white "warming up" text (above 5:1).
+    private val dim = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(170, 0, 0, 0) }
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = ringWidth
@@ -82,13 +93,13 @@ class LiveBubbleView @JvmOverloads constructor(
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ink
         textAlign = Paint.Align.CENTER
-        textSize = 18f * density
+        textSize = sp(18f)
         isFakeBoldText = true
     }
     private val subLabel = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#6E6A80")
+        color = Color.parseColor("#5B687A")
         textAlign = Paint.Align.CENTER
-        textSize = 14f * density
+        textSize = sp(14f)
     }
     private val arc = RectF()
     private val shaderMatrix = Matrix()
@@ -134,7 +145,7 @@ class LiveBubbleView @JvmOverloads constructor(
                 canvas.drawText(L.t("המצלמה מתחממת...", "Camera warming up..."), cx, cy + label.textSize / 3, label)
                 label.color = ink
             } else {
-                canvas.drawText(L.t("לחץ על הכפתור", "Tap the button"), cx, cy - 4 * density, label)
+                canvas.drawText(L.t("לחצו על הכפתור", "Tap the button"), cx, cy - 4 * density, label)
                 canvas.drawText(L.t("והבועה תתחיל לצלם", "and the bubble starts recording"), cx, cy + 20 * density, subLabel)
             }
         }

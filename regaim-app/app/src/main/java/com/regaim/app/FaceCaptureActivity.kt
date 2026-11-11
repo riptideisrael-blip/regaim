@@ -128,12 +128,16 @@ class FaceCaptureActivity : AppCompatActivity() {
             background = DS.rounded(Color.argb(150, 0, 0, 0), ui.dp(16).toFloat())
             setPadding(ui.dp(14), ui.dp(6), ui.dp(14), ui.dp(6))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(8) }
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         manual = TextView(this).apply {
             text = L.t("📷 לצלם עכשיו", "📷 Take it now"); textSize = 16f; typeface = DS.emphasis; gravity = Gravity.CENTER
             setTextColor(Color.BLACK)
             background = DS.rounded(Color.WHITE, ui.dp(22).toFloat())
             setPadding(ui.dp(22), ui.dp(10), ui.dp(22), ui.dp(10))
+            minHeight = ui.dp(48)
+            contentDescription = L.t("לצלם עכשיו", "Take it now")
+            A11y.button(this)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(12) }
             visibility = View.INVISIBLE
             setOnClickListener { if (!busy) take() }
@@ -166,6 +170,7 @@ class FaceCaptureActivity : AppCompatActivity() {
     private fun showStep() {
         val n = step.ordinal
         dots.text = (0 until 3).joinToString("  ") { if (it < n) "●" else if (it == n) "◉" else "○" }
+        dots.contentDescription = L.t("תמונה ${n + 1} מתוך 3", "Photo ${n + 1} of 3")
         ask.text = FaceGuide.ask(step)
         readyFrames = 0
         stepStarted = System.currentTimeMillis()
@@ -178,7 +183,10 @@ class FaceCaptureActivity : AppCompatActivity() {
             if (destroyed) return
             if (busy || camera == null || !texture.isAvailable) { main.postDelayed(this, 250); return }
             // After a while without the picture: the parent can take it.
-            if (System.currentTimeMillis() - stepStarted > 10_000) manual.visibility = View.VISIBLE
+            if (System.currentTimeMillis() - stepStarted > 10_000 && manual.visibility != View.VISIBLE) {
+                manual.visibility = View.VISIBLE
+                manual.announceForAccessibility(L.t("אפשר גם לצלם עכשיו בכפתור", "You can also take it now with the button"))
+            }
             val small = try { texture.getBitmap(360, 480) } catch (_: Throwable) { null }
             if (small == null) { main.postDelayed(this, 250); return }
             detector.process(InputImage.fromBitmap(small, 0))
@@ -196,7 +204,9 @@ class FaceCaptureActivity : AppCompatActivity() {
                     }
                     if (f == null) lastCenter = null
                     val h = FaceGuide.check(step, faces.size, face, firstSide)
-                    hint.text = if (h == FaceGuide.READY) L.t("מעולה! לא זזים…", "Great! Hold still…") else h
+                    // Set only when it changes: the guidance ("closer", "more light") is a live line, said once each time.
+                    val said = if (h == FaceGuide.READY) L.t("מעולה! לא זזים…", "Great! Hold still…") else h
+                    if (hint.text.toString() != said) hint.text = said
                     readyFrames = if (h == FaceGuide.READY) readyFrames + 1 else 0
                     if (readyFrames >= 3) { if (step == FaceGuide.Step.SIDE_A) firstSide = face?.yaw ?: 0f; take() }
                     small.recycle()
@@ -227,7 +237,7 @@ class FaceCaptureActivity : AppCompatActivity() {
     /** A few frames, the sharpest one kept (cropped around the face), then the next step (or the end). */
     private fun take() {
         busy = true
-        hint.text = L.t("📸", "📸")
+        hint.text = L.t("מצלמים…", "Taking the photo…")
         val frames = ArrayList<Bitmap>()
         fun grab(left: Int) {
             if (destroyed) return

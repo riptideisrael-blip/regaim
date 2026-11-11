@@ -116,24 +116,49 @@ object Account {
     /** The address to open in the browser for "continue with Google". */
     fun googleUrl(ctx: Context): String {
         // Remember that this phone started a Google sign-in: a moments://auth link that arrives without it is ignored.
-        p(ctx).edit().putLong("acc_google_started", System.currentTimeMillis()).apply()
-        return Circle.url(ctx) + "/auth/v1/authorize?provider=google&redirect_to=" + URLEncoder.encode(REDIRECT, "UTF-8")
+        // PKCE: the browser comes back with a one-time code that is worth nothing without the secret kept here, so
+        // another app on the phone that catches the moments:// link can't sign in with it.
+        val flags = android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+        val verifier = android.util.Base64.encodeToString(ByteArray(48).also { java.security.SecureRandom().nextBytes(it) }, flags)
+        val challenge = android.util.Base64.encodeToString(
+            java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)), flags)
+        p(ctx).edit().putLong("acc_google_started", System.currentTimeMillis()).putString("acc_google_verifier", verifier).apply()
+        return Circle.url(ctx) + "/auth/v1/authorize?provider=google&redirect_to=" + URLEncoder.encode(REDIRECT, "UTF-8") +
+            "&code_challenge=" + challenge + "&code_challenge_method=s256"
     }
 
-    /** Handles moments://auth#access_token=...&refresh_token=... coming back from the browser. Background thread only. */
+    /**
+     * Handles the link coming back from the browser: moments://auth?code=... (the one-time code), or, from a server
+     * that doesn't give codes, moments://auth#access_token=...&refresh_token=... Background thread only.
+     */
     fun handleRedirect(ctx: Context, uri: Uri): Boolean {
-        val fragment = uri.fragment ?: uri.query ?: return false
+        // (The code comes after "?", tokens after "#": both are read.)
+        val fragment = listOfNotNull(uri.encodedQuery, uri.encodedFragment).filter { it.isNotBlank() }.joinToString("&")
+        if (fragment.isEmpty()) return false
         val params = fragment.split("&").mapNotNull { kv ->
             val i = kv.indexOf('=')
             if (i <= 0) null else kv.substring(0, i) to Uri.decode(kv.substring(i + 1))
         }.toMap()
         params["error_description"]?.let { throw IllegalStateException(it.replace('+', ' ')) }
+        // The one-time code (PKCE): exchanged for the session together with the secret this phone kept.
+        params["code"]?.let { code ->
+            val started = p(ctx).getLong("acc_google_started", 0L)
+            val verifier = p(ctx).getString("acc_google_verifier", "").orEmpty()
+            p(ctx).edit().remove("acc_google_started").remove("acc_google_verifier").apply()
+            if (verifier.isEmpty() || !LinkSafety.redirectExpected(started, System.currentTimeMillis()))
+                throw IllegalStateException(L.t("ההתחברות לא התחילה מהאפליקציה. נסו שוב עם Google.", "Sign-in didn't start from the app. Try Google again."))
+            val r = call(ctx, "POST", "token?grant_type=pkce", JSONObject().put("auth_code", code).put("code_verifier", verifier))
+            if (r.optString("access_token").isEmpty())
+                throw IllegalStateException(L.t("ההתחברות עם Google לא הושלמה. נסו שוב.", "Google sign-in didn't finish. Try again."))
+            saveSession(ctx, r)
+            return true
+        }
         val access = params["access_token"] ?: return false
         val refresh = params["refresh_token"] ?: return false
         // Only once, and only right after "continue with Google" on this phone: otherwise a link could sign the phone
         // into someone else's account (and the family's moments would then go there).
         val started = p(ctx).getLong("acc_google_started", 0L)
-        p(ctx).edit().remove("acc_google_started").apply()
+        p(ctx).edit().remove("acc_google_started").remove("acc_google_verifier").apply()
         if (!LinkSafety.redirectExpected(started, System.currentTimeMillis())) throw IllegalStateException(L.t("ההתחברות לא התחילה מהאפליקציה. נסו שוב עם Google.", "Sign-in didn't start in the app. Try Google again."))
         val expires = params["expires_in"]?.toLongOrNull() ?: 3600L
         p(ctx).edit().putString("acc_access", access).putString("acc_refresh", refresh)

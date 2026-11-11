@@ -75,7 +75,8 @@ class Ui(private val a: Activity) {
         isChecked = checked
         thumbTintList = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(DS.primary(a), DS.bg(a)),
+            // Off: a dark-gray knob on the light track (seen at 5:1), not a near-white one.
+            intArrayOf(DS.primary(a), DS.inkSoft(a)),
         )
         trackTintList = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
@@ -143,11 +144,16 @@ class Ui(private val a: Activity) {
             // Read as one button: "Language, Hebrew".
             minimumHeight = dp(48)
             contentDescription = if (value.isBlank()) label else "$label, $value"
+            // Found again by its label after the screen is rebuilt, even when its value changed.
+            setTag(R.id.tagA11yKey, "row:$label")
             A11y.button(this)
         }
     }
 
-    fun field(hint: String, value: String, multiline: Boolean = false, top: Int = 8, password: Boolean = false) = EditText(a).apply {
+    /** What a field takes: sets the keyboard, and lets the phone fill it in (name, email...). */
+    enum class Kind { TEXT, NAME, EMAIL, URL, CODE, NUMBER, DATE, PHONE }
+
+    fun field(hint: String, value: String, multiline: Boolean = false, top: Int = 8, password: Boolean = false, kind: Kind = Kind.TEXT) = EditText(a).apply {
         this.hint = hint
         setText(value)
         textSize = 15f
@@ -158,8 +164,22 @@ class Ui(private val a: Activity) {
         inputType = when {
             password -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             multiline -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            kind == Kind.NAME -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            kind == Kind.EMAIL -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            kind == Kind.URL -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            kind == Kind.CODE -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            kind == Kind.NUMBER -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            kind == Kind.DATE -> InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_DATE
+            kind == Kind.PHONE -> InputType.TYPE_CLASS_PHONE
             else -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         }
+        when (kind) {
+            Kind.NAME -> setAutofillHints(View.AUTOFILL_HINT_NAME)
+            Kind.EMAIL -> setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS)
+            Kind.PHONE -> setAutofillHints(View.AUTOFILL_HINT_PHONE)
+            else -> if (password) setAutofillHints(View.AUTOFILL_HINT_PASSWORD) else importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        minHeight = dp(48)
         if (multiline) minLines = 2
         layoutParams = wrapLp(top)
         addTextChangedListener(object : android.text.TextWatcher {
@@ -173,7 +193,7 @@ class Ui(private val a: Activity) {
      * A row of pill chips; tapping one selects it. Read as one choice out of several ("2 of 5, selected"), and the
      * chips are repainted in place, so a screen reader stays on the chip that was tapped.
      */
-    fun chips(options: List<String>, selected: Int, top: Int = 8, onPick: (Int) -> Unit): View {
+    fun chips(options: List<String>, selected: Int, top: Int = 8, label: String? = null, onPick: (Int) -> Unit): View {
         val row = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
         var sel = selected
         val views = ArrayList<TextView>()
@@ -186,6 +206,9 @@ class Ui(private val a: Activity) {
                 // A soft gray pill; the chosen one light blue with blue text (no heavy fill).
                 t.background = DS.rounded(if (on) DS.selected(a) else DS.buttonSecondary(a), DS.radiusChip(a))
                 t.isSelected = on
+                // Not by color alone: the chosen one has a check mark (said as "selected", not as the mark).
+                t.text = if (on) "✓ " + options[i] else options[i]
+                t.contentDescription = options[i]
             }
         }
         options.forEachIndexed { i, o ->
@@ -213,6 +236,8 @@ class Ui(private val a: Activity) {
         paint()
         A11y.choiceGroup(row, options.size)
         return HorizontalScrollView(a).apply {
+            // The question the chips answer, said when the screen reader reaches them ("Role: Dad, 2 of 6").
+            if (!label.isNullOrBlank()) contentDescription = label
             isHorizontalScrollBarEnabled = false
             layoutParams = wrapLp(top)
             addView(row)

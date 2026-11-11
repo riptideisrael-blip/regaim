@@ -77,6 +77,9 @@ class ReviewActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (width * 1.2f).toInt()).apply { topMargin = ui.dp(10) }
             if (m.thumb.isNotEmpty()) BitmapFactory.decodeFile(m.thumb)?.let { setImageBitmap(it) }
         }
+        // The picture says what it is (and, for a clip, that a tap plays it).
+        iv.contentDescription = Labels.he(m.label) + ", " + Fmt.day(m.time) + if (m.isVideo) L.t(". לחצו לצפייה", ". Tap to watch") else ""
+        if (!m.isVideo) iv.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         content.addView(iv)
         preview = iv
         Motion.attach(iv, m, width = 480)
@@ -91,6 +94,8 @@ class ReviewActivity : AppCompatActivity() {
                 setTextColor(ui.color(R.color.ink))
                 gravity = Gravity.CENTER
                 setPadding(0, ui.dp(10), 0, ui.dp(4))
+                minHeight = ui.dp(48)
+                contentDescription = L.t("לצפות ברגע", "Watch the moment")
                 setOnClickListener { watch(m) }
             })
         }
@@ -114,8 +119,8 @@ class ReviewActivity : AppCompatActivity() {
         })
 
         // 👍 on top, 👎 below.
-        content.addView(bigButton("👍  " + L.t("לשמור", "Keep it"), primary = true, top = 18) { keep(m) })
-        content.addView(bigButton("👎  " + L.t("לא צריך", "Not needed"), primary = false, top = 10) { drop(m) })
+        content.addView(bigButton("👍  " + L.t("לשמור", "Keep it"), primary = true, top = 18) { keep(m) }.apply { contentDescription = L.t("לשמור", "Keep it") })
+        content.addView(bigButton("👎  " + L.t("לא צריך", "Not needed"), primary = false, top = 10) { drop(m) }.apply { contentDescription = L.t("לא צריך", "Not needed") })
         content.addView(ui.hint(L.t(
             "אפשר גם להחליק את התמונה: ימינה לשמור, שמאלה לזרוק. רגע שלא תגעו בו יעבור לפח אחרי 36 שעות, בלי שנלמד ממנו.",
             "You can also swipe the picture: right to keep, left to drop. A moment you don't touch moves to the trash after 36 hours, and nothing is learned from it.",
@@ -131,7 +136,14 @@ class ReviewActivity : AppCompatActivity() {
         box.addView(video, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         val dlg = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         dlg.setContentView(box)
-        box.setOnClickListener { dlg.dismiss() }
+        A11y.videoControls(video, box, L.t("הרגע", "The moment"))
+        box.addView(TextView(this).apply {
+            text = "✕"; textSize = 20f; setTextColor(0xFFFFFFFF.toInt()); gravity = Gravity.CENTER
+            minWidth = ui.dp(48); minHeight = ui.dp(48)
+            contentDescription = L.t("סגירה", "Close")
+            A11y.button(this)
+            setOnClickListener { dlg.dismiss() }
+        }, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply { setMargins(ui.dp(8), ui.dp(24), ui.dp(8), 0) })
         video.setOnPreparedListener { mp ->
             val at = m.highlightStartMs
             if (at > 0 && at < mp.duration - 1000) mp.seekTo(at.toInt())
@@ -208,6 +220,7 @@ class ReviewActivity : AppCompatActivity() {
         minHeight = ui.dp(56); setPadding(paddingLeft, ui.dp(8), paddingRight, ui.dp(8))
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ui.dp(top) }
         setOnClickListener { onClick() }
+        A11y.button(this)
     }
 
     /** 👍: into the archive as approved (not a favorite, not "chosen"), a vote for its label, then the usual description. */
@@ -216,6 +229,7 @@ class ReviewActivity : AppCompatActivity() {
         if (!MemoryStore.saveFromUi(this) { MemoryStore.approve(this, m.id) }) { render(); return }
         CaptureVotes.up(this, m.label, score(m))
         kept++
+        content.announceForAccessibility(L.t("נשמר", "Kept"))
         // Failures are recorded per moment inside analyzePending (and retried later by kind); this only guards the screen.
         worker.execute { try { MemoryStore.analyzePending(applicationContext) } catch (e: Exception) { android.util.Log.w("Moments", "Describing after keep failed: ${e.javaClass.simpleName}") } }
         render()
@@ -226,6 +240,7 @@ class ReviewActivity : AppCompatActivity() {
         MemoryStore.moveToTrash(this, setOf(m.id), learn = true)
         CaptureVotes.down(this, m.label, score(m))
         dropped++
+        content.announceForAccessibility(L.t("הועבר לפח", "Moved to the trash"))
         render()
     }
 

@@ -65,14 +65,33 @@ class CommunityBookActivity : AppCompatActivity() {
         column.addView(words, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
-        // Taps: left = next, right = previous.
+        // Taps on the picture: the reading direction's "forward" side = next (left in Hebrew, right in English).
         val touch = View(this)
-        touch.setOnClickListener(null)
         touch.setOnTouchListener { v, e ->
-            if (e.action == android.view.MotionEvent.ACTION_UP) { if (e.x < v.width / 2f) go(at + 1) else go(at - 1) }
+            if (e.action == android.view.MotionEvent.ACTION_UP) {
+                val leftHalf = e.x < v.width / 2f
+                if (leftHalf != L.isEn) go(at + 1) else go(at - 1)
+            }
             true
         }
-        root.addView(touch, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Not a stop for screen readers: they use the page buttons (below) instead.
+        touch.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        stage.addView(touch, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Page buttons for everyone (and the way to turn pages with a screen reader or a switch).
+        fun pageButton(label: String, said: String, gravity: Int, step: Int) = TextView(this).apply {
+            text = label; textSize = 22f; setTextColor(Color.WHITE); this.gravity = Gravity.CENTER
+            minWidth = dp(56); minHeight = dp(56)
+            background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0x99000000.toInt()) }
+            contentDescription = said
+            A11y.button(this)
+            setOnClickListener { go(at + step) }
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or gravity).apply {
+                setMargins(dp(14), dp(14), dp(14), dp(14))
+            }
+        }
+        // Hebrew: next on the left, pointing left; English the other way.
+        stage.addView(pageButton(if (L.isEn) "›" else "‹", L.t("העמוד הבא", "Next page"), if (L.isEn) Gravity.RIGHT else Gravity.LEFT, +1))
+        stage.addView(pageButton(if (L.isEn) "‹" else "›", L.t("העמוד הקודם", "Previous page"), if (L.isEn) Gravity.LEFT else Gravity.RIGHT, -1))
 
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -87,6 +106,9 @@ class CommunityBookActivity : AppCompatActivity() {
         top.addView(count)
         top.addView(TextView(this).apply {
             text = "✕"; textSize = 20f; setTextColor(Color.WHITE); setPadding(dp(14), dp(4), dp(6), dp(4))
+            gravity = Gravity.CENTER; minWidth = dp(48); minHeight = dp(48)
+            contentDescription = L.t("סגירה", "Close")
+            A11y.button(this)
             setOnClickListener { finish() }
         })
         root.addView(top, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
@@ -105,6 +127,10 @@ class CommunityBookActivity : AppCompatActivity() {
         at = i
         val (url, text) = pages[i]
         count.text = if (i == 0) L.t("כריכה · ${pages.size - 1} עמודים", "Cover · ${pages.size - 1} pages") else "$i / ${pages.size - 1}"
+        count.contentDescription = if (i == 0) count.text else L.t("עמוד $i מתוך ${pages.size - 1}", "Page $i of ${pages.size - 1}")
+        pic.contentDescription = if (i == 0) L.t("כריכת הספר", "The book's cover") else L.t("איור של עמוד $i", "Picture of page $i")
+        // Each new page is said: where we are and its words.
+        words.announceForAccessibility(listOf(count.contentDescription.toString(), BookJson.display(text).toString()).filter { it.isNotBlank() }.joinToString(". "))
         words.text = BookJson.display(text)
         words.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
         pic.setImageDrawable(null)

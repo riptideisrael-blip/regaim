@@ -98,7 +98,7 @@ class FamilyActivity : AppCompatActivity() {
      * "Who is this in your family list?": the parent picks; nothing is linked by name. A person with the same name is
      * listed first, marked, but still has to be chosen. Kept on this phone only.
      */
-    private fun linkDialog(member: Circle.Member, local: List<FamilyMember>) {
+    private fun linkDialog(member: Circle.Member, local: List<FamilyMember>, canRemove: Boolean = false) {
         val people = local.filter { !it.isPet && it.id != "self" }
             .sortedByDescending { Profile.sameName(it.name, member.name) }
         val now = Circle.linkedMember(this, member.userId)
@@ -107,7 +107,7 @@ class FamilyActivity : AppCompatActivity() {
             val same = if (Profile.sameName(p.name, member.name)) L.t(" (אותו שם)", " (same name)") else ""
             val mark = if (p.id == now) "✓ " else ""
             "$mark${p.name}$rel$same"
-        } + L.t("לא מהרשימה / לבטל קישור", "Not on the list / unlink")
+        } + L.t("לא מהרשימה, או לבטל קישור", "Not on the list / unlink")
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(L.t("מי זה ${member.name} ברשימת המשפחה?", "Who is ${member.name} in your family list?"))
             .setItems(labels.toTypedArray()) { _, which ->
@@ -115,6 +115,7 @@ class FamilyActivity : AppCompatActivity() {
                 render()
             }
             .setNegativeButton(L.t("ביטול", "Cancel"), null)
+            .apply { if (canRemove) setNeutralButton(L.t("הוצאה מהמעגל", "Remove from the circle")) { _, _ -> confirmRemove(member) } }
             .show()
     }
 
@@ -135,7 +136,8 @@ class FamilyActivity : AppCompatActivity() {
         tiles()
         if (loading) content.addView(ui.hint(L.t("רגע, פותחים את הזיכרונות של המשפחה...", "Loading your family's memories..."), top = 10))
         if (familyError.isNotBlank()) {
-            content.addView(ui.hint(familyError, top = 10))
+            // An error that stays and is read out (not a plain gray hint).
+            content.addView(ErrorLine.make(this, top = 10).also { ErrorLine.show(it, familyError) })
             content.addView(ui.action(L.t("נסו שוב", "Try again")) { loadFamily() })
             if (!Account.signedIn(this)) content.addView(ui.action(L.t("התחברו למעגל", "Sign in to your circle")) { WelcomeActivity.open(this) })
         }
@@ -151,7 +153,7 @@ class FamilyActivity : AppCompatActivity() {
                 // Their own picture and relation come from the family profile only when the parent linked them.
                 val linked = Circle.linkedMember(this@FamilyActivity, member.userId)?.let { id -> local.firstOrNull { it.id == id } }
                 if (linked == null) unlinked++
-                addView(mv.avatar(member.name, 48, byName = false, photoPath = linked?.photo.orEmpty()))
+                addView(mv.avatar(member.name, 48, byName = false, photoPath = linked?.photo.orEmpty()).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
                 addView(ui.text(member.name, 14f, bold = true, top = 5))
                 val sub = when {
                     linked == null -> Wording.memberRelation(member.relationship, Profile.relationLabel(member.relationship))
@@ -159,13 +161,21 @@ class FamilyActivity : AppCompatActivity() {
                     else -> "✓ " + linked.name
                 }
                 addView(ui.hint(sub, top = 2))
-                if (local.any { !it.isPet } && member.userId != Account.id(this@FamilyActivity)) setOnClickListener { linkDialog(member, local) }
-                // The family's owner can take someone out of the circle (long press).
-                if (amOwner && member.userId != Account.id(this@FamilyActivity)) setOnLongClickListener { confirmRemove(member); true }
+                val canLink = local.any { !it.isPet } && member.userId != Account.id(this@FamilyActivity)
+                val canRemove = amOwner && member.userId != Account.id(this@FamilyActivity)
+                // A tap: link them (and, for the family's owner, the option to take them out of the circle, also there).
+                if (canLink) setOnClickListener { linkDialog(member, local, canRemove) }
+                else if (canRemove) setOnClickListener { confirmRemove(member) }
+                if (canLink || canRemove) A11y.button(this)
+                // The family's owner can take someone out of the circle (long press, named for screen readers).
+                if (canRemove) {
+                    setOnLongClickListener { confirmRemove(member); true }
+                    A11y.longPress(this, L.t("הוצאה מהמעגל", "Remove from the circle"))
+                }
             })
             content.addView(ui.scrollRow(row, top = 4))
             if (unlinked > 0 && local.any { !it.isPet }) content.addView(ui.hint(L.t("נגיעה בבן משפחה מקשרת אותו לאדם ברשימת המשפחה שלכם (התמונה והקרבה). שמות זהים לא מתחברים לבד.", "Tap someone to link them to a person in your family list (photo and relation). Same names never link by themselves."), top = 2))
-            if (amOwner && circleMembers.size > 1) content.addView(ui.hint(L.t("לחיצה ארוכה על בן משפחה מוציאה אותו מהמעגל.", "Long-press someone to remove them from the circle."), top = 2))
+            if (amOwner && circleMembers.size > 1) content.addView(ui.hint(L.t("כדי להוציא מישהו מהמעגל: נגיעה בו ואז \"הוצאה מהמעגל\" (או לחיצה ארוכה).", "To remove someone from the circle: tap them, then \"Remove from the circle\" (or long-press)."), top = 2))
         }
         familyFeed?.let { feed ->
             content.addView(ui.section(L.t("מה חדש במשפחה", "What's new in the family")))
@@ -207,13 +217,13 @@ class FamilyActivity : AppCompatActivity() {
         val mine = all.filter { Fmt.names(it).contains(p.name) }
         val card = ui.card(top = 14)
         val top = ui.horizontal(top = 0)
-        top.addView(mv.avatar(p.name, 60))
+        top.addView(mv.avatar(p.name, 60).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
         val texts = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(mv.dp(14), 0, mv.dp(14), 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        texts.addView(ui.text(p.name, 19f, bold = true))
+        texts.addView(ui.text(p.name, 19f, bold = true).apply { A11y.heading(this) })
         val age = Profile.ageText(p.birth)
         val sub = listOf(
             Profile.relationLabel(p.relation),
@@ -255,7 +265,7 @@ class FamilyActivity : AppCompatActivity() {
     private fun familyStrip() {
         val people = Profile.members(this).filter { !it.isPet }
         if (people.isEmpty()) return
-        content.addView(ui.text(L.t("המשפחה שלנו", "Our family"), 13f, R.color.ink_soft, bold = true, top = 12))
+        content.addView(ui.text(L.t("המשפחה שלנו", "Our family"), 13f, R.color.ink_soft, bold = true, top = 12).apply { A11y.heading(this) })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         // The children first: they're who most of it is about.
         for (p in people.sortedByDescending { it.isChild }) row.addView(LinearLayout(this).apply {
@@ -308,7 +318,7 @@ class FamilyActivity : AppCompatActivity() {
                     })
                     addView(ui.text(texts.first, 15f, bold = true, top = 10))
                     addView(TextView(this@FamilyActivity).apply {
-                        text = texts.second; textSize = 12.5f; setTextColor(DS.inkSoft(this@FamilyActivity)); maxLines = 1
+                        text = texts.second; textSize = 13f; setTextColor(DS.inkSoft(this@FamilyActivity)); maxLines = 2
                         ellipsize = android.text.TextUtils.TruncateAt.END; textDirection = View.TEXT_DIRECTION_FIRST_STRONG
                         setPadding(0, ui.dp(2), 0, 0)
                     })

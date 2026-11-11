@@ -101,6 +101,11 @@ class TrimActivity : AppCompatActivity() {
         video = findViewById(R.id.trimVideo)
         range = findViewById(R.id.trimRange)
         label = findViewById(R.id.trimLabel)
+        A11y.live(label)
+        // Said as times with their meaning ("0:09"), not bare numbers.
+        range.setLabelFormatter { fmt(it) }
+        range.contentDescription = L.t("טווח הקטע שנשמר", "The part to keep")
+        video.contentDescription = L.t("ניגון או השהיה", "Play or pause")
         findViewById<View>(R.id.btnClose).setOnClickListener { finish() }
         findViewById<View>(R.id.btnSaveTrim).setOnClickListener { save() }
 
@@ -133,7 +138,7 @@ class TrimActivity : AppCompatActivity() {
                     updateLabel()
                     loadStrip(dur)
                 } catch (e: Exception) {
-                    label.text = L.t("שגיאה בהכנת העריכה: ${e.message}", "Couldn't prepare editing: ${e.message}")
+                    label.text = L.t("לא הצלחנו להכין את העריכה. נסו שוב.", "Couldn't prepare editing. Try again.")
                 }
             }
             val v = range.values
@@ -169,7 +174,7 @@ class TrimActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun fmt(s: Float) = String.format(Locale.US, "%d:%04.1f", (s / 60).toInt(), s % 60)
+    private fun fmt(s: Float) = String.format(Locale.US, "%d:%02d", (s / 60).toInt(), (s % 60).toInt())
 
     private fun updateLabel() {
         val v = range.values
@@ -205,7 +210,7 @@ class TrimActivity : AppCompatActivity() {
                     finish()
                 }.onFailure { e ->
                     findViewById<View>(R.id.btnSaveTrim).isEnabled = true
-                    label.text = L.t("הקיצור נכשל: ${e.message}", "Trim failed: ${e.message}")
+                    label.text = L.t("לא הצלחנו לקצר. נסו שוב.", "Couldn't trim. Try again.")
                 }
             }
         }

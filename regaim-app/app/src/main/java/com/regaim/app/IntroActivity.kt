@@ -48,7 +48,12 @@ class IntroActivity : AppCompatActivity() {
             setBackgroundColor(ui.color(R.color.bg))
             setPadding(ui.dp(28), ui.dp(40), ui.dp(28), ui.dp(28))
         }
-        setContentView(root)
+        // Scrolls when the text is large (phone font at 200%), so "Next" never falls off the screen.
+        setContentView(android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(ui.color(R.color.bg))
+            addView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        })
         render()
     }
 
@@ -57,19 +62,25 @@ class IntroActivity : AppCompatActivity() {
         val p = pages[at]
         root.addView(TextView(this).apply {
             text = L.t("דלג", "Skip"); textSize = 15f; setTextColor(ui.color(R.color.ink_soft))
-            setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
+            setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(8))
+            minHeight = ui.dp(48); minWidth = ui.dp(48); gravity = Gravity.CENTER
+            A11y.button(this)
             setOnClickListener { finishIntro() }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.END }
         })
         root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        root.addView(TextView(this).apply { text = p.icon; textSize = 64f; gravity = Gravity.CENTER })
-        root.addView(ui.text(p.title, 24f, bold = true, top = 24).apply { gravity = Gravity.CENTER })
+        root.addView(TextView(this).apply { text = p.icon; textSize = 64f; gravity = Gravity.CENTER; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+        val title = ui.text(p.title, 24f, bold = true, top = 24).apply { gravity = Gravity.CENTER; A11y.heading(this) }
+        root.addView(title)
+        // A new page: the screen reader starts at its title.
+        if (at > 0) title.post { title.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null) }
         root.addView(ui.text(p.body, 16f, R.color.ink_soft, top = 14).apply { gravity = Gravity.CENTER; setLineSpacing(ui.dp(3).toFloat(), 1f) })
         root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         // Dots: which screen of three.
         root.addView(TextView(this).apply {
             text = pages.indices.joinToString("  ") { if (it == at) "●" else "○" }
             textSize = 14f; gravity = Gravity.CENTER; setTextColor(ui.color(R.color.accent))
+            contentDescription = L.t("עמוד ${at + 1} מתוך ${pages.size}", "Page ${at + 1} of ${pages.size}")
         })
         val last = at == pages.size - 1
         root.addView(ui.button(if (last) L.t("מתחילים", "Let's start") else L.t("הבא", "Next"), primary = true, top = 18) {

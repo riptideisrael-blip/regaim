@@ -46,7 +46,8 @@ class MemoryViews(private val a: Activity) {
     /** Small "▶ 0:30" pill: this memory is a video. */
     private fun videoPill(m: Memory) = TextView(a).apply {
         text = "▶ ${Fmt.shortDuration(m.durationMs)}"
-        textSize = 12f
+        contentDescription = L.t("סרטון, ", "Video, ") + Fmt.shortDuration(m.durationMs)
+        textSize = 13f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(color(R.color.white))
         setBackgroundResource(R.drawable.pill_dark)
@@ -88,7 +89,7 @@ class MemoryViews(private val a: Activity) {
     /** Soft pulse for "we're understanding the moment...". */
     fun pulse(v: View) {
         stopPulse(v)
-        pulses[v] = ObjectAnimator.ofFloat(v, "alpha", 1f, 0.4f).apply {
+        pulses[v] = ObjectAnimator.ofFloat(v, "alpha", 1f, 0.75f).apply {
             duration = 900
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
@@ -235,14 +236,14 @@ class MemoryViews(private val a: Activity) {
             setImageResource(res)
             setColorFilter(color(R.color.ink))
             contentDescription = desc
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             setBackgroundResource(android.R.drawable.list_selector_background)
             setOnClickListener { go() }
         }
-        actions.addView(heart(m, 42, onDark = false).apply {
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
+        actions.addView(heart(m, 48, onDark = false).apply {
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
         })
         actions.addView(iconBtn(R.drawable.ic_share_outline, L.t("שיתוף", "Share")) { (a as? androidx.appcompat.app.AppCompatActivity)?.let { SocialShare.show(it, m) } })
         actions.addView(iconBtn(R.drawable.ic_send, L.t("שליחה למשפחה", "Send to family")) {
@@ -298,7 +299,7 @@ class MemoryViews(private val a: Activity) {
             setBackgroundResource(R.drawable.rounded_media)
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(140))
-            setOnClickListener { onOpen() }
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
         val img = ImageView(a).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -309,7 +310,7 @@ class MemoryViews(private val a: Activity) {
         if (m.isVideo) Motion.attach(img, m)
         if (m.isVideo) frame.addView(TextView(a).apply {
             text = Fmt.shortDuration(m.durationMs)
-            textSize = 11f
+            textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(color(R.color.white))
             setBackgroundResource(R.drawable.pill_dark)
@@ -318,13 +319,14 @@ class MemoryViews(private val a: Activity) {
                 setMargins(dp(8), dp(8), dp(8), dp(8))
             }
         })
-        frame.addView(heart(m, 32).apply {
-            val p = dp(6)
+        frame.addView(heart(m, 48).apply {
+            val p = dp(14)
             setPadding(p, p, p, p)
-            layoutParams = FrameLayout.LayoutParams(dp(32), dp(32), Gravity.TOP or Gravity.START).apply { setMargins(dp(6), dp(6), dp(6), dp(6)) }
+            layoutParams = FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.START).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
         })
         if (m.milestone.isNotEmpty()) frame.addView(TextView(a).apply {
             text = "★"
+            contentDescription = L.t("אבן דרך", "Milestone")
             textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(color(R.color.white))
@@ -404,6 +406,11 @@ class MemoryViews(private val a: Activity) {
             clipToOutline = true
             layoutParams = LinearLayout.LayoutParams(dp(wDp), dp(hDp)).apply { marginEnd = dp(8) }
             setOnClickListener { onOpen() }
+            // Said as the moment: its title, its day, and whether it's a video.
+            contentDescription = listOf(Fmt.title(m), Fmt.day(m.time),
+                if (m.isVideo) L.t("סרטון", "Video") else L.t("תמונה", "Photo"),
+                if (m.favorite) L.t("מועדף", "Favorite") else "").filter { it.isNotEmpty() }.joinToString(", ")
+            A11y.button(this)
         }
         val img = ImageView(a).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -480,7 +487,8 @@ class MemoryViews(private val a: Activity) {
                     gravity = Gravity.CENTER_HORIZONTAL
                     setPadding(0, dp(8), 0, dp(8))
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    addView(avatar(n, 60))
+                    // The name is said once (from the text under the picture).
+                    addView(avatar(n, 60).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
                     addView(TextView(a).apply {
                         text = n
                         textSize = 13f
@@ -504,7 +512,7 @@ class MemoryViews(private val a: Activity) {
         gravity = Gravity.CENTER_HORIZONTAL
         setPadding(0, 0, 0, 0)
         layoutParams = LinearLayout.LayoutParams(dp(78), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(6) }
-        addView(avatar(name))
+        addView(avatar(name).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS })
         addView(TextView(a).apply {
             text = name
             textSize = 14f
@@ -514,7 +522,7 @@ class MemoryViews(private val a: Activity) {
         })
         if (sub.isNotEmpty()) addView(TextView(a).apply {
             text = sub
-            textSize = 12f
+            textSize = 13f
             gravity = Gravity.CENTER
             setTextColor(color(R.color.ink_soft))
         })
@@ -577,6 +585,7 @@ class MemoryViews(private val a: Activity) {
 
     fun sectionTitle(text: String, top: Int = 30, icon: Int = 0) = TextView(a).apply {
         this.text = text
+        androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
         textSize = 24f
         typeface = Fonts.display
         setTextColor(color(R.color.ink))

@@ -65,8 +65,9 @@ class PrintOrderActivity : AppCompatActivity() {
         PrintBook.order(this, b.id)?.let { o -> orderCard(o); return }
 
         busy?.let { msg ->
-            content.addView(ui.text(msg, 16f, bold = true, top = 24))
-            content.addView(ProgressBar(this).apply { layoutParams = LinearLayout.LayoutParams(ui.dp(40), ui.dp(40)).apply { topMargin = ui.dp(12) } })
+            content.addView(ui.text(msg, 16f, bold = true, top = 24).apply { A11y.live(this) })
+            content.announceForAccessibility(msg)
+            content.addView(ProgressBar(this).apply { contentDescription = msg; layoutParams = LinearLayout.LayoutParams(ui.dp(40), ui.dp(40)).apply { topMargin = ui.dp(12) } })
             content.addView(ui.hint(L.t("זה לוקח כמה דקות. השאירו את המסך פתוח.", "This takes a few minutes. Keep the screen open."), top = 8))
             return
         }
@@ -77,6 +78,8 @@ class PrintOrderActivity : AppCompatActivity() {
             val f = fields[key] ?: ui.field(hint, saved.optString(key, def)).apply { inputType = type; id = View.generateViewId() }
             fields[key] = f
             (f.parent as? LinearLayout)?.removeView(f)
+            // A label that stays above the field (the hint disappears once something is typed), tied to the field.
+            content.addView(ui.text(hint, 13f, R.color.ink_soft, bold = true, top = 10).apply { labelFor = f.id })
             content.addView(f)
         }
         field("name", L.t("שם מלא", "Full name"), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PERSON_NAME)
@@ -114,7 +117,14 @@ class PrintOrderActivity : AppCompatActivity() {
         val a = JSONObject()
         for (k in listOf("name", "street1", "street2", "city", "postcode", "phone_number", "country_code")) a.put(k, fields[k]?.text?.toString()?.trim().orEmpty())
         val missing = listOf("name", "street1", "city", "postcode", "phone_number").filter { a.optString(it).isEmpty() }
-        if (missing.isNotEmpty() || (fields["email"]?.text?.toString()?.contains("@") != true)) {
+        val badEmail = fields["email"]?.text?.toString()?.contains("@") != true
+        // Each missing detail is marked on its own field (said by a screen reader), and the first one gets the focus.
+        fields.values.forEach { it.error = null }
+        for (k in missing) fields[k]?.error = L.t("חסר", "Missing")
+        if (badEmail) fields["email"]?.error = L.t("צריך כתובת מייל", "An email address is needed")
+        val first = (missing + if (badEmail) listOf("email") else emptyList()).firstOrNull()
+        if (first != null) {
+            fields[first]?.requestFocus()
             android.widget.Toast.makeText(this, L.t("חסרים פרטים בכתובת או במייל", "Some address or email details are missing"), android.widget.Toast.LENGTH_LONG).show()
             return null
         }

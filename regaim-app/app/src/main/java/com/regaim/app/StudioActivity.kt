@@ -46,6 +46,9 @@ class StudioActivity : AppCompatActivity() {
                         setBackgroundResource(R.drawable.rounded_media)
                         clipToOutline = true
                         layoutParams = LinearLayout.LayoutParams(0, ui.dp(120), 1f).apply { if (i > 0) marginStart = ui.dp(6) }
+                        // Each moment said by its title and date (it was read only as "button").
+                        contentDescription = listOf(m.displayTitle, Fmt.day(m.time), if (m.isVideo) L.t("סרטון", "video") else L.t("תמונה", "photo")).joinToString(", ")
+                        A11y.button(this)
                         setOnClickListener { dialog?.dismiss(); onPick(m) }
                     }
                     val img = ImageView(a).apply {
@@ -56,10 +59,12 @@ class StudioActivity : AppCompatActivity() {
                     Covers.load(img, m)
                     frame.addView(TextView(a).apply {
                         text = if (m.isVideo) "▶ " + Fmt.shortDuration(m.durationMs) else Fmt.day(m.time)
-                        textSize = 11f
+                        textSize = 12f
                         setTextColor(DS.onPhoto(context))
-                        setShadowLayer(4f, 0f, 1f, DS.scrim(context))
-                        setPadding(ui.dp(6), ui.dp(4), ui.dp(6), ui.dp(4))
+                        // A dark pill behind the words (a shadow alone wasn't readable on a bright picture).
+                        background = DS.rounded(android.graphics.Color.argb(170, 0, 0, 0), ui.dp(8).toFloat())
+                        setPadding(ui.dp(6), ui.dp(3), ui.dp(6), ui.dp(3))
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                         layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START)
                     })
                     r.addView(frame)
@@ -145,8 +150,8 @@ class StudioActivity : AppCompatActivity() {
             setPadding(0, ui.dp(6), 0, 0)
         })
         hero.addView(TextView(this).apply {
-            text = L.t("בוחרים רגע, ואנחנו מציירים אותו מחדש כדמויות אנימציה בתלת-ממד, בסגנון סרטי פיקסאר, ומחברים לסרט קצר עם מוזיקה.",
-                "Pick a moment and we redraw it as 3D animated characters, Pixar-movie style, cut into a short film with music.")
+            text = L.t("בוחרים רגע, ואנחנו מציירים אותו מחדש כדמויות אנימציה בתלת-ממד, ומחברים לסרט קצר עם מוזיקה.",
+                "Pick a moment and we redraw it as 3D animated characters, cut into a short film with music.")
             textSize = 15f
             setLineSpacing(ui.dp(3).toFloat(), 1f)
             setTextColor(DS.inkSoft(context))
